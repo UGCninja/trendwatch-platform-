@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-md-7">
+    <h4 class="fw-bold mb-4">Новая кампания</h4>
+    <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+    <form method="post" action="/campaigns/new">
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Название</label>
+            <input type="text" name="name" class="form-control"
+                   placeholder="Например: Kingdom Clash конкуренты" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Платформы</label>
+            <div class="d-flex gap-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="platforms"
+                           value="tiktok" id="plat_tt" checked>
+                    <label class="form-check-label" for="plat_tt">TikTok</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="platforms"
+                           value="instagram" id="plat_ig" checked>
+                    <label class="form-check-label" for="plat_ig">Instagram</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Хэштеги</label>
+            <input type="text" name="hashtags" class="form-control"
+                   placeholder="ClashOfClans, ClashRoyale, RiseOfKingdoms">
+            <div class="form-text">Через запятую, без #</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Аккаунты</label>
+            <input type="text" name="accounts" class="form-control"
+                   placeholder="clashofclans, supercell">
+            <div class="form-text">Через запятую, без @</div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col">
+                <label class="form-label fw-semibold">Мин. просмотры</label>
+                <input type="number" name="min_views" class="form-control" value="300000" min="0">
+            </div>
+            <div class="col">
+                <label class="form-label fw-semibold">Мин. ER (%)</label>
+                <input type="number" name="min_er" class="form-control" value="2.0" step="0.1" min="0">
+            </div>
+            <div class="col">
+                <label class="form-label fw-semibold">Возраст поста (дней)</label>
+                <input type="number" name="max_age_days" class="form-control" value="180" min="1">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Языки</label>
+            <div class="d-flex flex-wrap gap-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="languages"
+                           value="all" id="lang_all" checked>
+                    <label class="form-check-label" for="lang_all">Все языки</label>
+                </div>
+                {% for lang in ["en", "ru", "de", "fr", "es", "pt", "tr"] %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="languages"
+                           value="{{ lang }}" id="lang_{{ lang }}">
+                    <label class="form-check-label" for="lang_{{ lang }}">{{ lang }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="form-text">Если не выбрано ничего — берём все языки</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Создать кампанию</button>
+            <a href="/" class="btn btn-outline-secondary">Отмена</a>
+        </div>
+
+    </form>
+    </div>
+    </div>
+</div>
+</div>
+
+{% endblock %}

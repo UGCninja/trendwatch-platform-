@@ -1,0 +1,21 @@
+body {
+    background-color: #f5f6fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.navbar {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.card {
+    border-radius: 10px;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.badge {
+    font-weight: 500;
+}

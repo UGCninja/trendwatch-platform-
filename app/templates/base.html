@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TrendWatch — UGC Ninja</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark px-4 py-2">
+    <a class="navbar-brand fw-bold" href="/">TrendWatch</a>
+    <div class="d-flex gap-2 align-items-center">
+        <a href="/campaigns/new" class="btn btn-sm btn-primary">+ Кампания</a>
+        <a href="/logout" class="btn btn-sm btn-outline-light">Выйти</a>
+    </div>
+</nav>
+<div class="container py-4">
+    {% block content %}{% endblock %}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

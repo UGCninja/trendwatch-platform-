@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">Кампании</h4>
+    <a href="/campaigns/new" class="btn btn-primary">+ Новая кампания</a>
+</div>
+
+{% if campaigns_data %}
+<div class="row g-3">
+{% for item in campaigns_data %}
+{% set c = item.campaign %}
+<div class="col-md-6">
+    <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title mb-0 fw-semibold">{{ c.name }}</h5>
+                {% if c.status == "active" %}
+                <span class="badge bg-success">Активна</span>
+                {% else %}
+                <span class="badge bg-secondary">Остановлена</span>
+                {% endif %}
+            </div>
+            <p class="text-muted small mb-1">
+                Постов найдено: <strong>{{ item.posts_count }}</strong>
+            </p>
+            <p class="text-muted small mb-1">
+                {% if c.last_run_at %}
+                Последний запуск: {{ c.last_run_at.strftime("%d.%m.%Y %H:%M") }}
+                {% else %}
+                Ещё не запускалась
+                {% endif %}
+            </p>
+            {% if c.next_run_at and c.status == "active" %}
+            <p class="text-muted small mb-0">
+                Следующий авто-запуск: {{ c.next_run_at.strftime("%d.%m.%Y %H:%M") }}
+            </p>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-transparent border-0 pb-3 pt-0">
+            <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary">Открыть</a>
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p class="mb-3">Кампаний пока нет.</p>
+    <a href="/campaigns/new" class="btn btn-primary">Создать первую</a>
+</div>
+{% endif %}
+
+{% endblock %}

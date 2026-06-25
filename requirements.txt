@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+sqlalchemy
+requests
+python-dotenv
+langdetect
+notion-client
+apscheduler
+itsdangerous
+httpx
+psycopg2-binary
