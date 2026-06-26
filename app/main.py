@@ -33,17 +33,15 @@ def startup():
     start_scheduler()
 
 
-# ── Авторизация ──────────────────────────────────────────────────────────────
-
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
 
 
 @app.post("/login")
 def login(request: Request, password: str = Form(...)):
     if password != APP_PASSWORD:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Неверный пароль"})
+        return templates.TemplateResponse(request=request, name="login.html", context={"error": "Неверный пароль"})
     token    = create_session_token()
     response = RedirectResponse("/", status_code=302)
     response.set_cookie("session", token, max_age=86400 * 30, httponly=True)
@@ -57,8 +55,6 @@ def logout():
     return response
 
 
-# ── Список кампаний ──────────────────────────────────────────────────────────
-
 @app.get("/", response_class=HTMLResponse)
 def campaigns_list(request: Request):
     if not check_auth(request):
@@ -70,16 +66,14 @@ def campaigns_list(request: Request):
         for c in rows
     ]
     db.close()
-    return templates.TemplateResponse("campaigns.html", {"request": request, "campaigns_data": data})
+    return templates.TemplateResponse(request=request, name="campaigns.html", context={"campaigns_data": data})
 
-
-# ── Создать кампанию ─────────────────────────────────────────────────────────
 
 @app.get("/campaigns/new", response_class=HTMLResponse)
 def campaign_new_page(request: Request):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse("campaign_new.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="campaign_new.html", context={})
 
 
 @app.post("/campaigns/new")
@@ -125,8 +119,6 @@ async def campaign_create(
     return RedirectResponse(f"/campaigns/{cid}", status_code=302)
 
 
-# ── Детали кампании ──────────────────────────────────────────────────────────
-
 @app.get("/campaigns/{campaign_id}", response_class=HTMLResponse)
 def campaign_detail(request: Request, campaign_id: int):
     if not check_auth(request):
@@ -139,7 +131,6 @@ def campaign_detail(request: Request, campaign_id: int):
     posts = db.query(Post).filter(Post.campaign_id == campaign_id).order_by(Post.views.desc()).all()
     runs  = db.query(Run).filter(Run.campaign_id == campaign_id).order_by(Run.started_at.desc()).limit(10).all()
     ctx   = {
-        "request":   request,
         "campaign":  c,
         "posts":     posts,
         "runs":      runs,
@@ -149,10 +140,8 @@ def campaign_detail(request: Request, campaign_id: int):
         "languages": json.loads(c.languages or '["all"]'),
     }
     db.close()
-    return templates.TemplateResponse("campaign_detail.html", ctx)
+    return templates.TemplateResponse(request=request, name="campaign_detail.html", context=ctx)
 
-
-# ── Запустить вручную (в фоне, чтобы не блокировать браузер) ─────────────────
 
 def _run_in_background(campaign_id: int):
     db  = SessionLocal()
@@ -214,8 +203,6 @@ def campaign_run(request: Request, campaign_id: int):
     return RedirectResponse(f"/campaigns/{campaign_id}?running=1", status_code=302)
 
 
-# ── Остановить / возобновить ─────────────────────────────────────────────────
-
 @app.post("/campaigns/{campaign_id}/toggle")
 def campaign_toggle(request: Request, campaign_id: int):
     if not check_auth(request):
@@ -230,8 +217,6 @@ def campaign_toggle(request: Request, campaign_id: int):
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
 
-
-# ── Удалить кампанию ─────────────────────────────────────────────────────────
 
 @app.post("/campaigns/{campaign_id}/delete")
 def campaign_delete(request: Request, campaign_id: int):
