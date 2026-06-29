@@ -127,10 +127,14 @@ def campaigns_list(request: Request, q: str = ""):
     if q:
         q_lower = q.lower()
         rows = [c for c in rows if q_lower in c.name.lower() or q_lower in (c.vertical or "").lower()]
-    data = [
-        {"campaign": c, "posts_count": db.query(Post).filter(Post.campaign_id == c.id).count()}
-        for c in rows
-    ]
+    data = []
+    for c in rows:
+        last_run = db.query(Run).filter(Run.campaign_id == c.id).order_by(Run.started_at.desc()).first()
+        data.append({
+            "campaign": c,
+            "posts_count": db.query(Post).filter(Post.campaign_id == c.id).count(),
+            "last_run": last_run,
+        })
     db.close()
     return templates.TemplateResponse(request=request, name="campaigns.html", context={"campaigns_data": data, "q": q})
 

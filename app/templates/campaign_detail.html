@@ -84,22 +84,23 @@
 
 {% if posts %}
 <div class="section-card" style="padding:0;overflow:hidden;margin-bottom:12px">
-    <div style="padding:16px 22px 12px">
+    <div style="padding:16px 22px 12px;display:flex;align-items:center;gap:12px">
         <span class="section-title" style="margin:0">Posts ({{ posts|length }})</span>
+        <span style="font-size:11px;color:var(--text-muted)">Click column headers to sort</span>
     </div>
     <div style="overflow-x:auto">
-    <table class="data-table">
+    <table class="data-table" id="postsTable">
         <thead>
             <tr>
                 <th>Platform</th>
                 <th>Account</th>
-                <th class="text-right">Views</th>
-                <th class="text-right">Likes</th>
-                <th class="text-right">Comments</th>
-                <th class="text-right">Shares</th>
-                <th class="text-right">ER</th>
+                <th class="text-right sortable" data-col="2" style="cursor:pointer">Views ↕</th>
+                <th class="text-right sortable" data-col="3" style="cursor:pointer">Likes ↕</th>
+                <th class="text-right sortable" data-col="4" style="cursor:pointer">Comments ↕</th>
+                <th class="text-right sortable" data-col="5" style="cursor:pointer">Shares ↕</th>
+                <th class="text-right sortable" data-col="6" style="cursor:pointer">ER ↕</th>
                 <th>Language</th>
-                <th>Published</th>
+                <th class="sortable" data-col="8" style="cursor:pointer">Published ↕</th>
                 <th></th>
             </tr>
         </thead>
@@ -112,16 +113,20 @@
                 {% else %}<span class="badge badge-ig">Instagram</span>{% endif %}
             </td>
             <td style="color:var(--text-muted);font-size:12px">{{ post.account }}</td>
-            <td class="text-right">{{ "{:,}".format(post.views) }}</td>
-            <td class="text-right" style="color:#60a5fa">{{ "{:,}".format(post.likes) }}</td>
-            <td class="text-right" style="color:#c084fc">{{ "{:,}".format(post.comments) }}</td>
-            <td class="text-right" style="color:#4ade80">{{ "{:,}".format(post.shares) }}</td>
-            <td class="text-right" style="color:#fb923c;font-weight:600">{{ post.er }}%</td>
+            <td class="text-right" data-val="{{ post.views }}">{{ "{:,}".format(post.views) }}</td>
+            <td class="text-right" style="color:#60a5fa" data-val="{{ post.likes }}">{{ "{:,}".format(post.likes) }}</td>
+            <td class="text-right" style="color:#c084fc" data-val="{{ post.comments }}">{{ "{:,}".format(post.comments) }}</td>
+            <td class="text-right" style="color:#4ade80" data-val="{{ post.shares }}">{{ "{:,}".format(post.shares) }}</td>
+            <td class="text-right" style="color:#fb923c;font-weight:600" data-val="{{ post.er }}">{{ post.er }}%</td>
             <td><span style="background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px">{{ post.language }}</span></td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">{{ post.published[:10] if post.published else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap" data-val="{{ post.published or '' }}">{{ post.published[:10] if post.published else "—" }}</td>
             <td>
                 {% if post.url %}
-                <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm">→</a>
+                <div class="preview-wrap" style="position:relative;display:inline-block">
+                    <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm preview-btn"
+                       data-url="{{ post.url }}" data-platform="{{ post.platform }}">→</a>
+                    <div class="video-preview" style="display:none;position:absolute;right:36px;bottom:0;z-index:999;width:300px;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
+                </div>
                 {% endif %}
             </td>
         </tr>
@@ -130,6 +135,66 @@
     </table>
     </div>
 </div>
+
+<script>
+// Sorting
+document.querySelectorAll('.sortable').forEach(th => {
+    let asc = false;
+    th.addEventListener('click', () => {
+        const col = parseInt(th.dataset.col);
+        const tbody = document.querySelector('#postsTable tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const aVal = a.cells[col].dataset.val || a.cells[col].textContent.replace(/[^0-9.-]/g,'');
+            const bVal = b.cells[col].dataset.val || b.cells[col].textContent.replace(/[^0-9.-]/g,'');
+            const aNum = parseFloat(aVal) || aVal;
+            const bNum = parseFloat(bVal) || bVal;
+            if (aNum < bNum) return asc ? -1 : 1;
+            if (aNum > bNum) return asc ? 1 : -1;
+            return 0;
+        });
+        asc = !asc;
+        rows.forEach(r => tbody.appendChild(r));
+        document.querySelectorAll('.sortable').forEach(t => t.textContent = t.textContent.replace(/ [↑↓↕]/,'') + ' ↕');
+        th.textContent = th.textContent.replace(/ [↑↓↕]/,'') + (asc ? ' ↑' : ' ↓');
+    });
+});
+
+// Video preview on hover
+function getEmbedUrl(url, platform) {
+    if (platform === 'YouTube') {
+        const m = url.match(/shorts\/([^?&/]+)/) || url.match(/v=([^&]+)/);
+        return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
+    }
+    return null;
+}
+
+document.querySelectorAll('.preview-wrap').forEach(wrap => {
+    const btn = wrap.querySelector('.preview-btn');
+    const preview = wrap.querySelector('.video-preview');
+    const url = btn.dataset.url;
+    const platform = btn.dataset.platform;
+
+    btn.addEventListener('mouseenter', () => {
+        preview.innerHTML = '';
+        const embedUrl = getEmbedUrl(url, platform);
+        if (embedUrl) {
+            preview.innerHTML = `<iframe src="${embedUrl}" width="300" height="400" frameborder="0" allowfullscreen style="display:block"></iframe>`;
+        } else {
+            preview.innerHTML = `<div style="padding:16px;font-size:12px">
+                <div style="color:var(--text-muted);margin-bottom:8px">${platform}</div>
+                <a href="${url}" target="_blank" style="color:var(--accent);word-break:break-all">${url}</a>
+            </div>`;
+        }
+        preview.style.display = 'block';
+    });
+    btn.addEventListener('mouseleave', () => {
+        setTimeout(() => { preview.style.display = 'none'; }, 200);
+    });
+    preview.addEventListener('mouseenter', () => { preview.style.display = 'block'; });
+    preview.addEventListener('mouseleave', () => { preview.style.display = 'none'; });
+});
+</script>
 {% else %}
 <div style="padding:40px;text-align:center;color:var(--text-muted)">
     No posts yet — click <strong style="color:var(--text)">Run Now</strong> to start.
