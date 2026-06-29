@@ -57,6 +57,34 @@ def logout():
     return response
 
 
+@app.get("/overview", response_class=HTMLResponse)
+def overview(request: Request, days: int = 30):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    campaigns = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
+    all_posts  = db.query(Post).all()
+    stats = {
+        "total_campaigns":  len(campaigns),
+        "active_campaigns": sum(1 for c in campaigns if c.status == "active"),
+        "total_posts":      len(all_posts),
+        "tiktok_posts":     sum(1 for p in all_posts if p.platform == "TikTok"),
+        "instagram_posts":  sum(1 for p in all_posts if p.platform == "Instagram"),
+        "youtube_posts":    sum(1 for p in all_posts if p.platform == "YouTube"),
+        "avg_er":           round(sum(p.er for p in all_posts) / len(all_posts), 2) if all_posts else 0,
+    }
+    data = [{"campaign": c, "posts_count": db.query(Post).filter(Post.campaign_id == c.id).count()} for c in campaigns]
+    db.close()
+    return templates.TemplateResponse(request=request, name="overview.html", context={"stats": stats, "campaigns": data, "days": days})
+
+
+@app.get("/system", response_class=HTMLResponse)
+def system_page(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(request=request, name="system.html", context={})
+
+
 @app.get("/", response_class=HTMLResponse)
 def campaigns_list(request: Request, q: str = ""):
     if not check_auth(request):

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% set active_page = "overview" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="page-title mb-0">Overview</h4>
+    <div class="d-flex gap-2">
+        <a href="?days=7"  class="period-btn {% if days==7 %}active{% endif %}">7d</a>
+        <a href="?days=14" class="period-btn {% if days==14 %}active{% endif %}">14d</a>
+        <a href="?days=30" class="period-btn {% if days==30 %}active{% endif %}">30d</a>
+        <a href="?days=90" class="period-btn {% if days==90 %}active{% endif %}">90d</a>
+    </div>
+</div>
+
+<!-- Top stats -->
+<div class="row g-3 mb-3">
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">Total Campaigns</div>
+            <div class="stat-value stat-green">{{ stats.total_campaigns }}</div>
+            <div class="stat-sub">{{ stats.active_campaigns }} active</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">Total Posts</div>
+            <div class="stat-value">{{ stats.total_posts }}</div>
+            <div class="stat-sub">across all campaigns</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">TikTok Posts</div>
+            <div class="stat-value stat-blue">{{ stats.tiktok_posts }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">Instagram Posts</div>
+            <div class="stat-value stat-pink">{{ stats.instagram_posts }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">YouTube Shorts</div>
+            <div class="stat-value stat-orange">{{ stats.youtube_posts }}</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-label">Avg ER</div>
+            <div class="stat-value stat-purple">{{ stats.avg_er }}%</div>
+        </div>
+    </div>
+</div>
+
+<!-- Campaigns summary -->
+<div class="section-card">
+    <div class="section-title">Campaigns</div>
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Name</th>
+                <th>Vertical</th>
+                <th>Platforms</th>
+                <th class="text-end">Posts</th>
+                <th>Status</th>
+                <th>Last Run</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in campaigns %}
+        {% set c = item.campaign %}
+        <tr>
+            <td><a href="/campaigns/{{ c.id }}" style="color:#fff;font-weight:500">{{ c.name }}</a></td>
+            <td style="color:#8b92a5">{{ c.vertical or '—' }}</td>
+            <td>
+                {% for p in (c.platforms | fromjson) %}
+                {% if p == "tiktok" %}<span class="badge bg-dark me-1">TT</span>
+                {% elif p == "youtube" %}<span class="badge me-1" style="background:rgba(239,68,68,.15);color:#ef4444">YT</span>
+                {% else %}<span class="badge me-1" style="background:rgba(244,114,182,.15);color:#f472b6">IG</span>{% endif %}
+                {% endfor %}
+            </td>
+            <td class="text-end fw-semibold">{{ item.posts_count }}</td>
+            <td>
+                {% if c.status == "active" %}<span class="badge bg-success">Active</span>
+                {% elif c.status == "paused" %}<span class="badge bg-warning">Paused</span>
+                {% else %}<span class="badge bg-secondary">Archived</span>{% endif %}
+            </td>
+            <td style="color:#8b92a5">{{ c.last_run_at.strftime("%d %b") if c.last_run_at else "—" }}</td>
+            <td><a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-secondary py-0">→</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
