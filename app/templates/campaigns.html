@@ -1,54 +1,87 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="fw-bold mb-0">Campaigns</h4>
-    <a href="/campaigns/new" class="btn btn-primary">+ New Campaign</a>
+    <a href="/campaigns/new" class="btn btn-primary btn-sm">+ New Campaign</a>
 </div>
 
+<form method="get" action="/" class="mb-4">
+    <input type="text" name="q" value="{{ q or '' }}" class="form-control"
+           placeholder="Search by name or vertical..." style="max-width:400px">
+</form>
+
 {% if campaigns_data %}
-<div class="row g-3">
-{% for item in campaigns_data %}
-{% set c = item.campaign %}
-<div class="col-md-6">
-    <div class="card h-100 border-0 shadow-sm">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-                <h5 class="card-title mb-0 fw-semibold">{{ c.name }}</h5>
-                {% if c.status == "active" %}
-                <span class="badge bg-success">Active</span>
-                {% else %}
-                <span class="badge bg-secondary">Paused</span>
-                {% endif %}
-            </div>
-            <p class="small mb-1" style="color:#888">
-                Posts found: <strong style="color:#fff">{{ item.posts_count }}</strong>
-            </p>
-            <p class="small mb-1" style="color:#888">
-                {% if c.last_run_at %}
-                Last run: {{ c.last_run_at.strftime("%d %b %Y %H:%M") }}
-                {% else %}
-                Never run
-                {% endif %}
-            </p>
-            {% if c.next_run_at and c.status == "active" %}
-            <p class="small mb-0" style="color:#888">
-                Next auto-run: {{ c.next_run_at.strftime("%d %b %Y %H:%M") }}
-            </p>
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+    <thead class="table-light">
+        <tr>
+            <th>Name</th>
+            <th>Vertical</th>
+            <th>Platforms</th>
+            <th>Min Views</th>
+            <th>Min ER</th>
+            <th>Max Age</th>
+            <th>Language</th>
+            <th>Created</th>
+            <th>Last Run</th>
+            <th>Posts</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in campaigns_data %}
+    {% set c = item.campaign %}
+    <tr>
+        <td>
+            <a href="/campaigns/{{ c.id }}" class="fw-semibold text-decoration-none" style="color:#fff">
+                {{ c.name }}
+            </a>
+        </td>
+        <td><span class="small" style="color:#888">{{ c.vertical or '—' }}</span></td>
+        <td>
+            {% for p in (c.platforms | fromjson) %}
+            {% if p == "tiktok" %}<span class="badge bg-dark me-1">TikTok</span>
+            {% elif p == "youtube" %}<span class="badge me-1" style="background:#ff0000">YouTube</span>
+            {% else %}<span class="badge me-1" style="background:#e1306c">Instagram</span>{% endif %}
+            {% endfor %}
+        </td>
+        <td class="small" style="color:#888">{{ "{:,}".format(c.min_views) }}</td>
+        <td class="small" style="color:#888">{{ c.min_er }}%</td>
+        <td class="small" style="color:#888">{{ c.max_age_days }}d</td>
+        <td><span class="badge bg-light">{{ (c.languages | fromjson) | join(", ") }}</span></td>
+        <td class="small" style="color:#888">{{ c.created_at.strftime("%d %b %Y") if c.created_at else "—" }}</td>
+        <td class="small" style="color:#888">{{ c.last_run_at.strftime("%d %b %Y") if c.last_run_at else "—" }}</td>
+        <td class="text-center"><strong>{{ item.posts_count }}</strong></td>
+        <td>
+            {% if c.status == "active" %}
+            <span class="badge bg-success">Active</span>
+            {% else %}
+            <span class="badge bg-secondary">Paused</span>
             {% endif %}
-        </div>
-        <div class="card-footer bg-transparent border-0 pb-3 pt-0">
-            <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary">Open →</a>
-        </div>
-    </div>
-</div>
-{% endfor %}
+        </td>
+        <td>
+            <div class="d-flex gap-1">
+                <a href="/campaigns/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
+                <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary py-0 px-2">→</a>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
 </div>
 
 {% else %}
 <div class="text-center py-5" style="color:#888">
+    {% if q %}
+    <p>No campaigns found for "{{ q }}".</p>
+    <a href="/" style="color:#8DC63F">Clear search</a>
+    {% else %}
     <p class="mb-3">No campaigns yet.</p>
     <a href="/campaigns/new" class="btn btn-primary">Create your first campaign</a>
+    {% endif %}
 </div>
 {% endif %}
 

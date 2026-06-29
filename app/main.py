@@ -25,6 +25,7 @@ app = FastAPI()
 BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=BASE_DIR.parent / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.filters["fromjson"] = json.loads
 
 
 @app.on_event("startup")
@@ -56,17 +57,20 @@ def logout():
 
 
 @app.get("/", response_class=HTMLResponse)
-def campaigns_list(request: Request):
+def campaigns_list(request: Request, q: str = ""):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     db   = SessionLocal()
     rows = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
+    if q:
+        q_lower = q.lower()
+        rows = [c for c in rows if q_lower in c.name.lower() or q_lower in (c.vertical or "").lower()]
     data = [
         {"campaign": c, "posts_count": db.query(Post).filter(Post.campaign_id == c.id).count()}
         for c in rows
     ]
     db.close()
-    return templates.TemplateResponse(request=request, name="campaigns.html", context={"campaigns_data": data})
+    return templates.TemplateResponse(request=request, name="campaigns.html", context={"campaigns_data": data, "q": q})
 
 
 @app.get("/campaigns/new", response_class=HTMLResponse)
@@ -80,6 +84,7 @@ def campaign_new_page(request: Request):
 async def campaign_create(
     request: Request,
     name:         str       = Form(...),
+    vertical:     str       = Form(""),
     platforms:    list[str] = Form(...),
     hashtags:     str       = Form(""),
     accounts:     str       = Form(""),
@@ -99,6 +104,7 @@ async def campaign_create(
     now = datetime.now(tz=timezone.utc)
     c   = Campaign(
         name         = name,
+        vertical     = vertical,
         platforms    = json.dumps(platforms),
         hashtags     = json.dumps(hashtags_list),
         accounts     = json.dumps(accounts_list),
@@ -210,9 +216,24 @@ def campaign_toggle(request: Request, campaign_id: int):
     db = SessionLocal()
     c  = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if c:
-        c.status = "stopped" if c.status == "active" else "active"
         if c.status == "active":
+            c.status = "paused"
+        elif c.status == "paused":
+            c.status = "active"
             c.next_run_at = datetime.now(tz=timezone.utc)
+        db.commit()
+    db.close()
+    return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
+
+
+@app.post("/campaigns/{campaign_id}/archive")
+def campaign_archive(request: Request, campaign_id: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    c  = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if c:
+        c.status = "archived"
         db.commit()
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
@@ -229,3 +250,57 @@ def campaign_delete(request: Request, campaign_id: int):
     db.commit()
     db.close()
     return RedirectResponse("/", status_code=302)
+
+
+# ── Редактировать кампанию ────────────────────────────────────────────────────
+
+@app.get("/campaigns/{campaign_id}/edit", response_class=HTMLResponse)
+def campaign_edit_page(request: Request, campaign_id: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    c  = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    db.close()
+    if not c:
+        return RedirectResponse("/", status_code=302)
+    ctx = {
+        "campaign":  c,
+        "hashtags":  ", ".join(json.loads(c.hashtags  or "[]")),
+        "accounts":  ", ".join(json.loads(c.accounts  or "[]")),
+        "platforms": json.loads(c.platforms or "[]"),
+        "languages": json.loads(c.languages or '["all"]'),
+    }
+    return templates.TemplateResponse(request=request, name="campaign_edit.html", context=ctx)
+
+
+@app.post("/campaigns/{campaign_id}/edit")
+async def campaign_edit(
+    request: Request,
+    campaign_id:  int,
+    name:         str       = Form(...),
+    vertical:     str       = Form(""),
+    platforms:    list[str] = Form(...),
+    hashtags:     str       = Form(""),
+    accounts:     str       = Form(""),
+    min_views:    int       = Form(300000),
+    min_er:       float     = Form(2.0),
+    max_age_days: int       = Form(180),
+    languages:    list[str] = Form([]),
+):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    c  = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if c:
+        c.name         = name
+        c.vertical     = vertical
+        c.platforms    = json.dumps(platforms)
+        c.hashtags     = json.dumps([h.strip().lstrip("#") for h in hashtags.split(",") if h.strip()])
+        c.accounts     = json.dumps([a.strip().lstrip("@") for a in accounts.split(",") if a.strip()])
+        c.min_views    = min_views
+        c.min_er       = min_er
+        c.max_age_days = max_age_days
+        c.languages    = json.dumps(languages if languages else ["all"])
+        db.commit()
+    db.close()
+    return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)

@@ -13,18 +13,25 @@
         <h4 class="fw-bold mb-1">{{ campaign.name }}</h4>
         {% if campaign.status == "active" %}
         <span class="badge bg-success">Active</span>
+        {% elif campaign.status == "paused" %}
+        <span class="badge bg-warning">Paused</span>
         {% else %}
-        <span class="badge bg-secondary">Paused</span>
+        <span class="badge bg-secondary">Archived</span>
         {% endif %}
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <form method="post" action="/campaigns/{{ campaign.id }}/run">
             <button class="btn btn-sm btn-primary">▶ Run Now</button>
         </form>
+        <a href="/campaigns/{{ campaign.id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
         <form method="post" action="/campaigns/{{ campaign.id }}/toggle">
             <button class="btn btn-sm btn-outline-secondary">
                 {% if campaign.status == "active" %}Pause{% else %}Resume{% endif %}
             </button>
+        </form>
+        <form method="post" action="/campaigns/{{ campaign.id }}/archive"
+              onsubmit="return confirm('Archive this campaign?')">
+            <button class="btn btn-sm btn-outline-secondary">Archive</button>
         </form>
         <form method="post" action="/campaigns/{{ campaign.id }}/delete"
               onsubmit="return confirm('Delete this campaign and all its posts?')">

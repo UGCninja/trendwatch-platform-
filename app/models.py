@@ -10,6 +10,7 @@ class Campaign(Base):
 
     id           = Column(Integer, primary_key=True)
     name         = Column(String, nullable=False)
+    vertical     = Column(String, default="")
     platforms    = Column(Text)   # JSON: ["tiktok", "instagram"]
     hashtags     = Column(Text)   # JSON: ["ClashOfClans", ...]
     accounts     = Column(Text)   # JSON: ["handle", ...]

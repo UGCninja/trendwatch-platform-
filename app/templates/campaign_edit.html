@@ -3,20 +3,20 @@
 
 <div class="row justify-content-center">
 <div class="col-md-7">
-    <h4 class="fw-bold mb-4">New Campaign</h4>
+    <h4 class="fw-bold mb-4">Edit Campaign</h4>
     <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
-    <form method="post" action="/campaigns/new">
+    <form method="post" action="/campaigns/{{ campaign.id }}/edit">
 
         <div class="mb-3">
             <label class="form-label">Campaign Name</label>
-            <input type="text" name="name" class="form-control"
-                   placeholder="e.g. Kingdom Clash competitors" required>
+            <input type="text" name="name" class="form-control" value="{{ campaign.name }}" required>
         </div>
 
         <div class="mb-3">
             <label class="form-label">Vertical</label>
             <input type="text" name="vertical" class="form-control"
+                   value="{{ campaign.vertical or '' }}"
                    placeholder="e.g. StrategyGames, RewardsApps, CryptoCasino">
         </div>
 
@@ -25,17 +25,17 @@
             <div class="d-flex gap-4">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="platforms"
-                           value="tiktok" id="plat_tt" checked>
+                           value="tiktok" id="plat_tt" {{ 'checked' if 'tiktok' in platforms }}>
                     <label class="form-check-label" for="plat_tt">TikTok</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="platforms"
-                           value="instagram" id="plat_ig" checked>
+                           value="instagram" id="plat_ig" {{ 'checked' if 'instagram' in platforms }}>
                     <label class="form-check-label" for="plat_ig">Instagram</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="platforms"
-                           value="youtube" id="plat_yt">
+                           value="youtube" id="plat_yt" {{ 'checked' if 'youtube' in platforms }}>
                     <label class="form-check-label" for="plat_yt">YouTube Shorts</label>
                 </div>
             </div>
@@ -43,30 +43,28 @@
 
         <div class="mb-3">
             <label class="form-label">Hashtags</label>
-            <input type="text" name="hashtags" class="form-control"
-                   placeholder="ClashOfClans, ClashRoyale, RiseOfKingdoms">
+            <input type="text" name="hashtags" class="form-control" value="{{ hashtags }}">
             <div class="form-text">Comma-separated, without #</div>
         </div>
 
         <div class="mb-3">
             <label class="form-label">Accounts</label>
-            <input type="text" name="accounts" class="form-control"
-                   placeholder="clashofclans, supercell">
+            <input type="text" name="accounts" class="form-control" value="{{ accounts }}">
             <div class="form-text">Comma-separated, without @</div>
         </div>
 
         <div class="row mb-3">
             <div class="col">
                 <label class="form-label">Min. Views</label>
-                <input type="number" name="min_views" class="form-control" value="300000" min="0">
+                <input type="number" name="min_views" class="form-control" value="{{ campaign.min_views }}">
             </div>
             <div class="col">
                 <label class="form-label">Min. ER (%)</label>
-                <input type="number" name="min_er" class="form-control" value="2.0" step="0.1" min="0">
+                <input type="number" name="min_er" class="form-control" value="{{ campaign.min_er }}" step="0.1">
             </div>
             <div class="col">
-                <label class="form-label">Max. Post Age (days)</label>
-                <input type="number" name="max_age_days" class="form-control" value="180" min="1">
+                <label class="form-label">Max. Age (days)</label>
+                <input type="number" name="max_age_days" class="form-control" value="{{ campaign.max_age_days }}">
             </div>
         </div>
 
@@ -75,23 +73,22 @@
             <div class="d-flex flex-wrap gap-3">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="languages"
-                           value="all" id="lang_all" checked>
+                           value="all" id="lang_all" {{ 'checked' if 'all' in languages }}>
                     <label class="form-check-label" for="lang_all">All languages</label>
                 </div>
                 {% for lang in ["en", "ru", "de", "fr", "es", "pt", "tr"] %}
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="languages"
-                           value="{{ lang }}" id="lang_{{ lang }}">
+                           value="{{ lang }}" id="lang_{{ lang }}" {{ 'checked' if lang in languages }}>
                     <label class="form-check-label" for="lang_{{ lang }}">{{ lang }}</label>
                 </div>
                 {% endfor %}
             </div>
-            <div class="form-text">Leave all checked to include all languages</div>
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">Create Campaign</button>
-            <a href="/" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="/campaigns/{{ campaign.id }}" class="btn btn-outline-secondary">Cancel</a>
         </div>
 
     </form>
