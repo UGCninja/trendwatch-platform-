@@ -1,85 +1,83 @@
 {% extends "base.html" %}
+{% set active_page = "campaigns" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="fw-bold mb-0">Campaigns</h4>
-    <a href="/campaigns/new" class="btn btn-primary btn-sm">+ New Campaign</a>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <h2 style="font-size:22px;font-weight:700">Campaigns</h2>
 </div>
 
-<form method="get" action="/" class="mb-4">
-    <input type="text" name="q" value="{{ q or '' }}" class="form-control"
-           placeholder="Search by name or vertical..." style="max-width:400px">
+<form method="get" action="/" style="margin-bottom:16px">
+    <input type="text" name="q" value="{{ q or '' }}" class="search-input"
+           placeholder="Search by name or vertical...">
 </form>
 
 {% if campaigns_data %}
-<div class="table-responsive">
-<table class="table table-hover align-middle">
-    <thead class="table-light">
+<div class="section-card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Vertical</th>
+                <th>Platforms</th>
+                <th class="text-right">Min Views</th>
+                <th class="text-right">Min ER</th>
+                <th class="text-right">Max Age</th>
+                <th>Language</th>
+                <th>Created</th>
+                <th>Last Run</th>
+                <th class="text-right">Posts</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in campaigns_data %}
+        {% set c = item.campaign %}
         <tr>
-            <th>Name</th>
-            <th>Vertical</th>
-            <th>Platforms</th>
-            <th>Min Views</th>
-            <th>Min ER</th>
-            <th>Max Age</th>
-            <th>Language</th>
-            <th>Created</th>
-            <th>Last Run</th>
-            <th>Posts</th>
-            <th>Status</th>
-            <th></th>
+            <td>
+                <a href="/campaigns/{{ c.id }}" style="color:var(--text);font-weight:500">{{ c.name }}</a>
+            </td>
+            <td style="color:var(--text-muted);font-size:12px">{{ c.vertical or '—' }}</td>
+            <td>
+                {% for p in (c.platforms | fromjson) %}
+                {% if p == "tiktok" %}<span class="badge badge-tt me-1">TikTok</span>
+                {% elif p == "youtube" %}<span class="badge badge-yt me-1">YT</span>
+                {% else %}<span class="badge badge-ig me-1">IG</span>{% endif %}
+                {% endfor %}
+            </td>
+            <td class="text-right" style="color:var(--text-muted);font-size:12px">{{ "{:,}".format(c.min_views) }}</td>
+            <td class="text-right" style="color:var(--text-muted);font-size:12px">{{ c.min_er }}%</td>
+            <td class="text-right" style="color:var(--text-muted);font-size:12px">{{ c.max_age_days }}d</td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ (c.languages | fromjson) | join(", ") }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">{{ c.created_at.strftime("%d %b %Y") if c.created_at else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">{{ c.last_run_at.strftime("%d %b %Y") if c.last_run_at else "—" }}</td>
+            <td class="text-right" style="font-weight:600">{{ item.posts_count }}</td>
+            <td>
+                {% if c.status == "active" %}<span class="badge badge-active">Active</span>
+                {% elif c.status == "paused" %}<span class="badge badge-paused">Paused</span>
+                {% else %}<span class="badge badge-archived">Archived</span>{% endif %}
+            </td>
+            <td>
+                <div style="display:flex;gap:4px">
+                    <a href="/campaigns/{{ c.id }}/edit" class="btn btn-outline-secondary btn-sm">Edit</a>
+                    <a href="/campaigns/{{ c.id }}" class="btn btn-outline-primary btn-sm">→</a>
+                </div>
+            </td>
         </tr>
-    </thead>
-    <tbody>
-    {% for item in campaigns_data %}
-    {% set c = item.campaign %}
-    <tr>
-        <td>
-            <a href="/campaigns/{{ c.id }}" class="fw-semibold text-decoration-none" style="color:#fff">
-                {{ c.name }}
-            </a>
-        </td>
-        <td><span class="small" style="color:#888">{{ c.vertical or '—' }}</span></td>
-        <td>
-            {% for p in (c.platforms | fromjson) %}
-            {% if p == "tiktok" %}<span class="badge bg-dark me-1">TikTok</span>
-            {% elif p == "youtube" %}<span class="badge me-1" style="background:#ff0000">YouTube</span>
-            {% else %}<span class="badge me-1" style="background:#e1306c">Instagram</span>{% endif %}
-            {% endfor %}
-        </td>
-        <td class="small" style="color:#888">{{ "{:,}".format(c.min_views) }}</td>
-        <td class="small" style="color:#888">{{ c.min_er }}%</td>
-        <td class="small" style="color:#888">{{ c.max_age_days }}d</td>
-        <td><span class="badge bg-light">{{ (c.languages | fromjson) | join(", ") }}</span></td>
-        <td class="small" style="color:#888">{{ c.created_at.strftime("%d %b %Y") if c.created_at else "—" }}</td>
-        <td class="small" style="color:#888">{{ c.last_run_at.strftime("%d %b %Y") if c.last_run_at else "—" }}</td>
-        <td class="text-center"><strong>{{ item.posts_count }}</strong></td>
-        <td>
-            {% if c.status == "active" %}
-            <span class="badge bg-success">Active</span>
-            {% else %}
-            <span class="badge bg-secondary">Paused</span>
-            {% endif %}
-        </td>
-        <td>
-            <div class="d-flex gap-1">
-                <a href="/campaigns/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
-                <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary py-0 px-2">→</a>
-            </div>
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
 </div>
 
 {% else %}
-<div class="text-center py-5" style="color:#888">
+<div style="text-align:center;padding:60px;color:var(--text-muted)">
     {% if q %}
     <p>No campaigns found for "{{ q }}".</p>
-    <a href="/" style="color:#8DC63F">Clear search</a>
+    <a href="/">Clear search</a>
     {% else %}
-    <p class="mb-3">No campaigns yet.</p>
+    <p style="margin-bottom:16px">No campaigns yet.</p>
     <a href="/campaigns/new" class="btn btn-primary">Create your first campaign</a>
     {% endif %}
 </div>
