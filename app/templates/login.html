@@ -3,25 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <title>TrendWatch — Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/style.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/static/style.css?v=4" rel="stylesheet">
+    <style>
+    body { display:flex; align-items:center; justify-content:center; }
+    .login-box {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 36px 32px;
+        width: 360px;
+    }
+    .login-logo { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .login-logo em { color: var(--accent); font-style: normal; }
+    .login-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 28px; }
+    .login-btn {
+        width: 100%; padding: 9px; background: var(--accent); border: none;
+        border-radius: 7px; color: #111; font-weight: 600; font-size: 14px;
+        font-family: inherit; cursor: pointer; margin-top: 4px;
+    }
+    .login-btn:hover { background: var(--accent-dark); }
+    .error-msg { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2);
+        color: #ef4444; border-radius: 7px; padding: 8px 12px; font-size: 13px; margin-bottom: 14px; }
+    </style>
 </head>
-<body style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
-    <div class="card shadow" style="width:360px">
-        <div class="card-body p-4">
-            <h4 class="fw-bold mb-1"><span style="color:#8DC63F">TREND</span>WATCH</h4>
-            <p class="mb-4 small" style="color:#888">by UGC Ninja</p>
-            {% if error %}
-            <div class="alert alert-danger py-2 small">{{ error }}</div>
-            {% endif %}
-            <form method="post" action="/login">
-                <div class="mb-3">
-                    <input type="password" name="password" class="form-control"
-                           placeholder="Password" required autofocus>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Sign In</button>
-            </form>
-        </div>
+<body>
+    <div class="login-box">
+        <div class="login-logo">🥷 UGC Ninja <em>TrendWatch</em></div>
+        <div class="login-sub">Sign in to continue</div>
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/login">
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control"
+                       placeholder="Enter password" required autofocus>
+            </div>
+            <button type="submit" class="login-btn">Sign In →</button>
+        </form>
     </div>
 </body>
 </html>

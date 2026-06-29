@@ -58,24 +58,57 @@ def logout():
 
 
 @app.get("/overview", response_class=HTMLResponse)
-def overview(request: Request, days: int = 30):
+def overview(request: Request, days: int = 30, campaign: str = "all"):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     db = SessionLocal()
-    campaigns = db.query(Campaign).order_by(Campaign.created_at.desc()).all()
-    all_posts  = db.query(Post).all()
+    all_campaigns = db.query(Campaign).order_by(Campaign.name).all()
+
+    posts_q = db.query(Post)
+    if campaign != "all":
+        try:
+            posts_q = posts_q.filter(Post.campaign_id == int(campaign))
+        except ValueError:
+            pass
+    posts = posts_q.order_by(Post.views.desc()).all()
+
+    # attach campaign to post
+    camp_map = {c.id: c for c in all_campaigns}
+    for p in posts:
+        p.campaign = camp_map.get(p.campaign_id)
+
     stats = {
-        "total_campaigns":  len(campaigns),
-        "active_campaigns": sum(1 for c in campaigns if c.status == "active"),
-        "total_posts":      len(all_posts),
-        "tiktok_posts":     sum(1 for p in all_posts if p.platform == "TikTok"),
-        "instagram_posts":  sum(1 for p in all_posts if p.platform == "Instagram"),
-        "youtube_posts":    sum(1 for p in all_posts if p.platform == "YouTube"),
-        "avg_er":           round(sum(p.er for p in all_posts) / len(all_posts), 2) if all_posts else 0,
+        "total":     len(posts),
+        "tiktok":    sum(1 for p in posts if p.platform == "TikTok"),
+        "instagram": sum(1 for p in posts if p.platform == "Instagram"),
+        "youtube":   sum(1 for p in posts if p.platform == "YouTube"),
+        "avg_views": "{:,.0f}".format(sum(p.views for p in posts) / len(posts)) if posts else "0",
+        "avg_er":    round(sum(p.er for p in posts) / len(posts), 2) if posts else 0,
     }
-    data = [{"campaign": c, "posts_count": db.query(Post).filter(Post.campaign_id == c.id).count()} for c in campaigns]
+
+    # chart data - by week
+    from collections import defaultdict
+    tt_by_week = defaultdict(int); ig_by_week = defaultdict(int); yt_by_week = defaultdict(int)
+    for p in posts:
+        try:
+            pub = datetime.fromisoformat(p.published)
+            week = pub.strftime("%b %d")
+        except Exception:
+            week = "Unknown"
+        if p.platform == "TikTok": tt_by_week[week] += 1
+        elif p.platform == "Instagram": ig_by_week[week] += 1
+        elif p.platform == "YouTube": yt_by_week[week] += 1
+    all_weeks = sorted(set(list(tt_by_week) + list(ig_by_week) + list(yt_by_week)))[-12:]
+
     db.close()
-    return templates.TemplateResponse(request=request, name="overview.html", context={"stats": stats, "campaigns": data, "days": days})
+    return templates.TemplateResponse(request=request, name="overview.html", context={
+        "stats": stats, "posts": posts, "days": days,
+        "all_campaigns": all_campaigns, "campaign_filter": campaign,
+        "chart_labels": all_weeks,
+        "chart_tiktok": [tt_by_week[w] for w in all_weeks],
+        "chart_instagram": [ig_by_week[w] for w in all_weeks],
+        "chart_youtube": [yt_by_week[w] for w in all_weeks],
+    })
 
 
 @app.get("/system", response_class=HTMLResponse)
