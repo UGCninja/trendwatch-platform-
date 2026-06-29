@@ -15,9 +15,25 @@
 
         <div class="mb-3">
             <label class="form-label">Vertical</label>
-            <input type="text" name="vertical" class="form-control"
-                   value="{{ campaign.vertical or '' }}"
-                   placeholder="e.g. StrategyGames, CryptoCasino, RewardsApps">
+            <div class="d-flex gap-2 align-items-center">
+                <select name="vertical" id="verticalSelect" class="form-select">
+                    <option value="">— Select vertical —</option>
+                    {% for v in verticals %}
+                    <option value="{{ v }}" {{ 'selected' if campaign.vertical == v }}>{{ v }}</option>
+                    {% endfor %}
+                    {% if campaign.vertical and campaign.vertical not in verticals %}
+                    <option value="{{ campaign.vertical }}" selected>{{ campaign.vertical }}</option>
+                    {% endif %}
+                </select>
+                <button type="button" class="btn btn-outline-secondary px-3" onclick="toggleAddVertical()"
+                        title="Add new vertical">+</button>
+            </div>
+            <div id="addVerticalBox" class="d-flex gap-2 mt-2" style="display:none">
+                <input type="text" id="newVerticalInput" class="form-control form-control-sm"
+                       placeholder="New vertical name...">
+                <button type="button" class="btn btn-sm btn-primary" onclick="saveVertical()">Save</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAddVertical()">✕</button>
+            </div>
         </div>
 
         <div class="mb-3">
@@ -109,6 +125,29 @@ specificCbs.forEach(cb => {
 allCb.addEventListener('change', () => {
     if (allCb.checked) specificCbs.forEach(cb => cb.checked = false);
 });
+
+function toggleAddVertical() {
+    const box = document.getElementById('addVerticalBox');
+    box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+    if (box.style.display === 'flex') document.getElementById('newVerticalInput').focus();
+}
+
+async function saveVertical() {
+    const input = document.getElementById('newVerticalInput');
+    const name = input.value.trim();
+    if (!name) return;
+    const fd = new FormData();
+    fd.append('name', name);
+    const r = await fetch('/verticals/add', {method: 'POST', body: fd});
+    if (r.ok) {
+        const sel = document.getElementById('verticalSelect');
+        const opt = document.createElement('option');
+        opt.value = name; opt.text = name; opt.selected = true;
+        sel.appendChild(opt);
+        input.value = '';
+        toggleAddVertical();
+    }
+}
 </script>
 
 {% endblock %}

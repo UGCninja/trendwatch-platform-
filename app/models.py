@@ -5,6 +5,12 @@ from datetime import datetime
 Base = declarative_base()
 
 
+class Vertical(Base):
+    __tablename__ = "verticals"
+    id   = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+
+
 class Campaign(Base):
     __tablename__ = "campaigns"
 

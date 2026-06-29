@@ -16,15 +16,25 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine)
 
 
+DEFAULT_VERTICALS = ["StrategyGames", "RewardsApps", "CryptoCasino", "SolitaireRefs"]
+
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # Add new columns if they don't exist yet
     with engine.connect() as conn:
+        # migrate vertical column
         try:
             conn.execute(text("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''"))
             conn.commit()
         except Exception:
-            pass  # column already exists
+            pass
+        # seed default verticals
+        from app.models import Vertical
+        db = SessionLocal()
+        for name in DEFAULT_VERTICALS:
+            if not db.query(Vertical).filter(Vertical.name == name).first():
+                db.add(Vertical(name=name))
+        db.commit()
+        db.close()
 
 
 def get_db():
