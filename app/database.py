@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from app.models import Base
 
@@ -18,6 +18,13 @@ SessionLocal = sessionmaker(bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Add new columns if they don't exist yet
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
 
 
 def get_db():
