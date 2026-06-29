@@ -19,6 +19,7 @@ from app.notion_sync import push_post_to_notion
 from app.parser import run_campaign
 from app.scheduler import start_scheduler
 from app.telegram import send_message
+from app import verticals as vtlib
 
 app = FastAPI()
 
@@ -73,11 +74,23 @@ def campaigns_list(request: Request, q: str = ""):
     return templates.TemplateResponse(request=request, name="campaigns.html", context={"campaigns_data": data, "q": q})
 
 
+@app.post("/verticals/add")
+def vertical_add(request: Request, name: str = Form(...)):
+    if not check_auth(request): return RedirectResponse("/login", status_code=302)
+    vtlib.add(name.strip())
+    return RedirectResponse(request.headers.get("referer", "/"), status_code=302)
+
+@app.post("/verticals/remove")
+def vertical_remove(request: Request, name: str = Form(...)):
+    if not check_auth(request): return RedirectResponse("/login", status_code=302)
+    vtlib.remove(name)
+    return RedirectResponse(request.headers.get("referer", "/"), status_code=302)
+
 @app.get("/campaigns/new", response_class=HTMLResponse)
 def campaign_new_page(request: Request):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse(request=request, name="campaign_new.html", context={})
+    return templates.TemplateResponse(request=request, name="campaign_new.html", context={"verticals": vtlib.load()})
 
 
 @app.post("/campaigns/new")
@@ -269,6 +282,7 @@ def campaign_edit_page(request: Request, campaign_id: int):
         "accounts":  ", ".join(json.loads(c.accounts  or "[]")),
         "platforms": json.loads(c.platforms or "[]"),
         "languages": json.loads(c.languages or '["all"]'),
+        "verticals": vtlib.load(),
     }
     return templates.TemplateResponse(request=request, name="campaign_edit.html", context=ctx)
 
