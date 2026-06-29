@@ -108,6 +108,8 @@
         <td>
             {% if post.platform == "TikTok" %}
             <span class="badge bg-dark">TikTok</span>
+            {% elif post.platform == "YouTube" %}
+            <span class="badge" style="background:#ff0000">YouTube</span>
             {% else %}
             <span class="badge" style="background:#e1306c">Instagram</span>
             {% endif %}
