@@ -3,19 +3,19 @@
 
 <div class="row justify-content-center">
 <div class="col-md-7">
-    <h4 class="fw-bold mb-4">Новая кампания</h4>
+    <h4 class="fw-bold mb-4">New Campaign</h4>
     <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
     <form method="post" action="/campaigns/new">
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">Название</label>
+            <label class="form-label">Campaign Name</label>
             <input type="text" name="name" class="form-control"
-                   placeholder="Например: Kingdom Clash конкуренты" required>
+                   placeholder="e.g. Kingdom Clash competitors" required>
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">Платформы</label>
+            <label class="form-label">Platforms</label>
             <div class="d-flex gap-4">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="platforms"
@@ -36,41 +36,41 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">Хэштеги</label>
+            <label class="form-label">Hashtags</label>
             <input type="text" name="hashtags" class="form-control"
                    placeholder="ClashOfClans, ClashRoyale, RiseOfKingdoms">
-            <div class="form-text">Через запятую, без #</div>
+            <div class="form-text">Comma-separated, without #</div>
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">Аккаунты</label>
+            <label class="form-label">Accounts</label>
             <input type="text" name="accounts" class="form-control"
                    placeholder="clashofclans, supercell">
-            <div class="form-text">Через запятую, без @</div>
+            <div class="form-text">Comma-separated, without @</div>
         </div>
 
         <div class="row mb-3">
             <div class="col">
-                <label class="form-label fw-semibold">Мин. просмотры</label>
+                <label class="form-label">Min. Views</label>
                 <input type="number" name="min_views" class="form-control" value="300000" min="0">
             </div>
             <div class="col">
-                <label class="form-label fw-semibold">Мин. ER (%)</label>
+                <label class="form-label">Min. ER (%)</label>
                 <input type="number" name="min_er" class="form-control" value="2.0" step="0.1" min="0">
             </div>
             <div class="col">
-                <label class="form-label fw-semibold">Возраст поста (дней)</label>
+                <label class="form-label">Max. Post Age (days)</label>
                 <input type="number" name="max_age_days" class="form-control" value="180" min="1">
             </div>
         </div>
 
         <div class="mb-4">
-            <label class="form-label fw-semibold">Языки</label>
+            <label class="form-label">Languages</label>
             <div class="d-flex flex-wrap gap-3">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="languages"
                            value="all" id="lang_all" checked>
-                    <label class="form-check-label" for="lang_all">Все языки</label>
+                    <label class="form-check-label" for="lang_all">All languages</label>
                 </div>
                 {% for lang in ["en", "ru", "de", "fr", "es", "pt", "tr"] %}
                 <div class="form-check">
@@ -80,12 +80,12 @@
                 </div>
                 {% endfor %}
             </div>
-            <div class="form-text">Если не выбрано ничего — берём все языки</div>
+            <div class="form-text">Leave all checked to include all languages</div>
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">Создать кампанию</button>
-            <a href="/" class="btn btn-outline-secondary">Отмена</a>
+            <button type="submit" class="btn btn-primary">Create Campaign</button>
+            <a href="/" class="btn btn-outline-secondary">Cancel</a>
         </div>
 
     </form>

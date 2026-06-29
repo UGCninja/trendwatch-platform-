@@ -3,7 +3,7 @@
 
 {% if request.query_params.get("running") %}
 <div class="alert alert-info alert-dismissible fade show" role="alert">
-    Парсер запущен в фоне. Обнови страницу через 2-3 минуты чтобы увидеть результаты.
+    Parser is running in the background. Refresh in 2–3 minutes to see results.
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
@@ -12,23 +12,23 @@
     <div>
         <h4 class="fw-bold mb-1">{{ campaign.name }}</h4>
         {% if campaign.status == "active" %}
-        <span class="badge bg-success">Активна</span>
+        <span class="badge bg-success">Active</span>
         {% else %}
-        <span class="badge bg-secondary">Остановлена</span>
+        <span class="badge bg-secondary">Paused</span>
         {% endif %}
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <form method="post" action="/campaigns/{{ campaign.id }}/run">
-            <button class="btn btn-sm btn-primary">▶ Запустить сейчас</button>
+            <button class="btn btn-sm btn-primary">▶ Run Now</button>
         </form>
         <form method="post" action="/campaigns/{{ campaign.id }}/toggle">
             <button class="btn btn-sm btn-outline-secondary">
-                {% if campaign.status == "active" %}Остановить{% else %}Возобновить{% endif %}
+                {% if campaign.status == "active" %}Pause{% else %}Resume{% endif %}
             </button>
         </form>
         <form method="post" action="/campaigns/{{ campaign.id }}/delete"
-              onsubmit="return confirm('Удалить кампанию и все посты?')">
-            <button class="btn btn-sm btn-outline-danger">Удалить</button>
+              onsubmit="return confirm('Delete this campaign and all its posts?')">
+            <button class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
     </div>
 </div>
@@ -37,27 +37,27 @@
     <div class="col-md-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small mb-1">Хэштеги</div>
+                <div class="small mb-1" style="color:#888">Hashtags</div>
                 {% if hashtags %}
-                    {% for h in hashtags %}<span class="badge bg-light text-dark me-1">#{{ h }}</span>{% endfor %}
-                {% else %}<span class="text-muted small">—</span>{% endif %}
+                    {% for h in hashtags %}<span class="badge bg-light me-1">#{{ h }}</span>{% endfor %}
+                {% else %}<span class="small" style="color:#888">—</span>{% endif %}
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small mb-1">Аккаунты</div>
+                <div class="small mb-1" style="color:#888">Accounts</div>
                 {% if accounts %}
-                    {% for a in accounts %}<span class="badge bg-light text-dark me-1">@{{ a }}</span>{% endfor %}
-                {% else %}<span class="text-muted small">—</span>{% endif %}
+                    {% for a in accounts %}<span class="badge bg-light me-1">@{{ a }}</span>{% endfor %}
+                {% else %}<span class="small" style="color:#888">—</span>{% endif %}
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small mb-1">Платформы</div>
+                <div class="small mb-1" style="color:#888">Platforms</div>
                 {% for p in platforms %}
                 <span class="badge bg-dark me-1">{{ p }}</span>
                 {% endfor %}
@@ -67,11 +67,11 @@
     <div class="col-md-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small mb-1">Фильтры</div>
+                <div class="small mb-1" style="color:#888">Filters</div>
                 <div class="small">
                     👁 &gt;{{ "{:,}".format(campaign.min_views) }}<br>
                     ER ≥ {{ campaign.min_er }}%<br>
-                    ≤ {{ campaign.max_age_days }} дней
+                    ≤ {{ campaign.max_age_days }} days
                 </div>
             </div>
         </div>
@@ -79,26 +79,26 @@
 </div>
 
 {% if campaign.last_run_at %}
-<p class="text-muted small">
-    Последний запуск: {{ campaign.last_run_at.strftime("%d.%m.%Y %H:%M") }}
+<p class="small" style="color:#888">
+    Last run: {{ campaign.last_run_at.strftime("%d %b %Y %H:%M") }}
     {% if campaign.next_run_at and campaign.status == "active" %}
-    &nbsp;·&nbsp; Следующий: {{ campaign.next_run_at.strftime("%d.%m.%Y %H:%M") }}
+    &nbsp;·&nbsp; Next: {{ campaign.next_run_at.strftime("%d %b %Y %H:%M") }}
     {% endif %}
 </p>
 {% endif %}
 
 {% if posts %}
-<h5 class="fw-semibold mb-3 mt-2">Посты ({{ posts|length }})</h5>
+<h5 class="fw-semibold mb-3 mt-2">Posts ({{ posts|length }})</h5>
 <div class="table-responsive">
 <table class="table table-sm table-hover align-middle">
     <thead class="table-light">
         <tr>
-            <th>Платформа</th>
-            <th>Аккаунт</th>
-            <th class="text-end">Просмотры</th>
+            <th>Platform</th>
+            <th>Account</th>
+            <th class="text-end">Views</th>
             <th class="text-end">ER%</th>
-            <th>Язык</th>
-            <th>Дата</th>
+            <th>Language</th>
+            <th>Published</th>
             <th></th>
         </tr>
     </thead>
@@ -114,11 +114,11 @@
             <span class="badge" style="background:#e1306c">Instagram</span>
             {% endif %}
         </td>
-        <td class="text-muted small">{{ post.account }}</td>
+        <td class="small" style="color:#888">{{ post.account }}</td>
         <td class="text-end">{{ "{:,}".format(post.views) }}</td>
         <td class="text-end">{{ post.er }}%</td>
-        <td><span class="badge bg-light text-dark">{{ post.language }}</span></td>
-        <td class="small text-muted">{{ post.published[:10] if post.published else "—" }}</td>
+        <td><span class="badge bg-light">{{ post.language }}</span></td>
+        <td class="small" style="color:#888">{{ post.published[:10] if post.published else "—" }}</td>
         <td>
             {% if post.url %}
             <a href="{{ post.url }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2">→</a>
@@ -131,32 +131,32 @@
 </div>
 
 {% else %}
-<div class="text-muted py-4">
-    Постов пока нет — нажми <strong>Запустить сейчас</strong>.
+<div class="py-4" style="color:#888">
+    No posts yet — click <strong style="color:#fff">Run Now</strong> to start.
 </div>
 {% endif %}
 
 {% if runs %}
-<h5 class="fw-semibold mt-5 mb-3">История запусков</h5>
+<h5 class="fw-semibold mt-5 mb-3">Run History</h5>
 <table class="table table-sm">
     <thead class="table-light">
         <tr>
-            <th>Время</th>
-            <th>Статус</th>
-            <th class="text-end">Добавлено постов</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th class="text-end">Posts Added</th>
         </tr>
     </thead>
     <tbody>
     {% for run in runs %}
     <tr>
-        <td class="small text-muted">{{ run.started_at.strftime("%d.%m.%Y %H:%M") }}</td>
+        <td class="small" style="color:#888">{{ run.started_at.strftime("%d %b %Y %H:%M") }}</td>
         <td>
             {% if run.status == "done" %}
-            <span class="badge bg-success">Готово</span>
+            <span class="badge bg-success">Done</span>
             {% elif run.status == "running" %}
-            <span class="badge bg-warning text-dark">В процессе</span>
+            <span class="badge bg-warning">Running</span>
             {% else %}
-            <span class="badge bg-danger" title="{{ run.error or '' }}">Ошибка</span>
+            <span class="badge bg-danger" title="{{ run.error or '' }}">Error</span>
             {% endif %}
         </td>
         <td class="text-end">{{ run.posts_added }}</td>
@@ -166,6 +166,6 @@
 </table>
 {% endif %}
 
-<a href="/" class="btn btn-outline-secondary mt-3">← Все кампании</a>
+<a href="/" class="btn btn-outline-secondary mt-3">← All Campaigns</a>
 
 {% endblock %}

@@ -2,8 +2,8 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0">Кампании</h4>
-    <a href="/campaigns/new" class="btn btn-primary">+ Новая кампания</a>
+    <h4 class="fw-bold mb-0">Campaigns</h4>
+    <a href="/campaigns/new" class="btn btn-primary">+ New Campaign</a>
 </div>
 
 {% if campaigns_data %}
@@ -16,29 +16,29 @@
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <h5 class="card-title mb-0 fw-semibold">{{ c.name }}</h5>
                 {% if c.status == "active" %}
-                <span class="badge bg-success">Активна</span>
+                <span class="badge bg-success">Active</span>
                 {% else %}
-                <span class="badge bg-secondary">Остановлена</span>
+                <span class="badge bg-secondary">Paused</span>
                 {% endif %}
             </div>
-            <p class="text-muted small mb-1">
-                Постов найдено: <strong>{{ item.posts_count }}</strong>
+            <p class="small mb-1" style="color:#888">
+                Posts found: <strong style="color:#fff">{{ item.posts_count }}</strong>
             </p>
-            <p class="text-muted small mb-1">
+            <p class="small mb-1" style="color:#888">
                 {% if c.last_run_at %}
-                Последний запуск: {{ c.last_run_at.strftime("%d.%m.%Y %H:%M") }}
+                Last run: {{ c.last_run_at.strftime("%d %b %Y %H:%M") }}
                 {% else %}
-                Ещё не запускалась
+                Never run
                 {% endif %}
             </p>
             {% if c.next_run_at and c.status == "active" %}
-            <p class="text-muted small mb-0">
-                Следующий авто-запуск: {{ c.next_run_at.strftime("%d.%m.%Y %H:%M") }}
+            <p class="small mb-0" style="color:#888">
+                Next auto-run: {{ c.next_run_at.strftime("%d %b %Y %H:%M") }}
             </p>
             {% endif %}
         </div>
         <div class="card-footer bg-transparent border-0 pb-3 pt-0">
-            <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary">Открыть</a>
+            <a href="/campaigns/{{ c.id }}" class="btn btn-sm btn-outline-primary">Open →</a>
         </div>
     </div>
 </div>
@@ -46,9 +46,9 @@
 </div>
 
 {% else %}
-<div class="text-center py-5 text-muted">
-    <p class="mb-3">Кампаний пока нет.</p>
-    <a href="/campaigns/new" class="btn btn-primary">Создать первую</a>
+<div class="text-center py-5" style="color:#888">
+    <p class="mb-3">No campaigns yet.</p>
+    <a href="/campaigns/new" class="btn btn-primary">Create your first campaign</a>
 </div>
 {% endif %}
 
