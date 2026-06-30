@@ -122,11 +122,8 @@
             <td style="color:var(--text-muted);font-size:12px;white-space:nowrap" data-val="{{ post.published or '' }}">{{ post.published[:10] if post.published else "—" }}</td>
             <td>
                 {% if post.url %}
-                <div class="preview-wrap" style="position:relative;display:inline-block">
-                    <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm preview-btn"
-                       data-url="{{ post.url }}" data-platform="{{ post.platform }}">→</a>
-                    <div class="video-preview" style="display:none;position:absolute;right:36px;bottom:0;z-index:999;width:300px;background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>
-                </div>
+                <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm preview-btn"
+                   data-url="{{ post.url }}" data-platform="{{ post.platform }}">→</a>
                 {% endif %}
             </td>
         </tr>
@@ -161,38 +158,60 @@ document.querySelectorAll('.sortable').forEach(th => {
 });
 
 // Video preview on hover
-function getEmbedUrl(url, platform) {
-    if (platform === 'YouTube') {
-        const m = url.match(/shorts\/([^?&/]+)/) || url.match(/v=([^&]+)/);
-        return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
-    }
-    return null;
-}
+const previewCard = document.createElement('div');
+previewCard.className = 'preview-card';
+document.body.appendChild(previewCard);
 
-document.querySelectorAll('.preview-wrap').forEach(wrap => {
-    const btn = wrap.querySelector('.preview-btn');
-    const preview = wrap.querySelector('.video-preview');
+let hideTimer;
+const cache = {};
+
+async function showPreview(btn, e) {
     const url = btn.dataset.url;
     const platform = btn.dataset.platform;
+    clearTimeout(hideTimer);
 
-    btn.addEventListener('mouseenter', () => {
-        preview.innerHTML = '';
-        const embedUrl = getEmbedUrl(url, platform);
-        if (embedUrl) {
-            preview.innerHTML = `<iframe src="${embedUrl}" width="300" height="400" frameborder="0" allowfullscreen style="display:block"></iframe>`;
-        } else {
-            preview.innerHTML = `<div style="padding:16px;font-size:12px">
-                <div style="color:var(--text-muted);margin-bottom:8px">${platform}</div>
-                <a href="${url}" target="_blank" style="color:var(--accent);word-break:break-all">${url}</a>
-            </div>`;
+    if (!cache[url]) {
+        previewCard.innerHTML = `<div class="preview-info"><div class="preview-url">${url}</div></div>`;
+        previewCard.classList.add('visible');
+        positionCard(e);
+        try {
+            const r = await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${platform}`);
+            cache[url] = await r.json();
+        } catch(ex) {
+            cache[url] = {type:'unknown', url};
         }
-        preview.style.display = 'block';
-    });
-    btn.addEventListener('mouseleave', () => {
-        setTimeout(() => { preview.style.display = 'none'; }, 200);
-    });
-    preview.addEventListener('mouseenter', () => { preview.style.display = 'block'; });
-    preview.addEventListener('mouseleave', () => { preview.style.display = 'none'; });
+    }
+
+    const d = cache[url];
+    let html = '';
+    if (d.thumbnail) {
+        html += `<img src="${d.thumbnail}" onerror="this.style.display='none'">`;
+    }
+    html += `<div class="preview-info">`;
+    html += `<div class="preview-platform">${platform}</div>`;
+    if (d.title) html += `<div class="preview-title">${d.title}</div>`;
+    if (d.author) html += `<div class="preview-author">@${d.author}</div>`;
+    html += `<div class="preview-url">${url.replace('https://','')}</div>`;
+    html += `</div>`;
+
+    previewCard.innerHTML = html;
+    previewCard.classList.add('visible');
+    positionCard(e);
+}
+
+function positionCard(e) {
+    const x = e.clientX + 12;
+    const y = e.clientY - 20;
+    const w = previewCard.offsetWidth;
+    const h = previewCard.offsetHeight;
+    previewCard.style.left = (x + w > window.innerWidth ? x - w - 24 : x) + 'px';
+    previewCard.style.top  = (y + h > window.innerHeight ? y - h : y) + 'px';
+}
+
+document.querySelectorAll('.preview-btn').forEach(btn => {
+    btn.addEventListener('mouseenter', e => showPreview(btn, e));
+    btn.addEventListener('mousemove',  e => positionCard(e));
+    btn.addEventListener('mouseleave', () => { hideTimer = setTimeout(() => previewCard.classList.remove('visible'), 150); });
 });
 </script>
 {% else %}

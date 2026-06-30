@@ -9,5 +9,5 @@ langdetect
 notion-client
 apscheduler
 itsdangerous
-httpx
+httpx[asyncio]
 psycopg2-binary

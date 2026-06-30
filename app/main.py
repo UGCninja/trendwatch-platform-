@@ -12,6 +12,8 @@ from fastapi.templating import Jinja2Templates
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+import httpx
+from fastapi.responses import JSONResponse
 from app.auth import APP_PASSWORD, check_auth, create_session_token
 from app.database import SessionLocal, init_db
 from app.models import Campaign, Post, Run
@@ -109,6 +111,28 @@ def overview(request: Request, days: int = 30, campaign: str = "all"):
         "chart_instagram": [ig_by_week[w] for w in all_weeks],
         "chart_youtube": [yt_by_week[w] for w in all_weeks],
     })
+
+
+@app.get("/api/preview")
+async def api_preview(url: str, platform: str = ""):
+    try:
+        if platform == "YouTube" or "youtube.com" in url or "youtu.be" in url:
+            import re
+            m = re.search(r'(?:shorts/|v=|youtu\.be/)([^?&/]+)', url)
+            vid = m.group(1) if m else None
+            if vid:
+                return JSONResponse({"type": "youtube", "thumbnail": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg", "embed": f"https://www.youtube.com/embed/{vid}", "url": url})
+        if platform == "TikTok" or "tiktok.com" in url:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"https://www.tiktok.com/oembed?url={url}", headers={"User-Agent": "Mozilla/5.0"})
+                if r.status_code == 200:
+                    d = r.json()
+                    return JSONResponse({"type": "tiktok", "thumbnail": d.get("thumbnail_url"), "title": d.get("title","")[:60], "author": d.get("author_name",""), "url": url})
+        if platform == "Instagram" or "instagram.com" in url:
+            return JSONResponse({"type": "instagram", "thumbnail": None, "url": url})
+    except Exception:
+        pass
+    return JSONResponse({"type": "unknown", "url": url})
 
 
 @app.get("/system", response_class=HTMLResponse)
