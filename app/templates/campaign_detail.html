@@ -38,7 +38,7 @@
 </div>
 
 <!-- Info cards -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">
     <div class="section-card" style="padding:16px 18px">
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Hashtags</div>
         {% if hashtags %}
@@ -52,6 +52,14 @@
         {% if accounts %}
             {% for a in accounts %}
             <span style="display:inline-block;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">@{{ a }}</span>
+            {% endfor %}
+        {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+    </div>
+    <div class="section-card" style="padding:16px 18px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Keywords <span style="font-size:10px;opacity:.6">TikTok &amp; YT</span></div>
+        {% if keywords %}
+            {% for k in keywords %}
+            <span style="display:inline-block;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">{{ k }}</span>
             {% endfor %}
         {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
     </div>

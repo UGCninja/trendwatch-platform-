@@ -169,6 +169,78 @@ def fetch_instagram_hashtag(hashtag: str) -> list:
     return all_posts
 
 
+def fetch_tiktok_keyword(query: str) -> list:
+    label, posts, cursor = f'"{query}"', [], None
+    for _ in range(3):
+        params = {"query": query, "limit": 30}
+        if cursor is not None:
+            params["cursor"] = cursor
+        resp = requests.get(
+            "https://api.scrapecreators.com/v1/tiktok/search/keyword",
+            headers=SC_HEADERS, params=params, timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        for item in data.get("search_item_list", []):
+            aweme = item.get("aweme_info", {})
+            if aweme:
+                posts.append(normalize_tiktok(aweme, label))
+        if not data.get("has_more"):
+            break
+        cursor = data.get("cursor")
+    return posts
+
+
+def fetch_youtube_keyword(query: str) -> list:
+    if not YOUTUBE_API_KEY:
+        return []
+    r = requests.get(f"{YT_BASE}/search", params={
+        "part": "id", "q": f"{query} #shorts",
+        "type": "video", "videoDuration": "short",
+        "maxResults": 50, "order": "viewCount",
+        "key": YOUTUBE_API_KEY,
+    }, timeout=30)
+    r.raise_for_status()
+    video_ids = [i["id"]["videoId"] for i in r.json().get("items", []) if i.get("id", {}).get("videoId")]
+    if not video_ids:
+        return []
+    rv = requests.get(f"{YT_BASE}/videos", params={
+        "part": "snippet,statistics,contentDetails",
+        "id": ",".join(video_ids),
+        "key": YOUTUBE_API_KEY,
+    }, timeout=30)
+    rv.raise_for_status()
+    posts = []
+    for item in rv.json().get("items", []):
+        if not _yt_is_short(item.get("contentDetails", {}).get("duration", "")):
+            continue
+        snippet  = item.get("snippet", {})
+        stats    = item.get("statistics", {})
+        views    = int(stats.get("viewCount",    0) or 0)
+        likes    = int(stats.get("likeCount",    0) or 0)
+        comments = int(stats.get("commentCount", 0) or 0)
+        pub_raw  = snippet.get("publishedAt", "")
+        try:
+            published = datetime.fromisoformat(pub_raw.replace("Z", "+00:00")).isoformat()
+        except Exception:
+            published = datetime.now(tz=timezone.utc).isoformat()
+        caption = (snippet.get("title") or "")[:300]
+        posts.append({
+            "post_id":   item["id"],
+            "platform":  "YouTube",
+            "account":   f'"{query}"',
+            "url":       f"https://www.youtube.com/shorts/{item['id']}",
+            "views":     views,
+            "likes":     likes,
+            "comments":  comments,
+            "shares":    0,
+            "er":        round((likes + comments) / views * 100, 2) if views > 0 else 0.0,
+            "published": published,
+            "language":  detect_language(caption),
+        })
+    return posts
+
+
 def _yt_is_short(duration: str) -> bool:
     m = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration or "")
     if not m:
@@ -250,6 +322,7 @@ def run_campaign(campaign, existing_post_ids: set) -> list:
     platforms = json.loads(campaign.platforms or '["tiktok","instagram"]')
     hashtags  = json.loads(campaign.hashtags  or '[]')
     accounts  = json.loads(campaign.accounts  or '[]')
+    keywords  = json.loads(getattr(campaign, 'keywords', None) or '[]')
     languages = json.loads(campaign.languages or '["all"]')
 
     all_posts = []
@@ -265,6 +338,11 @@ def run_campaign(campaign, existing_post_ids: set) -> list:
                 all_posts.extend(fetch_tiktok_hashtag(tag))
             except Exception as e:
                 print(f"TikTok #{tag}: {e}")
+        for kw in keywords:
+            try:
+                all_posts.extend(fetch_tiktok_keyword(kw))
+            except Exception as e:
+                print(f"TikTok keyword '{kw}': {e}")
 
     if "instagram" in platforms:
         for handle in accounts:
@@ -284,6 +362,11 @@ def run_campaign(campaign, existing_post_ids: set) -> list:
                 all_posts.extend(fetch_youtube_hashtag(tag))
             except Exception as e:
                 print(f"YouTube #{tag}: {e}")
+        for kw in keywords:
+            try:
+                all_posts.extend(fetch_youtube_keyword(kw))
+            except Exception as e:
+                print(f"YouTube keyword '{kw}': {e}")
 
     new_posts = []
     new_posts = []

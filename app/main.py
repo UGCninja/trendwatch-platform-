@@ -198,6 +198,7 @@ async def campaign_create(
     platforms:    list[str] = Form(...),
     hashtags:     str       = Form(""),
     accounts:     str       = Form(""),
+    keywords:     str       = Form(""),
     min_views:    int       = Form(300000),
     min_er:       float     = Form(2.0),
     max_age_days: int       = Form(180),
@@ -208,6 +209,7 @@ async def campaign_create(
 
     hashtags_list = [h.strip().lstrip("#") for h in hashtags.split(",") if h.strip()]
     accounts_list = [a.strip().lstrip("@") for a in accounts.split(",") if a.strip()]
+    keywords_list = [k.strip() for k in keywords.split(",") if k.strip()]
     langs         = languages if languages else ["all"]
 
     db  = SessionLocal()
@@ -218,6 +220,7 @@ async def campaign_create(
         platforms    = json.dumps(platforms),
         hashtags     = json.dumps(hashtags_list),
         accounts     = json.dumps(accounts_list),
+        keywords     = json.dumps(keywords_list),
         min_views    = min_views,
         min_er       = min_er,
         max_age_days = max_age_days,
@@ -252,6 +255,7 @@ def campaign_detail(request: Request, campaign_id: int):
         "runs":      runs,
         "hashtags":  json.loads(c.hashtags  or "[]"),
         "accounts":  json.loads(c.accounts  or "[]"),
+        "keywords":  json.loads(c.keywords  or "[]"),
         "platforms": json.loads(c.platforms or "[]"),
         "languages": json.loads(c.languages or '["all"]'),
     }
@@ -377,6 +381,7 @@ def campaign_edit_page(request: Request, campaign_id: int):
         "campaign":  c,
         "hashtags":  ", ".join(json.loads(c.hashtags  or "[]")),
         "accounts":  ", ".join(json.loads(c.accounts  or "[]")),
+        "keywords":  ", ".join(json.loads(c.keywords  or "[]")),
         "platforms": json.loads(c.platforms or "[]"),
         "languages": json.loads(c.languages or '["all"]'),
         "verticals": get_verticals(),
@@ -393,6 +398,7 @@ async def campaign_edit(
     platforms:    list[str] = Form(...),
     hashtags:     str       = Form(""),
     accounts:     str       = Form(""),
+    keywords:     str       = Form(""),
     min_views:    int       = Form(300000),
     min_er:       float     = Form(2.0),
     max_age_days: int       = Form(180),
@@ -408,6 +414,7 @@ async def campaign_edit(
         c.platforms    = json.dumps(platforms)
         c.hashtags     = json.dumps([h.strip().lstrip("#") for h in hashtags.split(",") if h.strip()])
         c.accounts     = json.dumps([a.strip().lstrip("@") for a in accounts.split(",") if a.strip()])
+        c.keywords     = json.dumps([k.strip() for k in keywords.split(",") if k.strip()])
         c.min_views    = min_views
         c.min_er       = min_er
         c.max_age_days = max_age_days

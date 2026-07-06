@@ -27,6 +27,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+        # migrate keywords column
+        try:
+            conn.execute(text("ALTER TABLE campaigns ADD COLUMN keywords TEXT DEFAULT '[]'"))
+            conn.commit()
+        except Exception:
+            pass
         # seed default verticals
         from app.models import Vertical
         db = SessionLocal()

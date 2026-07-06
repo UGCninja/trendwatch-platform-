@@ -20,6 +20,7 @@ class Campaign(Base):
     platforms    = Column(Text)   # JSON: ["tiktok", "instagram"]
     hashtags     = Column(Text)   # JSON: ["ClashOfClans", ...]
     accounts     = Column(Text)   # JSON: ["handle", ...]
+    keywords     = Column(Text, default="[]")  # JSON: ["bestplay app", ...]
     min_views    = Column(Integer, default=300000)
     min_er       = Column(Float,   default=2.0)
     max_age_days = Column(Integer, default=180)
