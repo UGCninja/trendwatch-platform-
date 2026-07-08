@@ -18,29 +18,27 @@ SessionLocal = sessionmaker(bind=engine)
 
 DEFAULT_VERTICALS = ["StrategyGames", "RewardsApps", "CryptoCasino", "SolitaireRefs"]
 
+def _run_migration(sql: str):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(sql))
+            conn.commit()
+    except Exception:
+        pass
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
-    with engine.connect() as conn:
-        # migrate vertical column
-        try:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''"))
-            conn.commit()
-        except Exception:
-            pass
-        # migrate keywords column
-        try:
-            conn.execute(text("ALTER TABLE campaigns ADD COLUMN keywords TEXT DEFAULT '[]'"))
-            conn.commit()
-        except Exception:
-            pass
-        # seed default verticals
-        from app.models import Vertical
-        db = SessionLocal()
-        for name in DEFAULT_VERTICALS:
-            if not db.query(Vertical).filter(Vertical.name == name).first():
-                db.add(Vertical(name=name))
-        db.commit()
-        db.close()
+    _run_migration("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''")
+    _run_migration("ALTER TABLE campaigns ADD COLUMN keywords TEXT DEFAULT '[]'")
+
+    from app.models import Vertical
+    db = SessionLocal()
+    for name in DEFAULT_VERTICALS:
+        if not db.query(Vertical).filter(Vertical.name == name).first():
+            db.add(Vertical(name=name))
+    db.commit()
+    db.close()
 
 
 def get_db():

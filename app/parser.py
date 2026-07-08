@@ -369,7 +369,6 @@ def run_campaign(campaign, existing_post_ids: set) -> list:
                 print(f"YouTube keyword '{kw}': {e}")
 
     new_posts = []
-    new_posts = []
     for post in all_posts:
         if post["post_id"] in existing_post_ids:
             continue
