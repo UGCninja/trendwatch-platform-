@@ -31,6 +31,7 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     _run_migration("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''")
     _run_migration("ALTER TABLE campaigns ADD COLUMN keywords TEXT DEFAULT '[]'")
+    _run_migration("ALTER TABLE posts ADD COLUMN added_at DATETIME")
 
     from app.models import Vertical
     db = SessionLocal()

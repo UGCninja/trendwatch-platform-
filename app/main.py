@@ -16,12 +16,11 @@ import httpx
 from fastapi.responses import JSONResponse
 from app.auth import APP_PASSWORD, check_auth, create_session_token
 from app.database import SessionLocal, init_db
-from app.models import Campaign, Post, Run
+from app.models import Campaign, Post, Run, Tag, PostTag, Vertical
 from app.notion_sync import push_post_to_notion
 from app.parser import run_campaign
 from app.scheduler import start_scheduler
 from app.telegram import send_message
-from app.models import Vertical
 
 app = FastAPI()
 
@@ -29,6 +28,7 @@ BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=BASE_DIR.parent / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 templates.env.filters["fromjson"] = json.loads
+templates.env.filters["tojson"]   = json.dumps
 
 
 @app.on_event("startup")
@@ -249,18 +249,108 @@ def campaign_detail(request: Request, campaign_id: int):
         return RedirectResponse("/", status_code=302)
     posts = db.query(Post).filter(Post.campaign_id == campaign_id).order_by(Post.views.desc()).all()
     runs  = db.query(Run).filter(Run.campaign_id == campaign_id).order_by(Run.started_at.desc()).limit(10).all()
-    ctx   = {
-        "campaign":  c,
-        "posts":     posts,
-        "runs":      runs,
-        "hashtags":  json.loads(c.hashtags  or "[]"),
-        "accounts":  json.loads(c.accounts  or "[]"),
-        "keywords":  json.loads(c.keywords  or "[]"),
-        "platforms": json.loads(c.platforms or "[]"),
-        "languages": json.loads(c.languages or '["all"]'),
+
+    # Build post → tags map
+    post_ids = [p.id for p in posts]
+    all_post_tags = db.query(PostTag).filter(PostTag.post_id.in_(post_ids)).all() if post_ids else []
+    used_tag_ids  = list({pt.tag_id for pt in all_post_tags})
+    tags_by_id    = {t.id: t for t in db.query(Tag).filter(Tag.id.in_(used_tag_ids)).all()} if used_tag_ids else {}
+    post_tags_map: dict[int, list] = {}
+    for pt in all_post_tags:
+        tag = tags_by_id.get(pt.tag_id)
+        if tag:
+            post_tags_map.setdefault(pt.post_id, []).append({"id": tag.id, "name": tag.name})
+
+    all_tags = [{"id": t.id, "name": t.name} for t in db.query(Tag).order_by(Tag.name).all()]
+
+    ctx = {
+        "campaign":       c,
+        "posts":          posts,
+        "runs":           runs,
+        "hashtags":       json.loads(c.hashtags  or "[]"),
+        "accounts":       json.loads(c.accounts  or "[]"),
+        "keywords":       json.loads(c.keywords  or "[]"),
+        "platforms":      json.loads(c.platforms or "[]"),
+        "languages":      json.loads(c.languages or '["all"]'),
+        "all_tags_json":  json.dumps(all_tags),
+        "post_tags_json": json.dumps({str(k): v for k, v in post_tags_map.items()}),
     }
     db.close()
     return templates.TemplateResponse(request=request, name="campaign_detail.html", context=ctx)
+
+
+# ── Tags API ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/tags")
+def api_tags_list(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db   = SessionLocal()
+    tags = [{"id": t.id, "name": t.name} for t in db.query(Tag).order_by(Tag.name).all()]
+    db.close()
+    return JSONResponse(tags)
+
+
+@app.post("/api/tags")
+async def api_tag_create(request: Request, name: str = Form(...)):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db   = SessionLocal()
+    name = name.strip()
+    tag  = db.query(Tag).filter(Tag.name == name).first()
+    if not tag:
+        tag = Tag(name=name)
+        db.add(tag)
+        db.commit()
+        db.refresh(tag)
+    result = {"id": tag.id, "name": tag.name}
+    db.close()
+    return JSONResponse(result)
+
+
+@app.post("/api/posts/{post_id}/tags/{tag_id}")
+def api_post_tag_add(request: Request, post_id: int, tag_id: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db  = SessionLocal()
+    exists = db.query(PostTag).filter(PostTag.post_id == post_id, PostTag.tag_id == tag_id).first()
+    if not exists:
+        db.add(PostTag(post_id=post_id, tag_id=tag_id))
+        db.commit()
+    db.close()
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/posts/{post_id}/tags/{tag_id}")
+def api_post_tag_remove(request: Request, post_id: int, tag_id: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db = SessionLocal()
+    db.query(PostTag).filter(PostTag.post_id == post_id, PostTag.tag_id == tag_id).delete()
+    db.commit()
+    db.close()
+    return JSONResponse({"ok": True})
+
+
+# ── Bulk delete posts ─────────────────────────────────────────────────────────
+
+@app.post("/campaigns/{campaign_id}/posts/delete")
+async def posts_bulk_delete(request: Request, campaign_id: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    form = await request.form()
+    ids  = form.getlist("post_ids")
+    db   = SessionLocal()
+    for pid in ids:
+        try:
+            pid_int = int(pid)
+            db.query(PostTag).filter(PostTag.post_id == pid_int).delete()
+            db.query(Post).filter(Post.id == pid_int, Post.campaign_id == campaign_id).delete()
+        except (ValueError, TypeError):
+            pass
+    db.commit()
+    db.close()
+    return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
 
 
 def _run_in_background(campaign_id: int):

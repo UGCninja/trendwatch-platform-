@@ -91,43 +91,115 @@
 {% endif %}
 
 {% if posts %}
+
+<!-- ── Filters & Tags controls ──────────────────────────────────────────── -->
+<div class="section-card" style="padding:14px 18px;margin-bottom:8px">
+    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Published</span>
+            <input type="date" id="pubFrom" onchange="applyFilters()"
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
+            <span style="color:var(--text-muted)">—</span>
+            <input type="date" id="pubTo" onchange="applyFilters()"
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Added</span>
+            <input type="date" id="addFrom" onchange="applyFilters()"
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
+            <span style="color:var(--text-muted)">—</span>
+            <input type="date" id="addTo" onchange="applyFilters()"
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
+        </div>
+        <button onclick="clearFilters()"
+                style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit">
+            Clear
+        </button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Tags</span>
+        <div id="tagFilterChips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <div style="display:flex;gap:4px;margin-left:4px">
+            <input id="newTagInput" type="text" placeholder="New tag…"
+                   onkeydown="if(event.key==='Enter'){createTag()}"
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 8px;font-size:12px;font-family:inherit;width:120px">
+            <button onclick="createTag()"
+                    style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit">
+                + Add
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Posts table ──────────────────────────────────────────────────────── -->
 <div class="section-card" style="padding:0;overflow:hidden;margin-bottom:12px">
-    <div style="padding:16px 22px 12px;display:flex;align-items:center;gap:12px">
-        <span class="section-title" style="margin:0">Posts ({{ posts|length }})</span>
+    <div style="padding:14px 18px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span class="section-title" style="margin:0">
+            Posts (<span id="visibleCount">{{ posts|length }}</span> / {{ posts|length }})
+        </span>
         <span style="font-size:11px;color:var(--text-muted)">Click column headers to sort</span>
+        <div style="margin-left:auto">
+            <form id="bulkDeleteForm" method="post" action="/campaigns/{{ campaign.id }}/posts/delete"
+                  onsubmit="return confirm('Delete selected posts? This cannot be undone.')">
+                <button type="submit" id="deleteBtn" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
+                    Delete selected (<span id="selCount">0</span>)
+                </button>
+            </form>
+        </div>
     </div>
     <div style="overflow-x:auto">
     <table class="data-table" id="postsTable">
         <thead>
             <tr>
+                <th style="width:32px;padding:10px 8px">
+                    <input type="checkbox" id="selectAll" style="cursor:pointer;accent-color:var(--accent)">
+                </th>
                 <th>Platform</th>
                 <th>Account</th>
-                <th class="text-right sortable" data-col="2" style="cursor:pointer">Views ↕</th>
-                <th class="text-right sortable" data-col="3" style="cursor:pointer">Likes ↕</th>
-                <th class="text-right sortable" data-col="4" style="cursor:pointer">Comments ↕</th>
-                <th class="text-right sortable" data-col="5" style="cursor:pointer">Shares ↕</th>
-                <th class="text-right sortable" data-col="6" style="cursor:pointer">ER ↕</th>
+                <th class="text-right sortable" data-col="3" style="cursor:pointer">Views ↕</th>
+                <th class="text-right sortable" data-col="4" style="cursor:pointer">Likes ↕</th>
+                <th class="text-right sortable" data-col="5" style="cursor:pointer">Comments ↕</th>
+                <th class="text-right sortable" data-col="6" style="cursor:pointer">Shares ↕</th>
+                <th class="text-right sortable" data-col="7" style="cursor:pointer">ER ↕</th>
                 <th>Language</th>
-                <th class="sortable" data-col="8" style="cursor:pointer">Published ↕</th>
+                <th class="sortable" data-col="9" style="cursor:pointer">Published ↕</th>
+                <th class="sortable" data-col="10" style="cursor:pointer">Added ↕</th>
+                <th>Tags</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
         {% for post in posts %}
-        <tr>
+        <tr data-pub="{{ post.published[:10] if post.published else '' }}"
+            data-added="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}"
+            data-post-id="{{ post.id }}"
+            data-tags="">
+            <td style="padding:8px">
+                <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
+                       class="row-checkbox" style="cursor:pointer;accent-color:var(--accent)">
+            </td>
             <td>
                 {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
                 {% elif post.platform == "YouTube" %}<span class="badge badge-yt">YouTube</span>
                 {% else %}<span class="badge badge-ig">Instagram</span>{% endif %}
             </td>
-            <td style="color:var(--text-muted);font-size:12px">{{ post.account }}</td>
+            <td style="color:var(--text-muted);font-size:12px">{{ post.account.split(' (')[0] }}</td>
             <td class="text-right" data-val="{{ post.views }}">{{ "{:,}".format(post.views) }}</td>
             <td class="text-right" style="color:#60a5fa" data-val="{{ post.likes }}">{{ "{:,}".format(post.likes) }}</td>
             <td class="text-right" style="color:#c084fc" data-val="{{ post.comments }}">{{ "{:,}".format(post.comments) }}</td>
             <td class="text-right" style="color:#4ade80" data-val="{{ post.shares }}">{{ "{:,}".format(post.shares) }}</td>
             <td class="text-right" style="color:#fb923c;font-weight:600" data-val="{{ post.er }}">{{ post.er }}%</td>
             <td><span style="background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px">{{ post.language }}</span></td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap" data-val="{{ post.published or '' }}">{{ post.published[:10] if post.published else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
+                data-val="{{ post.published[:10] if post.published else '' }}">{{ post.published[:10] if post.published else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
+                data-val="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}">
+                {{ post.added_at.strftime('%Y-%m-%d') if post.added_at else "—" }}</td>
+            <td style="white-space:nowrap;max-width:180px">
+                <div id="tags-{{ post.id }}" style="display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center;vertical-align:middle"></div>
+                <button class="add-tag-btn" data-post-id="{{ post.id }}"
+                        style="background:none;border:1px solid rgba(255,255,255,.15);color:var(--text-muted);border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer;vertical-align:middle;margin-left:2px;line-height:1.6">+</button>
+            </td>
             <td>
                 {% if post.url %}
                 <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm preview-btn"
@@ -141,43 +213,240 @@
     </div>
 </div>
 
+<!-- ── Tag dropdown (shared, repositioned on open) ────────────────────── -->
+<div id="tagDropdown" style="display:none;position:fixed;z-index:9999;background:#22252e;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;min-width:170px;max-height:240px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
+
 <script>
-// Sorting
-document.querySelectorAll('.sortable').forEach(th => {
-    let asc = false;
-    th.addEventListener('click', () => {
-        const col = parseInt(th.dataset.col);
-        const tbody = document.querySelector('#postsTable tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        rows.sort((a, b) => {
-            const aVal = a.cells[col].dataset.val || a.cells[col].textContent.replace(/[^0-9.-]/g,'');
-            const bVal = b.cells[col].dataset.val || b.cells[col].textContent.replace(/[^0-9.-]/g,'');
-            const aNum = parseFloat(aVal) || aVal;
-            const bNum = parseFloat(bVal) || bVal;
-            if (aNum < bNum) return asc ? -1 : 1;
-            if (aNum > bNum) return asc ? 1 : -1;
-            return 0;
-        });
-        asc = !asc;
-        rows.forEach(r => tbody.appendChild(r));
-        document.querySelectorAll('.sortable').forEach(t => t.textContent = t.textContent.replace(/ [↑↓↕]/,'') + ' ↕');
-        th.textContent = th.textContent.replace(/ [↑↓↕]/,'') + (asc ? ' ↑' : ' ↓');
+// ── Server data ──────────────────────────────────────────────────────────
+const CAMPAIGN_ID   = {{ campaign.id }};
+let allTags         = {{ all_tags_json | safe }};
+let postTagsMap     = {{ post_tags_json | safe }};
+let activeTagFilter = null;
+let dropdownPostId  = null;
+
+// ── Render post tags chips ───────────────────────────────────────────────
+function renderPostTags(postId) {
+    const el   = document.getElementById('tags-' + postId);
+    if (!el) return;
+    const tags = postTagsMap[postId] || [];
+    el.innerHTML = tags.map(t =>
+        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
+          ${t.name}
+          <span onclick="event.stopPropagation();removeTag(${postId},${t.id})"
+                style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
+        </span>`
+    ).join('');
+    const row = el.closest('tr');
+    if (row) row.dataset.tags = tags.map(t => t.id).join(',');
+}
+
+function renderAllPostTags() {
+    document.querySelectorAll('tr[data-post-id]').forEach(tr => {
+        const pid = tr.dataset.postId;
+        renderPostTags(pid);
+        if (!postTagsMap[pid]) tr.dataset.tags = '';
+    });
+}
+
+// ── Tag filter chips (above table) ──────────────────────────────────────
+function renderTagFilterChips() {
+    const c = document.getElementById('tagFilterChips');
+    c.innerHTML = allTags.map(t => {
+        const active = activeTagFilter === t.id;
+        return `<span onclick="toggleTagFilter(${t.id})"
+                  style="cursor:pointer;border-radius:4px;padding:2px 9px;font-size:11px;
+                         background:${active ? 'rgba(99,102,241,.35)' : 'rgba(255,255,255,.06)'};
+                         color:${active ? '#a5b4fc' : 'var(--text-muted)'};
+                         border:1px solid ${active ? 'rgba(99,102,241,.5)' : 'transparent'}">${t.name}</span>`;
+    }).join('');
+}
+
+function toggleTagFilter(tagId) {
+    activeTagFilter = (activeTagFilter === tagId) ? null : tagId;
+    renderTagFilterChips();
+    applyFilters();
+}
+
+// ── Date + tag filters ───────────────────────────────────────────────────
+function applyFilters() {
+    const pubFrom = document.getElementById('pubFrom').value;
+    const pubTo   = document.getElementById('pubTo').value;
+    const addFrom = document.getElementById('addFrom').value;
+    const addTo   = document.getElementById('addTo').value;
+    let visible = 0;
+    document.querySelectorAll('#postsTable tbody tr').forEach(row => {
+        const pub    = row.dataset.pub   || '';
+        const added  = row.dataset.added || '';
+        const tagIds = (row.dataset.tags || '').split(',').filter(Boolean).map(Number);
+        const pubOk  = (!pubFrom || pub >= pubFrom) && (!pubTo   || pub   <= pubTo);
+        const addOk  = (!addFrom || added >= addFrom) && (!addTo || added <= addTo);
+        const tagOk  = !activeTagFilter || tagIds.includes(activeTagFilter);
+        if (pubOk && addOk && tagOk) { row.style.display = ''; visible++; }
+        else                         { row.style.display = 'none'; }
+    });
+    document.getElementById('visibleCount').textContent = visible;
+}
+
+function clearFilters() {
+    ['pubFrom','pubTo','addFrom','addTo'].forEach(id => document.getElementById(id).value = '');
+    activeTagFilter = null;
+    renderTagFilterChips();
+    applyFilters();
+}
+
+// ── Create new tag ───────────────────────────────────────────────────────
+async function createTag() {
+    const input = document.getElementById('newTagInput');
+    const name  = input.value.trim();
+    if (!name) return;
+    const fd = new FormData();
+    fd.append('name', name);
+    const r   = await fetch('/api/tags', {method:'POST', body:fd});
+    const tag = await r.json();
+    if (!allTags.find(t => t.id === tag.id)) {
+        allTags.push(tag);
+        allTags.sort((a,b) => a.name.localeCompare(b.name));
+    }
+    input.value = '';
+    renderTagFilterChips();
+    if (dropdownPostId !== null) renderTagDropdown(dropdownPostId);
+}
+
+// ── Tag dropdown ─────────────────────────────────────────────────────────
+const tagDropdownEl = document.getElementById('tagDropdown');
+
+function renderTagDropdown(postId) {
+    const postTagIds = new Set((postTagsMap[postId] || []).map(t => t.id));
+    tagDropdownEl.innerHTML = allTags.length
+        ? allTags.map(t => {
+            const on = postTagIds.has(t.id);
+            return `<div onclick="togglePostTag(${postId},${t.id})"
+                         style="cursor:pointer;padding:5px 8px;border-radius:5px;font-size:12px;
+                                display:flex;align-items:center;gap:7px;
+                                color:${on ? '#a5b4fc' : 'var(--text-muted)'};
+                                background:${on ? 'rgba(99,102,241,.15)' : 'transparent'}">
+                      <span style="font-size:11px;opacity:.8">${on ? '✓' : '○'}</span>${t.name}
+                    </div>`;
+          }).join('')
+        : '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">No tags yet — create one above</div>';
+}
+
+function openTagDropdown(btn, postId) {
+    dropdownPostId = postId;
+    renderTagDropdown(postId);
+    const rect = btn.getBoundingClientRect();
+    tagDropdownEl.style.display = 'block';
+    requestAnimationFrame(() => {
+        const dh = tagDropdownEl.offsetHeight;
+        const dw = tagDropdownEl.offsetWidth;
+        let top  = rect.bottom + 4;
+        let left = rect.left;
+        if (top + dh > window.innerHeight) top = rect.top - dh - 4;
+        if (left + dw > window.innerWidth) left = window.innerWidth - dw - 8;
+        tagDropdownEl.style.top  = top  + 'px';
+        tagDropdownEl.style.left = left + 'px';
+    });
+}
+
+document.addEventListener('click', e => {
+    if (!tagDropdownEl.contains(e.target) && !e.target.classList.contains('add-tag-btn')) {
+        tagDropdownEl.style.display = 'none';
+        dropdownPostId = null;
+    }
+});
+
+document.querySelectorAll('.add-tag-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.postId);
+        if (dropdownPostId === pid && tagDropdownEl.style.display === 'block') {
+            tagDropdownEl.style.display = 'none';
+            dropdownPostId = null;
+        } else {
+            openTagDropdown(btn, pid);
+        }
     });
 });
 
-// Video preview on hover
+async function togglePostTag(postId, tagId) {
+    const tags    = postTagsMap[postId] || [];
+    const hasTag  = tags.find(t => t.id === tagId);
+    if (hasTag) {
+        await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
+        postTagsMap[postId] = tags.filter(t => t.id !== tagId);
+    } else {
+        await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'POST'});
+        const tag = allTags.find(t => t.id === tagId);
+        if (tag) {
+            if (!postTagsMap[postId]) postTagsMap[postId] = [];
+            postTagsMap[postId].push(tag);
+        }
+    }
+    renderPostTags(postId);
+    renderTagDropdown(postId);
+    applyFilters();
+}
+
+async function removeTag(postId, tagId) {
+    await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
+    if (postTagsMap[postId]) postTagsMap[postId] = postTagsMap[postId].filter(t => t.id !== tagId);
+    renderPostTags(postId);
+    applyFilters();
+}
+
+// ── Bulk select / delete ─────────────────────────────────────────────────
+function updateBulkUI() {
+    const checked = document.querySelectorAll('.row-checkbox:checked').length;
+    document.getElementById('deleteBtn').style.display = checked ? '' : 'none';
+    document.getElementById('selCount').textContent = checked;
+}
+
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('#postsTable tbody tr').forEach(tr => {
+        if (tr.style.display !== 'none') {
+            tr.querySelector('.row-checkbox').checked = this.checked;
+        }
+    });
+    updateBulkUI();
+});
+
+document.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkUI));
+
+// ── Sorting (fixed: date strings compared lexicographically) ─────────────
+document.querySelectorAll('.sortable').forEach(th => {
+    let asc = false;
+    th.addEventListener('click', () => {
+        const col   = parseInt(th.dataset.col);
+        const tbody = document.querySelector('#postsTable tbody');
+        const rows  = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const av = a.cells[col].dataset.val ?? a.cells[col].textContent.trim();
+            const bv = b.cells[col].dataset.val ?? b.cells[col].textContent.trim();
+            const an = /^-?\d+(\.\d+)?$/.test(av) ? parseFloat(av) : null;
+            const bn = /^-?\d+(\.\d+)?$/.test(bv) ? parseFloat(bv) : null;
+            const a_ = (an !== null && bn !== null) ? an : av;
+            const b_ = (an !== null && bn !== null) ? bn : bv;
+            return asc ? (a_ < b_ ? -1 : a_ > b_ ? 1 : 0) : (a_ > b_ ? -1 : a_ < b_ ? 1 : 0);
+        });
+        asc = !asc;
+        rows.forEach(r => tbody.appendChild(r));
+        document.querySelectorAll('.sortable').forEach(t => {
+            t.textContent = t.textContent.replace(/ [↑↓↕]/, '') + ' ↕';
+        });
+        th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
+    });
+});
+
+// ── Video preview ────────────────────────────────────────────────────────
 const previewCard = document.createElement('div');
 previewCard.className = 'preview-card';
 document.body.appendChild(previewCard);
-
 let hideTimer;
 const cache = {};
 
 async function showPreview(btn, e) {
-    const url = btn.dataset.url;
-    const platform = btn.dataset.platform;
+    const url = btn.dataset.url, platform = btn.dataset.platform;
     clearTimeout(hideTimer);
-
     if (!cache[url]) {
         previewCard.innerHTML = `<div class="preview-info"><div class="preview-url">${url}</div></div>`;
         previewCard.classList.add('visible');
@@ -185,35 +454,24 @@ async function showPreview(btn, e) {
         try {
             const r = await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${platform}`);
             cache[url] = await r.json();
-        } catch(ex) {
-            cache[url] = {type:'unknown', url};
-        }
+        } catch(ex) { cache[url] = {type:'unknown', url}; }
     }
-
     const d = cache[url];
-    let html = '';
-    if (d.thumbnail) {
-        html += `<img src="${d.thumbnail}" onerror="this.style.display='none'">`;
-    }
-    html += `<div class="preview-info">`;
-    html += `<div class="preview-platform">${platform}</div>`;
-    if (d.title) html += `<div class="preview-title">${d.title}</div>`;
+    let html = d.thumbnail ? `<img src="${d.thumbnail}" onerror="this.style.display='none'">` : '';
+    html += `<div class="preview-info"><div class="preview-platform">${platform}</div>`;
+    if (d.title)  html += `<div class="preview-title">${d.title}</div>`;
     if (d.author) html += `<div class="preview-author">@${d.author}</div>`;
-    html += `<div class="preview-url">${url.replace('https://','')}</div>`;
-    html += `</div>`;
-
+    html += `<div class="preview-url">${url.replace('https://','')}</div></div>`;
     previewCard.innerHTML = html;
     previewCard.classList.add('visible');
     positionCard(e);
 }
 
 function positionCard(e) {
-    const x = e.clientX + 12;
-    const y = e.clientY - 20;
-    const w = previewCard.offsetWidth;
-    const h = previewCard.offsetHeight;
-    previewCard.style.left = (x + w > window.innerWidth ? x - w - 24 : x) + 'px';
-    previewCard.style.top  = (y + h > window.innerHeight ? y - h : y) + 'px';
+    const x = e.clientX + 12, y = e.clientY - 20;
+    const w = previewCard.offsetWidth, h = previewCard.offsetHeight;
+    previewCard.style.left = (x + w > window.innerWidth  ? x - w - 24 : x) + 'px';
+    previewCard.style.top  = (y + h > window.innerHeight ? y - h      : y) + 'px';
 }
 
 document.querySelectorAll('.preview-btn').forEach(btn => {
@@ -221,7 +479,12 @@ document.querySelectorAll('.preview-btn').forEach(btn => {
     btn.addEventListener('mousemove',  e => positionCard(e));
     btn.addEventListener('mouseleave', () => { hideTimer = setTimeout(() => previewCard.classList.remove('visible'), 150); });
 });
+
+// ── Init ─────────────────────────────────────────────────────────────────
+renderAllPostTags();
+renderTagFilterChips();
 </script>
+
 {% else %}
 <div style="padding:40px;text-align:center;color:var(--text-muted)">
     No posts yet — click <strong style="color:var(--text)">Run Now</strong> to start.

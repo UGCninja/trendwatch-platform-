@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 from datetime import datetime
 
@@ -48,6 +48,20 @@ class Post(Base):
     published   = Column(String)
     language    = Column(String)
     added_at    = Column(DateTime, default=datetime.utcnow)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id   = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+
+
+class PostTag(Base):
+    __tablename__ = "post_tags"
+    id      = Column(Integer, primary_key=True)
+    post_id = Column(Integer, nullable=False, index=True)
+    tag_id  = Column(Integer, nullable=False, index=True)
+    __table_args__ = (UniqueConstraint("post_id", "tag_id"),)
 
 
 class Run(Base):
