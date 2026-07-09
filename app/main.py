@@ -279,6 +279,30 @@ def campaign_detail(request: Request, campaign_id: int):
     return templates.TemplateResponse(request=request, name="campaign_detail.html", context=ctx)
 
 
+# ── Inline campaign config patch ─────────────────────────────────────────────
+
+@app.patch("/api/campaigns/{campaign_id}")
+async def api_campaign_patch(request: Request, campaign_id: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    data = await request.json()
+    db   = SessionLocal()
+    c    = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not c:
+        db.close()
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if "hashtags"     in data: c.hashtags     = json.dumps(data["hashtags"])
+    if "accounts"     in data: c.accounts     = json.dumps(data["accounts"])
+    if "keywords"     in data: c.keywords     = json.dumps(data["keywords"])
+    if "platforms"    in data: c.platforms    = json.dumps(data["platforms"])
+    if "min_views"    in data: c.min_views    = int(data["min_views"])
+    if "min_er"       in data: c.min_er       = float(data["min_er"])
+    if "max_age_days" in data: c.max_age_days = int(data["max_age_days"])
+    db.commit()
+    db.close()
+    return JSONResponse({"ok": True})
+
+
 # ── Tags API ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/tags")

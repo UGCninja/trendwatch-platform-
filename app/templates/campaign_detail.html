@@ -37,49 +37,184 @@
     </div>
 </div>
 
-<!-- Info cards -->
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">
-    <div class="section-card" style="padding:16px 18px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Hashtags</div>
-        {% if hashtags %}
-            {% for h in hashtags %}
-            <span style="display:inline-block;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">#{{ h }}</span>
-            {% endfor %}
-        {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+<!-- Campaign ID for scripts -->
+<script>const CAMPAIGN_ID = {{ campaign.id }};</script>
+
+<!-- ── Inline-editable config cards ──────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+
+    <!-- Hashtags -->
+    <div class="section-card" style="padding:14px 16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Hashtags</div>
+        <div id="chips-hashtags" style="display:flex;flex-wrap:wrap;gap:3px;min-height:22px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:4px">
+            <input id="inp-hashtags" type="text" placeholder="#tag"
+                   onkeydown="if(event.key==='Enter')addCfgItem('hashtags')"
+                   style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font-size:11px;flex:1;min-width:0;font-family:inherit">
+            <button onclick="addCfgItem('hashtags')"
+                    style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;flex-shrink:0">+</button>
+        </div>
     </div>
-    <div class="section-card" style="padding:16px 18px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Accounts</div>
-        {% if accounts %}
-            {% for a in accounts %}
-            <span style="display:inline-block;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">@{{ a }}</span>
-            {% endfor %}
-        {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+
+    <!-- Accounts -->
+    <div class="section-card" style="padding:14px 16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Accounts</div>
+        <div id="chips-accounts" style="display:flex;flex-wrap:wrap;gap:3px;min-height:22px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:4px">
+            <input id="inp-accounts" type="text" placeholder="@handle"
+                   onkeydown="if(event.key==='Enter')addCfgItem('accounts')"
+                   style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font-size:11px;flex:1;min-width:0;font-family:inherit">
+            <button onclick="addCfgItem('accounts')"
+                    style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;flex-shrink:0">+</button>
+        </div>
     </div>
-    <div class="section-card" style="padding:16px 18px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Keywords <span style="font-size:10px;opacity:.6">TikTok &amp; YT</span></div>
-        {% if keywords %}
-            {% for k in keywords %}
-            <span style="display:inline-block;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">{{ k }}</span>
-            {% endfor %}
-        {% else %}<span style="color:var(--text-muted)">—</span>{% endif %}
+
+    <!-- Keywords -->
+    <div class="section-card" style="padding:14px 16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Keywords <span style="opacity:.5">TikTok &amp; YT</span></div>
+        <div id="chips-keywords" style="display:flex;flex-wrap:wrap;gap:3px;min-height:22px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:4px">
+            <input id="inp-keywords" type="text" placeholder="keyword"
+                   onkeydown="if(event.key==='Enter')addCfgItem('keywords')"
+                   style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font-size:11px;flex:1;min-width:0;font-family:inherit">
+            <button onclick="addCfgItem('keywords')"
+                    style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;flex-shrink:0">+</button>
+        </div>
     </div>
-    <div class="section-card" style="padding:16px 18px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Platforms</div>
-        {% for p in platforms %}
-        {% if p == "tiktok" %}<span class="badge badge-tt me-1">TikTok</span>
-        {% elif p == "youtube" %}<span class="badge badge-yt me-1">YouTube</span>
-        {% else %}<span class="badge badge-ig me-1">Instagram</span>{% endif %}
-        {% endfor %}
+
+    <!-- Platforms -->
+    <div class="section-card" style="padding:14px 16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Platforms</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+            <button id="plt-tiktok"    onclick="togglePlatform('tiktok')"
+                    style="text-align:left;border:1px solid var(--border);border-radius:5px;padding:4px 9px;cursor:pointer;font-size:11px;font-family:inherit;transition:.15s">TikTok</button>
+            <button id="plt-instagram" onclick="togglePlatform('instagram')"
+                    style="text-align:left;border:1px solid var(--border);border-radius:5px;padding:4px 9px;cursor:pointer;font-size:11px;font-family:inherit;transition:.15s">Instagram</button>
+            <button id="plt-youtube"   onclick="togglePlatform('youtube')"
+                    style="text-align:left;border:1px solid var(--border);border-radius:5px;padding:4px 9px;cursor:pointer;font-size:11px;font-family:inherit;transition:.15s">YouTube</button>
+        </div>
     </div>
-    <div class="section-card" style="padding:16px 18px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Filters</div>
-        <div style="font-size:13px;line-height:1.7">
-            👁 &gt;{{ "{:,}".format(campaign.min_views) }}<br>
-            ER ≥ {{ campaign.min_er }}%<br>
-            ≤ {{ campaign.max_age_days }} days
+
+    <!-- Filters -->
+    <div class="section-card" style="padding:14px 16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">
+            Filters
+            <span id="saveIndicator" style="color:var(--accent);opacity:0;transition:opacity .4s;margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0">✓</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text-muted)">
+            <label style="display:flex;align-items:center;gap:5px">
+                👁
+                <input type="number" id="f_views" value="{{ campaign.min_views }}" min="0" step="10000"
+                       onchange="saveCfg()" onblur="saveCfg()"
+                       style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 5px;font-size:11px;width:82px;font-family:inherit">
+            </label>
+            <label style="display:flex;align-items:center;gap:5px">
+                ER ≥
+                <input type="number" id="f_er" value="{{ campaign.min_er }}" min="0" max="100" step="0.1"
+                       onchange="saveCfg()" onblur="saveCfg()"
+                       style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 5px;font-size:11px;width:52px;font-family:inherit"> %
+            </label>
+            <label style="display:flex;align-items:center;gap:5px">
+                ≤
+                <input type="number" id="f_age" value="{{ campaign.max_age_days }}" min="1" step="1"
+                       onchange="saveCfg()" onblur="saveCfg()"
+                       style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 5px;font-size:11px;width:52px;font-family:inherit"> days
+            </label>
         </div>
     </div>
 </div>
+
+<script>
+// ── Config state (initialised from server) ───────────────────────────────
+const CFG = {
+    hashtags:     {{ hashtags | tojson }},
+    accounts:     {{ accounts | tojson }},
+    keywords:     {{ keywords | tojson }},
+    platforms:    {{ platforms | tojson }},
+    min_views:    {{ campaign.min_views }},
+    min_er:       {{ campaign.min_er }},
+    max_age_days: {{ campaign.max_age_days }},
+};
+
+// ── Save to server ───────────────────────────────────────────────────────
+let saveTimer;
+function saveCfg() {
+    CFG.min_views    = parseInt(document.getElementById('f_views').value)  || CFG.min_views;
+    CFG.min_er       = parseFloat(document.getElementById('f_er').value)   || CFG.min_er;
+    CFG.max_age_days = parseInt(document.getElementById('f_age').value)    || CFG.max_age_days;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+        await fetch(`/api/campaigns/${CAMPAIGN_ID}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(CFG),
+        });
+        const ind = document.getElementById('saveIndicator');
+        ind.style.opacity = '1';
+        setTimeout(() => ind.style.opacity = '0', 1500);
+    }, 400);
+}
+
+// ── Render chips (hashtags / accounts / keywords) ────────────────────────
+const PREFIX = {hashtags: '#', accounts: '@', keywords: ''};
+
+function renderCfgChips(field) {
+    const el = document.getElementById('chips-' + field);
+    const pre = PREFIX[field];
+    el.innerHTML = (CFG[field] || []).map(v =>
+        `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 6px;font-size:11px">
+           ${pre}${v}
+           <span onclick="removeCfgItem('${field}','${v.replace(/'/g,"\\'")}') "
+                 style="cursor:pointer;opacity:.55;font-size:13px;line-height:1;margin-left:1px">×</span>
+         </span>`
+    ).join('') || '<span style="color:rgba(158,163,176,.4);font-size:11px">—</span>';
+}
+
+function removeCfgItem(field, value) {
+    CFG[field] = CFG[field].filter(v => v !== value);
+    renderCfgChips(field);
+    saveCfg();
+}
+
+function addCfgItem(field) {
+    const input = document.getElementById('inp-' + field);
+    const val   = input.value.trim().replace(/^[#@]+/, '');
+    if (!val || CFG[field].includes(val)) { input.value = ''; return; }
+    CFG[field].push(val);
+    renderCfgChips(field);
+    saveCfg();
+    input.value = '';
+}
+
+// ── Platform toggles ─────────────────────────────────────────────────────
+const PLT_COLORS = {
+    tiktok:    {bg:'rgba(0,0,0,.6)',   color:'#fff',    border:'rgba(255,255,255,.3)'},
+    instagram: {bg:'rgba(214,56,126,.2)', color:'#f472b6', border:'rgba(214,56,126,.4)'},
+    youtube:   {bg:'rgba(239,68,68,.15)', color:'#ef4444', border:'rgba(239,68,68,.35)'},
+};
+
+function renderPlatforms() {
+    ['tiktok','instagram','youtube'].forEach(p => {
+        const btn = document.getElementById('plt-' + p);
+        const on  = CFG.platforms.includes(p);
+        const c   = PLT_COLORS[p];
+        btn.style.background = on ? c.bg   : 'none';
+        btn.style.color      = on ? c.color : 'var(--text-muted)';
+        btn.style.borderColor = on ? c.border : 'var(--border)';
+    });
+}
+
+function togglePlatform(p) {
+    if (CFG.platforms.includes(p)) CFG.platforms = CFG.platforms.filter(x => x !== p);
+    else CFG.platforms.push(p);
+    renderPlatforms();
+    saveCfg();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+['hashtags','accounts','keywords'].forEach(renderCfgChips);
+renderPlatforms();
+</script>
 
 {% if campaign.last_run_at %}
 <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
@@ -218,7 +353,6 @@
 
 <script>
 // ── Server data ──────────────────────────────────────────────────────────
-const CAMPAIGN_ID   = {{ campaign.id }};
 let allTags         = {{ all_tags_json | safe }};
 let postTagsMap     = {{ post_tags_json | safe }};
 let activeTagFilter = null;
