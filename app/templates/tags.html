@@ -6,21 +6,38 @@
     <span class="page-title">Tags</span>
 </div>
 
-<!-- Tag filter chips -->
+<!-- Filters -->
 <div class="section-card" style="padding:14px 18px;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Filter by tag</span>
-        <div id="tagFilterChips" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-        <button onclick="clearTagFilter()"
-                style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:2px 10px;font-size:12px;cursor:pointer;font-family:inherit">
+
+    <!-- Tag combobox search -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Search / Tag</span>
+        <div style="position:relative">
+            <input id="tagSearchInput" type="text" placeholder="Type tag name or keyword…" autocomplete="off"
+                   oninput="onTagInput()" onfocus="onTagInput()"
+                   style="background:var(--bg-input,#2a2d36);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 12px;font-size:13px;font-family:inherit;width:260px">
+            <div id="tagSuggestBox"
+                 style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:999;background:#22252e;border:1px solid rgba(255,255,255,.12);border-radius:7px;min-width:220px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
+        </div>
+        <!-- Active tag filters -->
+        <div id="activeTagChips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <button onclick="clearAllFilters()"
+                style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit">
             Clear
         </button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Search</span>
-        <input id="searchInput" type="text" placeholder="Platform, account, tag, campaign..."
-               oninput="applyFilters()"
-               style="background:var(--bg-input,#2a2d36);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 10px;font-size:13px;font-family:inherit;width:280px">
+
+    <!-- All tag chips -->
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">All tags</span>
+        {% for t in all_tags %}
+        <span id="chip-{{ t.id }}" onclick="toggleTagFilter({{ t.id }}, '{{ t.name }}')"
+              style="cursor:pointer;border-radius:5px;padding:3px 10px;font-size:12px;background:rgba(255,255,255,.06);color:var(--text-muted);border:1px solid transparent;transition:.15s">
+            {{ t.name }} <span style="opacity:.45;font-size:11px">{{ t.count }}</span>
+        </span>
+        {% else %}
+        <span style="font-size:12px;color:rgba(158,163,176,.4)">No tags yet</span>
+        {% endfor %}
     </div>
 </div>
 
@@ -35,7 +52,8 @@
             <form id="bulkDeleteForm" method="post" action="/api/posts/delete"
                   onsubmit="return confirm('Delete selected posts?')">
                 <input type="hidden" name="redirect" value="/tags">
-                <button type="submit" id="deleteBtn" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
+                <button type="submit" id="deleteBtn"
+                        style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
                     Delete selected (<span id="selCount">0</span>)
                 </button>
             </form>
@@ -65,9 +83,10 @@
         </thead>
         <tbody>
         {% for post in posts %}
+        {% set post_tags = post_tags_map.get(post.id, []) %}
         <tr data-post-id="{{ post.id }}"
-            data-tags=""
-            data-search="{{ post.platform }} {{ post.account }} {{ post.campaign.name if post.campaign else '' }}">
+            data-tag-ids="{{ post_tags | map(attribute='id') | join(',') }}"
+            data-search="{{ post.platform|lower }} {{ post.account|lower }} {{ (post.campaign.name if post.campaign else '')|lower }} {{ post_tags | map(attribute='name') | join(' ') | lower }}">
             <td style="padding:8px">
                 <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
                        class="row-cb" style="cursor:pointer;accent-color:var(--accent)">
@@ -90,7 +109,15 @@
             <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
                 data-val="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}">{{ post.added_at.strftime('%d %b') if post.added_at else "—" }}</td>
             <td style="white-space:nowrap;max-width:200px">
-                <div id="tags-{{ post.id }}" style="display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center;vertical-align:middle"></div>
+                <div id="tags-{{ post.id }}" style="display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center;vertical-align:middle">
+                    {% for t in post_tags %}
+                    <span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
+                        {{ t.name }}
+                        <span onclick="event.stopPropagation();removeTag({{ post.id }},{{ t.id }})"
+                              style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
+                    </span>
+                    {% endfor %}
+                </div>
                 <button class="add-tag-btn" data-post-id="{{ post.id }}"
                         style="background:none;border:1px solid rgba(255,255,255,.15);color:var(--text-muted);border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer;vertical-align:middle;margin-left:2px;line-height:1.6">+</button>
             </td>
@@ -109,82 +136,108 @@
     </div>
 </div>
 
-<!-- Tag dropdown -->
+<!-- Tag dropdown for + button -->
 <div id="tagDropdown" style="display:none;position:fixed;z-index:9999;background:#22252e;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;min-width:170px;max-height:240px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
 
 <script>
 let allTags         = {{ all_tags_json | safe }};
 let postTagsMap     = {{ post_tags_json | safe }};
-let activeTagFilter = null;
+let activeTagIds    = new Set();
 let dropdownPostId  = null;
 const tagDropEl     = document.getElementById('tagDropdown');
 
-// ── Tag filter chips ─────────────────────────────────────────────────────
-const ALL_TAGS_META = {{ all_tags | tojson }};
+// ── Tag combobox ─────────────────────────────────────────────────────────
+const searchInput   = document.getElementById('tagSearchInput');
+const suggestBox    = document.getElementById('tagSuggestBox');
 
-function renderTagFilterChips() {
-    const c = document.getElementById('tagFilterChips');
-    c.innerHTML = ALL_TAGS_META.map(t => {
-        const active = activeTagFilter === t.id;
-        return `<span onclick="toggleTagFilter(${t.id})" style="cursor:pointer;border-radius:5px;padding:3px 10px;font-size:12px;
-                       background:${active ? 'rgba(99,102,241,.35)' : 'rgba(255,255,255,.06)'};
-                       color:${active ? '#a5b4fc' : 'var(--text-muted)'};
-                       border:1px solid ${active ? 'rgba(99,102,241,.5)' : 'transparent'}">
-                  ${t.name} <span style="opacity:.5;font-size:11px">${t.count}</span>
-                </span>`;
+function onTagInput() {
+    const q = searchInput.value.trim().toLowerCase();
+    const matches = allTags.filter(t => t.name.toLowerCase().includes(q) && !activeTagIds.has(t.id));
+    if (!matches.length && !q) { suggestBox.style.display = 'none'; return; }
+    suggestBox.innerHTML = matches.map(t =>
+        `<div onclick="addTagFilter(${t.id},'${t.name.replace(/'/g,"\\'")}');suggestBox.style.display='none'"
+              style="cursor:pointer;padding:6px 10px;font-size:13px;color:var(--text-muted);border-radius:5px"
+              onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">
+           ${t.name}
+         </div>`
+    ).join('') || `<div style="padding:6px 10px;font-size:12px;color:rgba(158,163,176,.4)">No matching tags</div>`;
+    suggestBox.style.display = 'block';
+    applyFilters();  // live text search
+}
+
+document.addEventListener('click', e => {
+    if (!suggestBox.contains(e.target) && e.target !== searchInput) suggestBox.style.display = 'none';
+});
+
+// ── Active tag filter ────────────────────────────────────────────────────
+function addTagFilter(id, name) {
+    activeTagIds.add(id);
+    searchInput.value = '';
+    renderActiveChips();
+    renderAllChips();
+    applyFilters();
+}
+
+function toggleTagFilter(id, name) {
+    if (activeTagIds.has(id)) activeTagIds.delete(id);
+    else activeTagIds.add(id);
+    renderActiveChips();
+    renderAllChips();
+    applyFilters();
+}
+
+function removeTagFilter(id) {
+    activeTagIds.delete(id);
+    renderActiveChips();
+    renderAllChips();
+    applyFilters();
+}
+
+function clearAllFilters() {
+    activeTagIds.clear();
+    searchInput.value = '';
+    renderActiveChips();
+    renderAllChips();
+    applyFilters();
+}
+
+function renderActiveChips() {
+    const c = document.getElementById('activeTagChips');
+    c.innerHTML = [...activeTagIds].map(id => {
+        const t = allTags.find(x => x.id === id);
+        return t ? `<span style="background:rgba(99,102,241,.3);color:#a5b4fc;border-radius:5px;padding:3px 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px">
+                      ${t.name}
+                      <span onclick="removeTagFilter(${id})" style="cursor:pointer;opacity:.7;font-size:14px;line-height:1">×</span>
+                    </span>` : '';
     }).join('');
 }
 
-function toggleTagFilter(tagId) {
-    activeTagFilter = (activeTagFilter === tagId) ? null : tagId;
-    renderTagFilterChips();
-    applyFilters();
+function renderAllChips() {
+    allTags.forEach(t => {
+        const chip = document.getElementById('chip-' + t.id);
+        if (!chip) return;
+        const active = activeTagIds.has(t.id);
+        chip.style.background = active ? 'rgba(99,102,241,.3)' : 'rgba(255,255,255,.06)';
+        chip.style.color = active ? '#a5b4fc' : 'var(--text-muted)';
+        chip.style.borderColor = active ? 'rgba(99,102,241,.5)' : 'transparent';
+    });
 }
 
-function clearTagFilter() {
-    activeTagFilter = null;
-    document.getElementById('searchInput').value = '';
-    renderTagFilterChips();
-    applyFilters();
-}
-
-// ── Search + tag filter ──────────────────────────────────────────────────
+// ── Filter rows ──────────────────────────────────────────────────────────
 function applyFilters() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
+    const q = searchInput.value.toLowerCase();
     let visible = 0;
     document.querySelectorAll('#postsTable tbody tr[data-post-id]').forEach(row => {
-        const tagIds  = (row.dataset.tags || '').split(',').filter(Boolean).map(Number);
-        const tagOk   = !activeTagFilter || tagIds.includes(activeTagFilter);
-        const searchOk = !q || row.dataset.search.toLowerCase().includes(q)
-                             || (row.dataset.tags || '').includes(q)
-                             || row.textContent.toLowerCase().includes(q);
+        const tagIds  = (row.dataset.tagIds || '').split(',').filter(Boolean).map(Number);
+        const tagOk   = activeTagIds.size === 0 || [...activeTagIds].every(id => tagIds.includes(id));
+        const searchOk = !q || row.dataset.search.includes(q);
         if (tagOk && searchOk) { row.style.display = ''; visible++; }
         else                    { row.style.display = 'none'; }
     });
     document.getElementById('visCount').textContent = visible;
 }
 
-// ── Post tags rendering ──────────────────────────────────────────────────
-function renderPostTags(postId) {
-    const el = document.getElementById('tags-' + postId);
-    if (!el) return;
-    const tags = postTagsMap[postId] || [];
-    el.innerHTML = tags.map(t =>
-        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
-          ${t.name}
-          <span onclick="event.stopPropagation();removeTag(${postId},${t.id})"
-                style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
-        </span>`
-    ).join('');
-    const row = el.closest('tr');
-    if (row) row.dataset.tags = tags.map(t => t.id).join(',');
-}
-
-function renderAllPostTags() {
-    document.querySelectorAll('tr[data-post-id]').forEach(tr => renderPostTags(tr.dataset.postId));
-}
-
-// ── Tag dropdown ─────────────────────────────────────────────────────────
+// ── Tag dropdown (+ button) ──────────────────────────────────────────────
 function renderTagDropdown(postId) {
     const postTagIds = new Set((postTagsMap[postId] || []).map(t => t.id));
     tagDropEl.innerHTML = allTags.length
@@ -192,8 +245,8 @@ function renderTagDropdown(postId) {
             const on = postTagIds.has(t.id);
             return `<div onclick="togglePostTag(${postId},${t.id})"
                          style="cursor:pointer;padding:5px 8px;border-radius:5px;font-size:12px;display:flex;align-items:center;gap:7px;
-                                color:${on ? '#a5b4fc' : 'var(--text-muted)'};background:${on ? 'rgba(99,102,241,.15)' : 'transparent'}">
-                      <span style="font-size:11px;opacity:.8">${on ? '✓' : '○'}</span>${t.name}
+                                color:${on?'#a5b4fc':'var(--text-muted)'};background:${on?'rgba(99,102,241,.15)':'transparent'}">
+                      <span style="font-size:11px;opacity:.8">${on?'✓':'○'}</span>${t.name}
                     </div>`;
           }).join('')
         : '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">No tags yet</div>';
@@ -209,15 +262,13 @@ function openTagDropdown(btn, postId) {
         let top = rect.bottom + 4, left = rect.left;
         if (top + dh > window.innerHeight) top = rect.top - dh - 4;
         if (left + dw > window.innerWidth) left = window.innerWidth - dw - 8;
-        tagDropEl.style.top = top + 'px';
-        tagDropEl.style.left = left + 'px';
+        tagDropEl.style.top = top + 'px'; tagDropEl.style.left = left + 'px';
     });
 }
 
 document.addEventListener('click', e => {
     if (!tagDropEl.contains(e.target) && !e.target.classList.contains('add-tag-btn')) {
-        tagDropEl.style.display = 'none';
-        dropdownPostId = null;
+        tagDropEl.style.display = 'none'; dropdownPostId = null;
     }
 });
 
@@ -231,25 +282,42 @@ document.querySelectorAll('.add-tag-btn').forEach(btn => {
     });
 });
 
+function renderPostTagsEl(postId) {
+    const el = document.getElementById('tags-' + postId);
+    if (!el) return;
+    const tags = postTagsMap[String(postId)] || [];
+    el.innerHTML = tags.map(t =>
+        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
+          ${t.name}
+          <span onclick="event.stopPropagation();removeTag(${postId},${t.id})"
+                style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
+        </span>`
+    ).join('');
+    const row = el.closest('tr');
+    if (row) row.dataset.tagIds = tags.map(t => t.id).join(',');
+}
+
 async function togglePostTag(postId, tagId) {
-    const tags = postTagsMap[postId] || [];
+    const key  = String(postId);
+    const tags  = postTagsMap[key] || [];
     if (tags.find(t => t.id === tagId)) {
         await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
-        postTagsMap[postId] = tags.filter(t => t.id !== tagId);
+        postTagsMap[key] = tags.filter(t => t.id !== tagId);
     } else {
         await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'POST'});
         const tag = allTags.find(t => t.id === tagId);
-        if (tag) { if (!postTagsMap[postId]) postTagsMap[postId] = []; postTagsMap[postId].push(tag); }
+        if (tag) { if (!postTagsMap[key]) postTagsMap[key] = []; postTagsMap[key].push(tag); }
     }
-    renderPostTags(postId);
+    renderPostTagsEl(postId);
     renderTagDropdown(postId);
     applyFilters();
 }
 
 async function removeTag(postId, tagId) {
+    const key = String(postId);
     await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
-    if (postTagsMap[postId]) postTagsMap[postId] = postTagsMap[postId].filter(t => t.id !== tagId);
-    renderPostTags(postId);
+    if (postTagsMap[key]) postTagsMap[key] = postTagsMap[key].filter(t => t.id !== tagId);
+    renderPostTagsEl(postId);
     applyFilters();
 }
 
@@ -259,11 +327,8 @@ function updateBulkUI() {
     document.getElementById('deleteBtn').style.display = checked ? '' : 'none';
     document.getElementById('selCount').textContent = checked;
 }
-
 document.getElementById('selectAll').addEventListener('change', function() {
-    document.querySelectorAll('#postsTable tbody tr').forEach(tr => {
-        if (tr.style.display !== 'none') tr.querySelector('.row-cb').checked = this.checked;
-    });
+    document.querySelectorAll('.row-cb').forEach(cb => cb.checked = this.checked);
     updateBulkUI();
 });
 document.querySelectorAll('.row-cb').forEach(cb => cb.addEventListener('change', updateBulkUI));
@@ -280,22 +345,15 @@ document.querySelectorAll('.sortable').forEach(th => {
             const bv = b.cells[col]?.dataset.val ?? b.cells[col]?.textContent.trim() ?? '';
             const an = /^-?\d+(\.\d+)?$/.test(av) ? parseFloat(av) : null;
             const bn = /^-?\d+(\.\d+)?$/.test(bv) ? parseFloat(bv) : null;
-            const a_ = (an !== null && bn !== null) ? an : av;
-            const b_ = (an !== null && bn !== null) ? bn : bv;
-            return asc ? (a_ < b_ ? -1 : a_ > b_ ? 1 : 0) : (a_ > b_ ? -1 : a_ < b_ ? 1 : 0);
+            const a_ = (an!==null&&bn!==null)?an:av, b_=(an!==null&&bn!==null)?bn:bv;
+            return asc?(a_<b_?-1:a_>b_?1:0):(a_>b_?-1:a_<b_?1:0);
         });
         asc = !asc;
         rows.forEach(r => tbody.appendChild(r));
-        document.querySelectorAll('.sortable').forEach(t => {
-            t.textContent = t.textContent.replace(/ [↑↓↕]/, '') + ' ↕';
-        });
-        th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
+        document.querySelectorAll('.sortable').forEach(t => { t.textContent = t.textContent.replace(/ [↑↓↕]/,' ↕'); });
+        th.textContent = th.textContent.replace(/ [↑↓↕]/, asc?' ↑':' ↓');
     });
 });
-
-// ── Init ─────────────────────────────────────────────────────────────────
-renderAllPostTags();
-renderTagFilterChips();
 </script>
 
 {% endblock %}

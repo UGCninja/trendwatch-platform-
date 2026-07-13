@@ -195,9 +195,11 @@ def tags_page(request: Request):
         tag_counts[pt.tag_id] = tag_counts.get(pt.tag_id, 0) + 1
 
     db.close()
+    tags_meta = [{"id": t.id, "name": t.name, "count": tag_counts.get(t.id, 0)} for t in all_tags]
     return templates.TemplateResponse(request=request, name="tags.html", context={
         "posts":          posts,
-        "all_tags":       [{"id": t.id, "name": t.name, "count": tag_counts.get(t.id, 0)} for t in all_tags],
+        "post_tags_map":  post_tags_map,          # dict[int, list] для Jinja
+        "all_tags":       tags_meta,
         "all_tags_json":  json.dumps([{"id": t.id, "name": t.name} for t in all_tags]),
         "post_tags_json": json.dumps({str(k): v for k, v in post_tags_map.items()}),
     })
