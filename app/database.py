@@ -35,6 +35,7 @@ def init_db():
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_frequency VARCHAR DEFAULT 'manual'")
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_time VARCHAR DEFAULT '10:00'")
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_days TEXT DEFAULT '[]'")
+    _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_end_date TIMESTAMP")
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_end_date DATETIME")
 
     from app.models import Vertical
