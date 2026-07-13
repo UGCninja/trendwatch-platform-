@@ -20,22 +20,38 @@ from app.models import Campaign, Post, Run, Tag, PostTag, Vertical
 from app.notion_sync import push_post_to_notion
 
 
-def compute_next_run(frequency: str, schedule_days: str, from_time: datetime):
-    """Вычисляет next_run_at на основе частоты запуска."""
+def compute_next_run(frequency: str, schedule_days: str, from_time: datetime, schedule_time: str = "10:00"):
+    """Вычисляет next_run_at на основе частоты запуска и времени."""
+    try:
+        h, m = map(int, (schedule_time or "10:00").split(":"))
+    except Exception:
+        h, m = 10, 0
+
     if frequency == "hourly":
         return from_time + timedelta(hours=1)
+
     if frequency == "daily":
-        return from_time + timedelta(days=1)
+        candidate = from_time.replace(hour=h, minute=m, second=0, microsecond=0)
+        if candidate <= from_time:
+            candidate += timedelta(days=1)
+        return candidate
+
     if frequency == "weekly":
         days_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
         chosen = sorted(days_map[d] for d in json.loads(schedule_days or "[]") if d in days_map)
         if not chosen:
             return from_time + timedelta(days=7)
         today_wd = from_time.weekday()
+        candidate = from_time.replace(hour=h, minute=m, second=0, microsecond=0)
         for wd in chosen:
-            if wd > today_wd:
-                return from_time + timedelta(days=wd - today_wd)
-        return from_time + timedelta(days=7 - today_wd + chosen[0])
+            delta = (wd - today_wd) % 7
+            t = candidate + timedelta(days=delta)
+            if t > from_time:
+                return t
+        # все дни уже прошли на этой неделе — берём первый на следующей
+        delta = (chosen[0] - today_wd) % 7 or 7
+        return candidate + timedelta(days=delta)
+
     return None  # manual
 from app.parser import run_campaign
 from app.scheduler import start_scheduler
@@ -223,6 +239,7 @@ async def campaign_create(
     max_age_days:       int       = Form(180),
     languages:          list[str] = Form([]),
     schedule_frequency: str       = Form("manual"),
+    schedule_time:      str       = Form("10:00"),
     schedule_days:      list[str] = Form([]),
     schedule_end_date:  str       = Form(""),
 ):
@@ -250,8 +267,9 @@ async def campaign_create(
         languages          = json.dumps(langs),
         status             = "active",
         created_at         = now,
-        next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), now),
+        next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), now, schedule_time),
         schedule_frequency = schedule_frequency,
+        schedule_time      = schedule_time,
         schedule_days      = json.dumps(schedule_days),
         schedule_end_date  = end_date,
     )
@@ -436,6 +454,7 @@ def _run_in_background(campaign_id: int):
             campaign.schedule_frequency or "manual",
             campaign.schedule_days or "[]",
             now,
+            campaign.schedule_time or "10:00",
         )
         db.commit()
 
@@ -530,6 +549,7 @@ def campaign_edit_page(request: Request, campaign_id: int):
         "languages":         json.loads(c.languages or '["all"]'),
         "verticals":         get_verticals(),
         "schedule_frequency": c.schedule_frequency or "manual",
+        "schedule_time":      c.schedule_time or "10:00",
         "schedule_days":      json.loads(c.schedule_days or "[]"),
         "schedule_end_date":  c.schedule_end_date.strftime("%Y-%m-%d") if c.schedule_end_date else "",
     }
@@ -551,6 +571,7 @@ async def campaign_edit(
     max_age_days:       int       = Form(180),
     languages:          list[str] = Form([]),
     schedule_frequency: str       = Form("manual"),
+    schedule_time:      str       = Form("10:00"),
     schedule_days:      list[str] = Form([]),
     schedule_end_date:  str       = Form(""),
 ):
@@ -570,9 +591,10 @@ async def campaign_edit(
         c.max_age_days       = max_age_days
         c.languages          = json.dumps(languages if languages else ["all"])
         c.schedule_frequency = schedule_frequency
+        c.schedule_time      = schedule_time
         c.schedule_days      = json.dumps(schedule_days)
         c.schedule_end_date  = datetime.fromisoformat(schedule_end_date) if schedule_end_date else None
-        c.next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), datetime.now(tz=timezone.utc))
+        c.next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), datetime.now(tz=timezone.utc), schedule_time)
         db.commit()
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)

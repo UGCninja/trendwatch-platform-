@@ -30,6 +30,7 @@ class Campaign(Base):
     last_run_at        = Column(DateTime, nullable=True)
     next_run_at        = Column(DateTime, nullable=True)
     schedule_frequency = Column(String, default="manual")   # manual/hourly/daily/weekly
+    schedule_time      = Column(String, default="10:00")     # HH:MM — время запуска
     schedule_days      = Column(Text, default="[]")          # JSON: ["mon","wed","fri"]
     schedule_end_date  = Column(DateTime, nullable=True)     # None = indefinitely
 

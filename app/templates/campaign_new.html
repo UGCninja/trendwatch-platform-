@@ -122,6 +122,12 @@
                 </div>
                 {% endfor %}
             </div>
+            <div id="timeRow" class="d-flex align-items-center gap-2 mb-2" style="display:none!important">
+                <span class="form-text mb-0">Time:</span>
+                <input type="time" name="schedule_time" id="scheduleTime"
+                       value="10:00"
+                       style="background:var(--bg-input,#2a2d36);border:1px solid var(--border,#3a3d4a);color:var(--text,#fff);border-radius:5px;padding:3px 8px;font-size:13px;font-family:inherit">
+            </div>
             <div id="weeklyDays" class="d-flex gap-2 flex-wrap mb-2" style="display:none!important">
                 {% for val, label in [("mon","Mon"),("tue","Tue"),("wed","Wed"),("thu","Thu"),("fri","Fri"),("sat","Sat"),("sun","Sun")] %}
                 <div class="form-check">
@@ -162,6 +168,7 @@
 function updateScheduleUI() {
     const freq = document.querySelector('input[name="schedule_frequency"]:checked')?.value;
     document.getElementById('weeklyDays').style.display = freq === 'weekly' ? 'flex' : 'none';
+    document.getElementById('timeRow').style.display = (freq === 'daily' || freq === 'weekly') ? 'flex' : 'none';
 }
 function updateStopUI() {
     const dateStop = document.getElementById('stop_date').checked;
