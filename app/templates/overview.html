@@ -54,33 +54,50 @@
 
 <!-- Posts table -->
 <div class="section-card" style="padding:0;overflow:hidden">
-    <div style="padding:14px 18px 10px;display:flex;align-items:center;gap:12px">
+    <div style="padding:14px 18px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span class="section-title" style="margin:0">
             Posts (<span id="ovVisCount">{{ posts|length }}</span> / {{ posts|length }})
         </span>
         <span style="font-size:11px;color:var(--text-muted)">Click column headers to sort</span>
+        <div style="margin-left:auto">
+            <form id="ovBulkDeleteForm" method="post" action="/api/posts/delete"
+                  onsubmit="return confirm('Delete selected posts? This cannot be undone.')">
+                <input type="hidden" name="redirect" value="/overview?campaign={{ campaign_filter }}&days={{ days }}">
+                <button type="submit" id="ovDeleteBtn" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
+                    Delete selected (<span id="ovSelCount">0</span>)
+                </button>
+            </form>
+        </div>
     </div>
     <div style="overflow-x:auto">
     <table class="data-table" id="ovTable">
         <thead>
             <tr>
+                <th style="width:32px;padding:10px 8px">
+                    <input type="checkbox" id="ovSelectAll" style="cursor:pointer;accent-color:var(--accent)">
+                </th>
                 <th>Platform</th>
                 <th>Campaign</th>
                 <th>Account</th>
-                <th class="text-right sortable-ov" data-col="3" style="cursor:pointer">Views ↕</th>
-                <th class="text-right sortable-ov" data-col="4" style="cursor:pointer">Likes ↕</th>
-                <th class="text-right sortable-ov" data-col="5" style="cursor:pointer">Comments ↕</th>
-                <th class="text-right sortable-ov" data-col="6" style="cursor:pointer">Shares ↕</th>
-                <th class="text-right sortable-ov" data-col="7" style="cursor:pointer">ER ↕</th>
+                <th class="text-right sortable-ov" data-col="4" style="cursor:pointer">Views ↕</th>
+                <th class="text-right sortable-ov" data-col="5" style="cursor:pointer">Likes ↕</th>
+                <th class="text-right sortable-ov" data-col="6" style="cursor:pointer">Comments ↕</th>
+                <th class="text-right sortable-ov" data-col="7" style="cursor:pointer">Shares ↕</th>
+                <th class="text-right sortable-ov" data-col="8" style="cursor:pointer">ER ↕</th>
                 <th>Language</th>
-                <th class="sortable-ov" data-col="9" style="cursor:pointer">Published ↕</th>
-                <th class="sortable-ov" data-col="10" style="cursor:pointer">Added ↕</th>
+                <th class="sortable-ov" data-col="10" style="cursor:pointer">Published ↕</th>
+                <th class="sortable-ov" data-col="11" style="cursor:pointer">Added ↕</th>
+                <th>Tags</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
         {% for post in posts %}
-        <tr>
+        <tr data-post-id="{{ post.id }}" data-tags="">
+            <td style="padding:8px">
+                <input type="checkbox" name="post_ids" value="{{ post.id }}" form="ovBulkDeleteForm"
+                       class="ov-row-cb" style="cursor:pointer;accent-color:var(--accent)">
+            </td>
             <td>
                 {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
                 {% elif post.platform == "YouTube" %}<span class="badge badge-yt">YouTube</span>
@@ -98,6 +115,11 @@
                 data-val="{{ post.published[:10] if post.published else '' }}">{{ post.published[:10] if post.published else "—" }}</td>
             <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
                 data-val="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}">{{ post.added_at.strftime('%d %b') if post.added_at else "—" }}</td>
+            <td style="white-space:nowrap;max-width:180px">
+                <div id="ov-tags-{{ post.id }}" style="display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center;vertical-align:middle"></div>
+                <button class="ov-add-tag-btn" data-post-id="{{ post.id }}"
+                        style="background:none;border:1px solid rgba(255,255,255,.15);color:var(--text-muted);border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer;vertical-align:middle;margin-left:2px;line-height:1.6">+</button>
+            </td>
             <td>
                 {% if post.url %}
                 <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm">→</a>
@@ -106,14 +128,125 @@
         </tr>
         {% endfor %}
         {% if not posts %}
-        <tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">No posts yet</td></tr>
+        <tr><td colspan="14" style="text-align:center;padding:32px;color:var(--text-muted)">No posts yet</td></tr>
         {% endif %}
         </tbody>
     </table>
     </div>
 </div>
 
+<!-- Tag dropdown -->
+<div id="ovTagDropdown" style="display:none;position:fixed;z-index:9999;background:#22252e;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;min-width:170px;max-height:240px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
+
 <script>
+let ovAllTags     = {{ all_tags_json | safe }};
+let ovPostTagsMap = {{ post_tags_json | safe }};
+let ovDropPostId  = null;
+const ovTagDropEl = document.getElementById('ovTagDropdown');
+
+// ── Render post tags ─────────────────────────────────────────────────────
+function ovRenderPostTags(postId) {
+    const el = document.getElementById('ov-tags-' + postId);
+    if (!el) return;
+    const tags = ovPostTagsMap[postId] || [];
+    el.innerHTML = tags.map(t =>
+        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
+          ${t.name}
+          <span onclick="event.stopPropagation();ovRemoveTag(${postId},${t.id})"
+                style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
+        </span>`
+    ).join('');
+    const row = el.closest('tr');
+    if (row) row.dataset.tags = tags.map(t => t.id).join(',');
+}
+
+function ovRenderAllTags() {
+    document.querySelectorAll('tr[data-post-id]').forEach(tr => {
+        ovRenderPostTags(tr.dataset.postId);
+    });
+}
+
+// ── Tag dropdown ─────────────────────────────────────────────────────────
+function ovRenderDropdown(postId) {
+    const postTagIds = new Set((ovPostTagsMap[postId] || []).map(t => t.id));
+    ovTagDropEl.innerHTML = ovAllTags.length
+        ? ovAllTags.map(t => {
+            const on = postTagIds.has(t.id);
+            return `<div onclick="ovToggleTag(${postId},${t.id})"
+                         style="cursor:pointer;padding:5px 8px;border-radius:5px;font-size:12px;display:flex;align-items:center;gap:7px;
+                                color:${on ? '#a5b4fc' : 'var(--text-muted)'};background:${on ? 'rgba(99,102,241,.15)' : 'transparent'}">
+                      <span style="font-size:11px;opacity:.8">${on ? '✓' : '○'}</span>${t.name}
+                    </div>`;
+          }).join('')
+        : '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">No tags yet</div>';
+}
+
+function ovOpenDropdown(btn, postId) {
+    ovDropPostId = postId;
+    ovRenderDropdown(postId);
+    const rect = btn.getBoundingClientRect();
+    ovTagDropEl.style.display = 'block';
+    requestAnimationFrame(() => {
+        const dh = ovTagDropEl.offsetHeight, dw = ovTagDropEl.offsetWidth;
+        let top = rect.bottom + 4, left = rect.left;
+        if (top + dh > window.innerHeight) top = rect.top - dh - 4;
+        if (left + dw > window.innerWidth) left = window.innerWidth - dw - 8;
+        ovTagDropEl.style.top = top + 'px';
+        ovTagDropEl.style.left = left + 'px';
+    });
+}
+
+document.addEventListener('click', e => {
+    if (!ovTagDropEl.contains(e.target) && !e.target.classList.contains('ov-add-tag-btn')) {
+        ovTagDropEl.style.display = 'none';
+        ovDropPostId = null;
+    }
+});
+
+document.querySelectorAll('.ov-add-tag-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const pid = parseInt(btn.dataset.postId);
+        if (ovDropPostId === pid && ovTagDropEl.style.display === 'block') {
+            ovTagDropEl.style.display = 'none'; ovDropPostId = null;
+        } else { ovOpenDropdown(btn, pid); }
+    });
+});
+
+async function ovToggleTag(postId, tagId) {
+    const tags = ovPostTagsMap[postId] || [];
+    if (tags.find(t => t.id === tagId)) {
+        await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
+        ovPostTagsMap[postId] = tags.filter(t => t.id !== tagId);
+    } else {
+        await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'POST'});
+        const tag = ovAllTags.find(t => t.id === tagId);
+        if (tag) { if (!ovPostTagsMap[postId]) ovPostTagsMap[postId] = []; ovPostTagsMap[postId].push(tag); }
+    }
+    ovRenderPostTags(postId);
+    ovRenderDropdown(postId);
+}
+
+async function ovRemoveTag(postId, tagId) {
+    await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
+    if (ovPostTagsMap[postId]) ovPostTagsMap[postId] = ovPostTagsMap[postId].filter(t => t.id !== tagId);
+    ovRenderPostTags(postId);
+}
+
+// ── Bulk select ──────────────────────────────────────────────────────────
+function ovUpdateBulkUI() {
+    const checked = document.querySelectorAll('.ov-row-cb:checked').length;
+    document.getElementById('ovDeleteBtn').style.display = checked ? '' : 'none';
+    document.getElementById('ovSelCount').textContent = checked;
+}
+
+document.getElementById('ovSelectAll').addEventListener('change', function() {
+    document.querySelectorAll('.ov-row-cb').forEach(cb => cb.checked = this.checked);
+    ovUpdateBulkUI();
+});
+document.querySelectorAll('.ov-row-cb').forEach(cb => cb.addEventListener('change', ovUpdateBulkUI));
+
+// ── Sorting ──────────────────────────────────────────────────────────────
 document.querySelectorAll('.sortable-ov').forEach(th => {
     let asc = false;
     th.addEventListener('click', () => {
@@ -137,6 +270,9 @@ document.querySelectorAll('.sortable-ov').forEach(th => {
         th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
     });
 });
+
+// ── Init ─────────────────────────────────────────────────────────────────
+ovRenderAllTags();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>

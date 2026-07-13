@@ -137,6 +137,18 @@ def overview(request: Request, days: int = 30, campaign: str = "all"):
         elif p.platform == "YouTube": yt_by_week[week] += 1
     all_weeks = sorted(set(list(tt_by_week) + list(ig_by_week) + list(yt_by_week)))[-12:]
 
+    # tags
+    post_ids = [p.id for p in posts]
+    all_post_tags = db.query(PostTag).filter(PostTag.post_id.in_(post_ids)).all() if post_ids else []
+    used_tag_ids  = list({pt.tag_id for pt in all_post_tags})
+    tags_by_id    = {t.id: t for t in db.query(Tag).filter(Tag.id.in_(used_tag_ids)).all()} if used_tag_ids else {}
+    post_tags_map: dict[int, list] = {}
+    for pt in all_post_tags:
+        tag = tags_by_id.get(pt.tag_id)
+        if tag:
+            post_tags_map.setdefault(pt.post_id, []).append({"id": tag.id, "name": tag.name})
+    all_tags = [{"id": t.id, "name": t.name} for t in db.query(Tag).order_by(Tag.name).all()]
+
     db.close()
     return templates.TemplateResponse(request=request, name="overview.html", context={
         "stats": stats, "posts": posts, "days": days,
@@ -145,6 +157,8 @@ def overview(request: Request, days: int = 30, campaign: str = "all"):
         "chart_tiktok": [tt_by_week[w] for w in all_weeks],
         "chart_instagram": [ig_by_week[w] for w in all_weeks],
         "chart_youtube": [yt_by_week[w] for w in all_weeks],
+        "all_tags_json":  json.dumps(all_tags),
+        "post_tags_json": json.dumps({str(k): v for k, v in post_tags_map.items()}),
     })
 
 
@@ -419,6 +433,26 @@ async def posts_bulk_delete(request: Request, campaign_id: int):
     db.commit()
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
+
+
+@app.post("/api/posts/delete")
+async def posts_bulk_delete_global(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    form = await request.form()
+    ids  = form.getlist("post_ids")
+    redirect = form.get("redirect", "/overview")
+    db = SessionLocal()
+    for pid in ids:
+        try:
+            pid_int = int(pid)
+            db.query(PostTag).filter(PostTag.post_id == pid_int).delete()
+            db.query(Post).filter(Post.id == pid_int).delete()
+        except (ValueError, TypeError):
+            pass
+    db.commit()
+    db.close()
+    return RedirectResponse(redirect, status_code=302)
 
 
 def _run_in_background(campaign_id: int):
