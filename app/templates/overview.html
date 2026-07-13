@@ -54,62 +54,90 @@
 
 <!-- Posts table -->
 <div class="section-card" style="padding:0;overflow:hidden">
-    <div style="padding:16px 22px 12px;display:flex;align-items:center;justify-content:space-between">
-        <span class="section-title" style="margin:0">Posts ({{ posts|length }})</span>
+    <div style="padding:14px 18px 10px;display:flex;align-items:center;gap:12px">
+        <span class="section-title" style="margin:0">
+            Posts (<span id="ovVisCount">{{ posts|length }}</span> / {{ posts|length }})
+        </span>
+        <span style="font-size:11px;color:var(--text-muted)">Click column headers to sort</span>
     </div>
     <div style="overflow-x:auto">
-    <table class="data-table">
+    <table class="data-table" id="ovTable">
         <thead>
             <tr>
-                <th>Link</th>
-                <th>Vertical</th>
-                <th>Hashtag</th>
                 <th>Platform</th>
-                <th class="text-right">Views</th>
-                <th class="text-right">Likes</th>
-                <th class="text-right">Comments</th>
-                <th class="text-right">Shares</th>
-                <th class="text-right">ER</th>
-                <th>Published</th>
-                <th>Added</th>
+                <th>Campaign</th>
+                <th>Account</th>
+                <th class="text-right sortable-ov" data-col="3" style="cursor:pointer">Views ↕</th>
+                <th class="text-right sortable-ov" data-col="4" style="cursor:pointer">Likes ↕</th>
+                <th class="text-right sortable-ov" data-col="5" style="cursor:pointer">Comments ↕</th>
+                <th class="text-right sortable-ov" data-col="6" style="cursor:pointer">Shares ↕</th>
+                <th class="text-right sortable-ov" data-col="7" style="cursor:pointer">ER ↕</th>
+                <th>Language</th>
+                <th class="sortable-ov" data-col="9" style="cursor:pointer">Published ↕</th>
+                <th class="sortable-ov" data-col="10" style="cursor:pointer">Added ↕</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
         {% for post in posts %}
         <tr>
             <td>
-                {% if post.url %}
-                <a href="{{ post.url }}" target="_blank" style="color:var(--text);text-decoration:none"
-                   class="post-link" data-url="{{ post.url }}">
-                    <span style="max-width:180px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text-muted)">
-                        {{ post.url | replace("https://","") | truncate(40) }}
-                    </span>
-                </a>
-                {% else %}—{% endif %}
-            </td>
-            <td style="color:var(--text-muted);font-size:12px">{{ post.campaign.vertical if post.campaign else '—' }}</td>
-            <td style="color:var(--text-muted);font-size:12px">{{ post.account }}</td>
-            <td>
                 {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
                 {% elif post.platform == "YouTube" %}<span class="badge badge-yt">YouTube</span>
                 {% else %}<span class="badge badge-ig">Instagram</span>{% endif %}
             </td>
-            <td class="text-right">{{ "{:,}".format(post.views) }}</td>
-            <td class="text-right" style="color:#60a5fa">{{ "{:,}".format(post.likes) }}</td>
-            <td class="text-right" style="color:#c084fc">{{ "{:,}".format(post.comments) }}</td>
-            <td class="text-right" style="color:#4ade80">{{ "{:,}".format(post.shares) }}</td>
-            <td class="text-right" style="color:#fb923c;font-weight:600">{{ post.er }}%</td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">{{ post.published[:10] if post.published else "—" }}</td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap">{{ post.added_at.strftime("%d %b") if post.added_at else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px">{{ post.campaign.name if post.campaign else '—' }}</td>
+            <td style="color:var(--text-muted);font-size:12px">{{ post.account.split(' (')[0] }}</td>
+            <td class="text-right" data-val="{{ post.views }}">{{ "{:,}".format(post.views) }}</td>
+            <td class="text-right" style="color:#60a5fa" data-val="{{ post.likes }}">{{ "{:,}".format(post.likes) }}</td>
+            <td class="text-right" style="color:#c084fc" data-val="{{ post.comments }}">{{ "{:,}".format(post.comments) }}</td>
+            <td class="text-right" style="color:#4ade80" data-val="{{ post.shares }}">{{ "{:,}".format(post.shares) }}</td>
+            <td class="text-right" style="color:#fb923c;font-weight:600" data-val="{{ post.er }}">{{ post.er }}%</td>
+            <td><span style="background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px">{{ post.language or '—' }}</span></td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
+                data-val="{{ post.published[:10] if post.published else '' }}">{{ post.published[:10] if post.published else "—" }}</td>
+            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
+                data-val="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}">{{ post.added_at.strftime('%d %b') if post.added_at else "—" }}</td>
+            <td>
+                {% if post.url %}
+                <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm">→</a>
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
         {% if not posts %}
-        <tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">No posts yet</td></tr>
+        <tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted)">No posts yet</td></tr>
         {% endif %}
         </tbody>
     </table>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.sortable-ov').forEach(th => {
+    let asc = false;
+    th.addEventListener('click', () => {
+        const col   = parseInt(th.dataset.col);
+        const tbody = document.querySelector('#ovTable tbody');
+        const rows  = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const av = a.cells[col]?.dataset.val ?? a.cells[col]?.textContent.trim() ?? '';
+            const bv = b.cells[col]?.dataset.val ?? b.cells[col]?.textContent.trim() ?? '';
+            const an = /^-?\d+(\.\d+)?$/.test(av) ? parseFloat(av) : null;
+            const bn = /^-?\d+(\.\d+)?$/.test(bv) ? parseFloat(bv) : null;
+            const a_ = (an !== null && bn !== null) ? an : av;
+            const b_ = (an !== null && bn !== null) ? bn : bv;
+            return asc ? (a_ < b_ ? -1 : a_ > b_ ? 1 : 0) : (a_ > b_ ? -1 : a_ < b_ ? 1 : 0);
+        });
+        asc = !asc;
+        rows.forEach(r => tbody.appendChild(r));
+        document.querySelectorAll('.sortable-ov').forEach(t => {
+            t.textContent = t.textContent.replace(/ [↑↓↕]/, '') + ' ↕';
+        });
+        th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
+    });
+});
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
