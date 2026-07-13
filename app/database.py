@@ -32,6 +32,9 @@ def init_db():
     _run_migration("ALTER TABLE campaigns ADD COLUMN vertical VARCHAR DEFAULT ''")
     _run_migration("ALTER TABLE campaigns ADD COLUMN keywords TEXT DEFAULT '[]'")
     _run_migration("ALTER TABLE posts ADD COLUMN added_at DATETIME")
+    _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_frequency VARCHAR DEFAULT 'manual'")
+    _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_days TEXT DEFAULT '[]'")
+    _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_end_date DATETIME")
 
     from app.models import Vertical
     db = SessionLocal()

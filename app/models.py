@@ -25,10 +25,13 @@ class Campaign(Base):
     min_er       = Column(Float,   default=2.0)
     max_age_days = Column(Integer, default=180)
     languages    = Column(Text)   # JSON: ["en", "ru", ...] or ["all"]
-    status       = Column(String, default="active")   # active / stopped
-    created_at   = Column(DateTime, default=datetime.utcnow)
-    last_run_at  = Column(DateTime, nullable=True)
-    next_run_at  = Column(DateTime, nullable=True)
+    status             = Column(String, default="active")   # active / stopped
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    last_run_at        = Column(DateTime, nullable=True)
+    next_run_at        = Column(DateTime, nullable=True)
+    schedule_frequency = Column(String, default="manual")   # manual/hourly/daily/weekly
+    schedule_days      = Column(Text, default="[]")          # JSON: ["mon","wed","fri"]
+    schedule_end_date  = Column(DateTime, nullable=True)     # None = indefinitely
 
 
 class Post(Base):

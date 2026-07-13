@@ -18,6 +18,25 @@ from app.auth import APP_PASSWORD, check_auth, create_session_token
 from app.database import SessionLocal, init_db
 from app.models import Campaign, Post, Run, Tag, PostTag, Vertical
 from app.notion_sync import push_post_to_notion
+
+
+def compute_next_run(frequency: str, schedule_days: str, from_time: datetime):
+    """Вычисляет next_run_at на основе частоты запуска."""
+    if frequency == "hourly":
+        return from_time + timedelta(hours=1)
+    if frequency == "daily":
+        return from_time + timedelta(days=1)
+    if frequency == "weekly":
+        days_map = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+        chosen = sorted(days_map[d] for d in json.loads(schedule_days or "[]") if d in days_map)
+        if not chosen:
+            return from_time + timedelta(days=7)
+        today_wd = from_time.weekday()
+        for wd in chosen:
+            if wd > today_wd:
+                return from_time + timedelta(days=wd - today_wd)
+        return from_time + timedelta(days=7 - today_wd + chosen[0])
+    return None  # manual
 from app.parser import run_campaign
 from app.scheduler import start_scheduler
 from app.telegram import send_message
@@ -193,16 +212,19 @@ def campaign_new_page(request: Request):
 @app.post("/campaigns/new")
 async def campaign_create(
     request: Request,
-    name:         str       = Form(...),
-    vertical:     str       = Form(""),
-    platforms:    list[str] = Form(...),
-    hashtags:     str       = Form(""),
-    accounts:     str       = Form(""),
-    keywords:     str       = Form(""),
-    min_views:    int       = Form(300000),
-    min_er:       float     = Form(2.0),
-    max_age_days: int       = Form(180),
-    languages:    list[str] = Form([]),
+    name:               str       = Form(...),
+    vertical:           str       = Form(""),
+    platforms:          list[str] = Form(...),
+    hashtags:           str       = Form(""),
+    accounts:           str       = Form(""),
+    keywords:           str       = Form(""),
+    min_views:          int       = Form(300000),
+    min_er:             float     = Form(2.0),
+    max_age_days:       int       = Form(180),
+    languages:          list[str] = Form([]),
+    schedule_frequency: str       = Form("manual"),
+    schedule_days:      list[str] = Form([]),
+    schedule_end_date:  str       = Form(""),
 ):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
@@ -214,20 +236,24 @@ async def campaign_create(
 
     db  = SessionLocal()
     now = datetime.now(tz=timezone.utc)
+    end_date = datetime.fromisoformat(schedule_end_date) if schedule_end_date else None
     c   = Campaign(
-        name         = name,
-        vertical     = vertical,
-        platforms    = json.dumps(platforms),
-        hashtags     = json.dumps(hashtags_list),
-        accounts     = json.dumps(accounts_list),
-        keywords     = json.dumps(keywords_list),
-        min_views    = min_views,
-        min_er       = min_er,
-        max_age_days = max_age_days,
-        languages    = json.dumps(langs),
-        status       = "active",
-        created_at   = now,
-        next_run_at  = now,
+        name               = name,
+        vertical           = vertical,
+        platforms          = json.dumps(platforms),
+        hashtags           = json.dumps(hashtags_list),
+        accounts           = json.dumps(accounts_list),
+        keywords           = json.dumps(keywords_list),
+        min_views          = min_views,
+        min_er             = min_er,
+        max_age_days       = max_age_days,
+        languages          = json.dumps(langs),
+        status             = "active",
+        created_at         = now,
+        next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), now),
+        schedule_frequency = schedule_frequency,
+        schedule_days      = json.dumps(schedule_days),
+        schedule_end_date  = end_date,
     )
     db.add(c)
     db.commit()
@@ -406,7 +432,11 @@ def _run_in_background(campaign_id: int):
         run.posts_added      = len(new_posts)
         run.status           = "done"
         campaign.last_run_at = now
-        campaign.next_run_at = now + timedelta(days=3)
+        campaign.next_run_at = compute_next_run(
+            campaign.schedule_frequency or "manual",
+            campaign.schedule_days or "[]",
+            now,
+        )
         db.commit()
 
         if new_posts:
@@ -492,13 +522,16 @@ def campaign_edit_page(request: Request, campaign_id: int):
     if not c:
         return RedirectResponse("/", status_code=302)
     ctx = {
-        "campaign":  c,
-        "hashtags":  ", ".join(json.loads(c.hashtags  or "[]")),
-        "accounts":  ", ".join(json.loads(c.accounts  or "[]")),
-        "keywords":  ", ".join(json.loads(c.keywords  or "[]")),
-        "platforms": json.loads(c.platforms or "[]"),
-        "languages": json.loads(c.languages or '["all"]'),
-        "verticals": get_verticals(),
+        "campaign":          c,
+        "hashtags":          ", ".join(json.loads(c.hashtags  or "[]")),
+        "accounts":          ", ".join(json.loads(c.accounts  or "[]")),
+        "keywords":          ", ".join(json.loads(c.keywords  or "[]")),
+        "platforms":         json.loads(c.platforms or "[]"),
+        "languages":         json.loads(c.languages or '["all"]'),
+        "verticals":         get_verticals(),
+        "schedule_frequency": c.schedule_frequency or "manual",
+        "schedule_days":      json.loads(c.schedule_days or "[]"),
+        "schedule_end_date":  c.schedule_end_date.strftime("%Y-%m-%d") if c.schedule_end_date else "",
     }
     return templates.TemplateResponse(request=request, name="campaign_edit.html", context=ctx)
 
@@ -506,33 +539,40 @@ def campaign_edit_page(request: Request, campaign_id: int):
 @app.post("/campaigns/{campaign_id}/edit")
 async def campaign_edit(
     request: Request,
-    campaign_id:  int,
-    name:         str       = Form(...),
-    vertical:     str       = Form(""),
-    platforms:    list[str] = Form(...),
-    hashtags:     str       = Form(""),
-    accounts:     str       = Form(""),
-    keywords:     str       = Form(""),
-    min_views:    int       = Form(300000),
-    min_er:       float     = Form(2.0),
-    max_age_days: int       = Form(180),
-    languages:    list[str] = Form([]),
+    campaign_id:        int,
+    name:               str       = Form(...),
+    vertical:           str       = Form(""),
+    platforms:          list[str] = Form(...),
+    hashtags:           str       = Form(""),
+    accounts:           str       = Form(""),
+    keywords:           str       = Form(""),
+    min_views:          int       = Form(300000),
+    min_er:             float     = Form(2.0),
+    max_age_days:       int       = Form(180),
+    languages:          list[str] = Form([]),
+    schedule_frequency: str       = Form("manual"),
+    schedule_days:      list[str] = Form([]),
+    schedule_end_date:  str       = Form(""),
 ):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     db = SessionLocal()
     c  = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if c:
-        c.name         = name
-        c.vertical     = vertical
-        c.platforms    = json.dumps(platforms)
-        c.hashtags     = json.dumps([h.strip().lstrip("#") for h in hashtags.split(",") if h.strip()])
-        c.accounts     = json.dumps([a.strip().lstrip("@") for a in accounts.split(",") if a.strip()])
-        c.keywords     = json.dumps([k.strip() for k in keywords.split(",") if k.strip()])
-        c.min_views    = min_views
-        c.min_er       = min_er
-        c.max_age_days = max_age_days
-        c.languages    = json.dumps(languages if languages else ["all"])
+        c.name               = name
+        c.vertical           = vertical
+        c.platforms          = json.dumps(platforms)
+        c.hashtags           = json.dumps([h.strip().lstrip("#") for h in hashtags.split(",") if h.strip()])
+        c.accounts           = json.dumps([a.strip().lstrip("@") for a in accounts.split(",") if a.strip()])
+        c.keywords           = json.dumps([k.strip() for k in keywords.split(",") if k.strip()])
+        c.min_views          = min_views
+        c.min_er             = min_er
+        c.max_age_days       = max_age_days
+        c.languages          = json.dumps(languages if languages else ["all"])
+        c.schedule_frequency = schedule_frequency
+        c.schedule_days      = json.dumps(schedule_days)
+        c.schedule_end_date  = datetime.fromisoformat(schedule_end_date) if schedule_end_date else None
+        c.next_run_at        = compute_next_run(schedule_frequency, json.dumps(schedule_days), datetime.now(tz=timezone.utc))
         db.commit()
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
