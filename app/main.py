@@ -162,6 +162,47 @@ def overview(request: Request, days: int = 30, campaign: str = "all"):
     })
 
 
+@app.get("/tags", response_class=HTMLResponse)
+def tags_page(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+
+    all_tags = db.query(Tag).order_by(Tag.name).all()
+
+    # посты у которых есть хотя бы один тег
+    tagged_post_ids = list({pt.post_id for pt in db.query(PostTag).all()})
+    posts = db.query(Post).filter(Post.id.in_(tagged_post_ids)).order_by(Post.views.desc()).all() if tagged_post_ids else []
+
+    # attach campaign
+    all_campaigns = db.query(Campaign).all()
+    camp_map = {c.id: c for c in all_campaigns}
+    for p in posts:
+        p.campaign = camp_map.get(p.campaign_id)
+
+    # post → tags map
+    all_post_tags = db.query(PostTag).filter(PostTag.post_id.in_(tagged_post_ids)).all() if tagged_post_ids else []
+    tags_by_id = {t.id: t for t in all_tags}
+    post_tags_map: dict[int, list] = {}
+    for pt in all_post_tags:
+        tag = tags_by_id.get(pt.tag_id)
+        if tag:
+            post_tags_map.setdefault(pt.post_id, []).append({"id": tag.id, "name": tag.name})
+
+    # tag counts
+    tag_counts = {}
+    for pt in db.query(PostTag).all():
+        tag_counts[pt.tag_id] = tag_counts.get(pt.tag_id, 0) + 1
+
+    db.close()
+    return templates.TemplateResponse(request=request, name="tags.html", context={
+        "posts":          posts,
+        "all_tags":       [{"id": t.id, "name": t.name, "count": tag_counts.get(t.id, 0)} for t in all_tags],
+        "all_tags_json":  json.dumps([{"id": t.id, "name": t.name} for t in all_tags]),
+        "post_tags_json": json.dumps({str(k): v for k, v in post_tags_map.items()}),
+    })
+
+
 @app.get("/api/preview")
 async def api_preview(url: str, platform: str = ""):
     try:
