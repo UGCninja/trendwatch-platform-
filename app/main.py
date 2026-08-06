@@ -1,19 +1,91 @@
+import asyncio
+import csv
+import io
 import json
 import os
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-import httpx
 from fastapi.responses import JSONResponse
+
+SCRAPECREATORS_API_KEY = os.getenv("SCRAPECREATORS_KEY", "")
+
+
+# ── Enrich helpers ────────────────────────────────────────────────────────────
+
+def _detect_platform(url: str) -> str:
+    u = url.lower()
+    if "tiktok.com" in u:   return "TikTok"
+    if "x.com" in u or "twitter.com" in u: return "X"
+    if "instagram.com" in u: return "Instagram"
+    if "youtube.com" in u or "youtu.be" in u: return "YouTube"
+    return "Unknown"
+
+
+def _parse_contractor_csv(text: str) -> list[dict]:
+    rows = []
+    for line in csv.reader(io.StringIO(text)):
+        # X format: col B = URL, col C = Views
+        if len(line) >= 3 and any(d in line[1] for d in ["x.com", "twitter.com"]):
+            url = line[1].strip()
+            views = line[2].strip().replace("\xa0", "").replace(" ", "")
+            if url:
+                rows.append({"url": url, "views": views, "date": ""})
+            continue
+        # TikTok format: col A = Date, col C = URL, col F = Views
+        if len(line) >= 6 and "tiktok.com/video" in line[2]:
+            url = line[2].strip()
+            date = line[0].strip()
+            views = line[5].strip().replace("\xa0", "").replace(" ", "")
+            if url:
+                rows.append({"url": url, "views": views, "date": date})
+    return rows
+
+
+async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> dict:
+    platform = _detect_platform(url)
+    try:
+        if platform == "X":
+            r = await client.get(
+                "https://api.scrapecreators.com/v1/twitter/tweet",
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+            )
+            if r.status_code == 200:
+                res = r.json().get("data", {}).get("tweetResult", {}).get("result", {})
+                lg = res.get("legacy", {})
+                return {"likes": lg.get("favorite_count",""), "comments": lg.get("reply_count",""),
+                        "shares": lg.get("retweet_count",""), "saves": lg.get("bookmark_count","")}
+        elif platform == "TikTok":
+            r = await client.get(
+                "https://api.scrapecreators.com/v2/tiktok/video",
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+            )
+            if r.status_code == 200:
+                st = r.json().get("aweme_detail", {}).get("statistics", {})
+                return {"likes": st.get("digg_count",""), "comments": st.get("comment_count",""),
+                        "shares": st.get("share_count",""), "saves": st.get("collect_count","")}
+        elif platform == "Instagram":
+            r = await client.get(
+                "https://api.scrapecreators.com/v2/instagram/post",
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+            )
+            if r.status_code == 200:
+                item = (r.json().get("items") or [{}])[0]
+                return {"likes": item.get("like_count",""), "comments": item.get("comment_count",""),
+                        "shares": "", "saves": ""}
+    except Exception:
+        pass
+    return {}
 from app.auth import APP_PASSWORD, check_auth, create_session_token
 from app.database import SessionLocal, init_db
 from app.models import Campaign, Post, Run, Tag, PostTag, Vertical
@@ -604,6 +676,64 @@ def campaign_delete(request: Request, campaign_id: int):
     db.commit()
     db.close()
     return RedirectResponse("/", status_code=302)
+
+
+# ── Enrich Reports ────────────────────────────────────────────────────────────
+
+@app.get("/enrich", response_class=HTMLResponse)
+def enrich_page(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(request=request, name="enrich.html",
+                                      context={"active_page": "enrich"})
+
+
+@app.post("/enrich")
+async def enrich_upload(request: Request, file: UploadFile = File(...)):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+
+    if not SCRAPECREATORS_API_KEY:
+        return JSONResponse({"error": "SCRAPECREATORS_API_KEY не настроен в Railway"}, status_code=500)
+
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    rows = _parse_contractor_csv(text)
+
+    if not rows:
+        return JSONResponse({"error": "Не найдено URL в файле. Проверь формат."}, status_code=400)
+
+    sem = asyncio.Semaphore(10)
+
+    async def fetch_with_sem(client, row):
+        async with sem:
+            metrics = await _fetch_metrics(client, row["url"], SCRAPECREATORS_API_KEY)
+            return {**row, **metrics}
+
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(*[fetch_with_sem(client, r) for r in rows])
+
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=["URL","Views","Platform","Date","Likes","Comments","Shares","Saves"])
+    writer.writeheader()
+    for r in results:
+        writer.writerow({
+            "URL":      r["url"],
+            "Views":    r.get("views", ""),
+            "Platform": _detect_platform(r["url"]),
+            "Date":     r.get("date", ""),
+            "Likes":    r.get("likes", ""),
+            "Comments": r.get("comments", ""),
+            "Shares":   r.get("shares", ""),
+            "Saves":    r.get("saves", ""),
+        })
+
+    filename = (file.filename or "report").replace(".csv", "_enriched.csv")
+    return StreamingResponse(
+        io.BytesIO(out.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Редактировать кампанию ────────────────────────────────────────────────────

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Enrich Reports</h1>
+  <p class="page-subtitle">Загрузи CSV от подрядчика — получишь файл с лайками, комментами и шерами</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="card mb-4">
+      <div class="card-body p-4">
+        <form id="enrichForm" action="/enrich" method="post" enctype="multipart/form-data">
+          <div class="mb-4">
+            <label class="form-label fw-semibold">CSV файл от подрядчика</label>
+            <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+              <div id="dropText">
+                <div style="font-size:2rem;margin-bottom:.5rem">📂</div>
+                <div>Перетащи файл сюда или <span class="text-primary" style="cursor:pointer">выбери с компьютера</span></div>
+                <div class="text-muted mt-1" style="font-size:.85rem">Поддерживаются форматы: CashLegends X, Сталкрафт TikTok</div>
+              </div>
+              <div id="fileChosen" style="display:none">
+                <div style="font-size:2rem;margin-bottom:.5rem">✅</div>
+                <div id="fileName" class="fw-semibold"></div>
+                <div id="fileSize" class="text-muted" style="font-size:.85rem"></div>
+              </div>
+            </div>
+            <input type="file" id="fileInput" name="file" accept=".csv" style="display:none">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
+            Обогатить и скачать CSV
+          </button>
+        </form>
+
+        <div id="loadingBlock" style="display:none;text-align:center;padding:2rem 0">
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <div class="fw-semibold">Запрашиваем метрики через ScrapeCreators...</div>
+          <div class="text-muted mt-1" style="font-size:.85rem">Это может занять 1–3 минуты в зависимости от размера файла</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-4">
+        <h6 class="fw-semibold mb-3">Поддерживаемые форматы</h6>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
+              <div class="fw-semibold mb-1">𝕏 (Twitter)</div>
+              <div class="text-muted" style="font-size:.85rem">Колонки: URL, Views<br>Добавляем: Likes, Comments, Shares, Saves</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
+              <div class="fw-semibold mb-1">TikTok</div>
+              <div class="text-muted" style="font-size:.85rem">Колонки: Date, URL, Views<br>Добавляем: Likes, Comments, Shares, Saves</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.drop-zone {
+  border: 2px dashed var(--border-color, #dee2e6);
+  border-radius: 12px;
+  padding: 2.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), .04);
+}
+</style>
+
+<script>
+const input    = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const dropText = document.getElementById('dropText');
+const fileChosen = document.getElementById('fileChosen');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const form     = document.getElementById('enrichForm');
+const loading  = document.getElementById('loadingBlock');
+const submitBtn = document.getElementById('submitBtn');
+
+function showFile(f) {
+  fileName.textContent = f.name;
+  fileSize.textContent = (f.size / 1024).toFixed(1) + ' KB · ' + 'CSV';
+  dropText.style.display = 'none';
+  fileChosen.style.display = 'block';
+}
+
+input.addEventListener('change', () => { if (input.files[0]) showFile(input.files[0]); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) { const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files; showFile(f); }
+});
+
+form.addEventListener('submit', () => {
+  form.style.display = 'none';
+  loading.style.display = 'block';
+});
+</script>
+{% endblock %}
