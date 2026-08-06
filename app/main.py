@@ -32,27 +32,45 @@ def _detect_platform(url: str) -> str:
     return "Unknown"
 
 
+SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "youtube.com", "youtu.be"]
+
 def _parse_contractor_csv(text: str) -> list[dict]:
     rows = []
     for line in csv.reader(io.StringIO(text)):
-        # X format: col B = URL, col C = Views
-        if len(line) >= 3 and any(d in line[1] for d in ["x.com", "twitter.com"]):
-            url = line[1].strip()
-            views = line[2].strip().replace("\xa0", "").replace(" ", "")
-            if url:
-                rows.append({"url": url, "views": views, "date": ""})
+        # URL-only format: any column contains a social URL
+        url_col, views_col, date_col = None, None, None
+        for i, cell in enumerate(line):
+            cell = cell.strip()
+            if any(m in cell.lower() for m in SOCIAL_URL_MARKERS) and cell.startswith("http"):
+                url_col = i
+                break
+        if url_col is None:
             continue
+
+        url = line[url_col].strip()
+
+        # X format: col B = URL, col C = Views
+        if any(d in url for d in ["x.com", "twitter.com"]):
+            views = line[url_col + 1].strip().replace("\xa0", "").replace(" ", "") if url_col + 1 < len(line) else ""
+            rows.append({"url": url, "views": views, "date": ""})
+            continue
+
         # TikTok format: col A = Date, col C = URL, col F = Views
-        if len(line) >= 6 and "tiktok.com/video" in line[2]:
-            url = line[2].strip()
-            date = line[0].strip()
-            views = line[5].strip().replace("\xa0", "").replace(" ", "")
-            if url:
-                rows.append({"url": url, "views": views, "date": date})
+        if "tiktok.com/video" in url:
+            date = line[0].strip() if url_col > 0 else ""
+            views_idx = 5 if len(line) > 5 else url_col + 1
+            views = line[views_idx].strip().replace("\xa0", "").replace(" ", "") if views_idx < len(line) else ""
+            rows.append({"url": url, "views": views, "date": date})
+            continue
+
+        # Generic single-URL format (just a URL per row, no views)
+        rows.append({"url": url, "views": "", "date": ""})
+
     return rows
 
 
 async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> dict:
+    """Returns metrics + status (Active / Non-Active) + api_views."""
     platform = _detect_platform(url)
     try:
         if platform == "X":
@@ -61,31 +79,67 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
             )
             if r.status_code == 200:
-                res = r.json().get("data", {}).get("tweetResult", {}).get("result", {})
+                data = r.json()
+                res = data.get("data", {}).get("tweetResult", {}).get("result", {})
+                # tombstone = deleted/suspended tweet
+                if res.get("__typename") == "TweetTombstone" or not res.get("legacy"):
+                    return {"status": "Non-Active"}
                 lg = res.get("legacy", {})
-                return {"likes": lg.get("favorite_count",""), "comments": lg.get("reply_count",""),
-                        "shares": lg.get("retweet_count",""), "saves": lg.get("bookmark_count","")}
+                views_str = res.get("views", {}).get("count", "")
+                return {
+                    "status":    "Active",
+                    "api_views": views_str,
+                    "likes":     lg.get("favorite_count", ""),
+                    "comments":  lg.get("reply_count", ""),
+                    "shares":    lg.get("retweet_count", ""),
+                    "saves":     lg.get("bookmark_count", ""),
+                }
+            return {"status": "Non-Active"}
+
         elif platform == "TikTok":
             r = await client.get(
                 "https://api.scrapecreators.com/v2/tiktok/video",
                 params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
             )
             if r.status_code == 200:
-                st = r.json().get("aweme_detail", {}).get("statistics", {})
-                return {"likes": st.get("digg_count",""), "comments": st.get("comment_count",""),
-                        "shares": st.get("share_count",""), "saves": st.get("collect_count","")}
+                data = r.json()
+                detail = data.get("aweme_detail")
+                if not detail:
+                    return {"status": "Non-Active"}
+                st = detail.get("statistics", {})
+                return {
+                    "status":    "Active",
+                    "api_views": st.get("play_count", ""),
+                    "likes":     st.get("digg_count", ""),
+                    "comments":  st.get("comment_count", ""),
+                    "shares":    st.get("share_count", ""),
+                    "saves":     st.get("collect_count", ""),
+                }
+            return {"status": "Non-Active"}
+
         elif platform == "Instagram":
             r = await client.get(
                 "https://api.scrapecreators.com/v2/instagram/post",
                 params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
             )
             if r.status_code == 200:
-                item = (r.json().get("items") or [{}])[0]
-                return {"likes": item.get("like_count",""), "comments": item.get("comment_count",""),
-                        "shares": "", "saves": ""}
+                items = r.json().get("items") or []
+                if not items:
+                    return {"status": "Non-Active"}
+                item = items[0]
+                return {
+                    "status":    "Active",
+                    "api_views": item.get("play_count", item.get("view_count", "")),
+                    "likes":     item.get("like_count", ""),
+                    "comments":  item.get("comment_count", ""),
+                    "shares":    "",
+                    "saves":     "",
+                }
+            return {"status": "Non-Active"}
+
     except Exception:
         pass
-    return {}
+    return {"status": "Non-Active"}
 from app.auth import APP_PASSWORD, check_auth, create_session_token
 from app.database import SessionLocal, init_db
 from app.models import Campaign, Post, Run, Tag, PostTag, Vertical
@@ -714,18 +768,21 @@ async def enrich_upload(request: Request, file: UploadFile = File(...)):
         results = await asyncio.gather(*[fetch_with_sem(client, r) for r in rows])
 
     out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=["URL","Views","Platform","Date","Likes","Comments","Shares","Saves"])
+    writer = csv.DictWriter(out, fieldnames=["URL","Views","Platform","Date","Likes","Comments","Shares","Saves","Status"])
     writer.writeheader()
     for r in results:
+        # Use API views if contractor file had none
+        views = r.get("views") or r.get("api_views", "")
         writer.writerow({
             "URL":      r["url"],
-            "Views":    r.get("views", ""),
+            "Views":    views,
             "Platform": _detect_platform(r["url"]),
             "Date":     r.get("date", ""),
             "Likes":    r.get("likes", ""),
             "Comments": r.get("comments", ""),
             "Shares":   r.get("shares", ""),
             "Saves":    r.get("saves", ""),
+            "Status":   r.get("status", ""),
         })
 
     filename = (file.filename or "report").replace(".csv", "_enriched.csv")

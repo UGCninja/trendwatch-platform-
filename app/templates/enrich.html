@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Enrich Reports</h1>
-  <p class="page-subtitle">Загрузи CSV от подрядчика — получишь файл с лайками, комментами и шерами</p>
+  <p class="page-subtitle">Загрузи CSV со ссылками — получишь просмотры, лайки, комменты, шеры и статус поста</p>
 </div>
 
 <div class="row justify-content-center">
@@ -48,15 +48,18 @@
           <div class="col-sm-6">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
               <div class="fw-semibold mb-1">𝕏 (Twitter)</div>
-              <div class="text-muted" style="font-size:.85rem">Колонки: URL, Views<br>Добавляем: Likes, Comments, Shares, Saves</div>
+              <div class="text-muted" style="font-size:.85rem">Формат подрядчика или просто список ссылок<br>Метрики: Views, Likes, Comments, Shares, Saves</div>
             </div>
           </div>
           <div class="col-sm-6">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
-              <div class="fw-semibold mb-1">TikTok</div>
-              <div class="text-muted" style="font-size:.85rem">Колонки: Date, URL, Views<br>Добавляем: Likes, Comments, Shares, Saves</div>
+              <div class="fw-semibold mb-1">TikTok / Instagram</div>
+              <div class="text-muted" style="font-size:.85rem">Формат подрядчика или просто список ссылок<br>Метрики: Views, Likes, Comments, Shares, Saves</div>
             </div>
           </div>
+        </div>
+        <div class="mt-3 p-3 rounded" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3)">
+          <div style="font-size:.85rem">⚡ <strong>Статус:</strong> если пост удалён или недоступен — автоматически ставится <code>Non-Active</code></div>
         </div>
       </div>
     </div>
