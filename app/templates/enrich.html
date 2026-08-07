@@ -48,28 +48,61 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-body p-4">
-        <h6 class="fw-semibold mb-3">Поддерживаемые форматы</h6>
-        <div class="row g-3">
+    <details class="card">
+      <summary class="card-body p-3 d-flex align-items-center justify-content-between" style="cursor:pointer;list-style:none;user-select:none">
+        <span class="fw-semibold">Инструкция и форматы</span>
+        <span class="text-muted" style="font-size:.85rem">развернуть ▾</span>
+      </summary>
+      <div class="card-body pt-0 p-4">
+        <div class="row g-3 mb-3">
           <div class="col-sm-6">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
               <div class="fw-semibold mb-1">𝕏 (Twitter)</div>
-              <div class="text-muted" style="font-size:.85rem">Формат подрядчика или просто список ссылок<br>Метрики: Views, Likes, Comments, Shares, Saves</div>
+              <div class="text-muted" style="font-size:.83rem">
+                Колонка B = URL, колонка C = Views<br>
+                Или просто список ссылок (одна колонка)<br>
+                <strong style="color:#212529">Метрики:</strong> Views, Likes, Comments, Shares, Saves, Date
+              </div>
             </div>
           </div>
           <div class="col-sm-6">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
-              <div class="fw-semibold mb-1">TikTok / Instagram</div>
-              <div class="text-muted" style="font-size:.85rem">Формат подрядчика или просто список ссылок<br>Метрики: Views, Likes, Comments, Shares, Saves</div>
+              <div class="fw-semibold mb-1">TikTok</div>
+              <div class="text-muted" style="font-size:.83rem">
+                Колонка A = Date, колонка C = URL, колонка F = Views<br>
+                Или просто список ссылок<br>
+                <strong style="color:#212529">Метрики:</strong> Views, Likes, Comments, Shares, Saves, Date
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
+              <div class="fw-semibold mb-1">Instagram</div>
+              <div class="text-muted" style="font-size:.83rem">
+                Список ссылок на посты/рилсы<br>
+                <strong style="color:#212529">Метрики:</strong> Views, Likes, Comments, Date
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
+              <div class="fw-semibold mb-1">YouTube</div>
+              <div class="text-muted" style="font-size:.83rem">
+                Ссылки на видео или Shorts<br>
+                <strong style="color:#212529">Метрики:</strong> Views, Likes, Comments, Date
+              </div>
             </div>
           </div>
         </div>
-        <div class="mt-3 p-3 rounded" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3)">
-          <div style="font-size:.85rem">⚡ <strong>Статус:</strong> если пост удалён или недоступен — автоматически ставится <code>Non-Active</code></div>
+        <div class="p-3 rounded mb-2" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);font-size:.85rem">
+          ⚡ <strong>Non-Active</strong> — ставится если пост удалён, недоступен или аккаунт заблокирован
+        </div>
+        <div class="p-3 rounded" style="background:rgba(13,110,253,.07);border:1px solid rgba(13,110,253,.2);font-size:.85rem">
+          📅 <strong>Дата публикации</strong> — берётся из API автоматически для всех платформ<br>
+          👁 <strong>Просмотры</strong> — по умолчанию обновляются из API. Галочка выше = оставить из файла подрядчика
         </div>
       </div>
-    </div>
+    </details>
 
   </div>
 </div>

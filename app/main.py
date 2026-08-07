@@ -36,6 +36,7 @@ def _detect_platform(url: str) -> str:
 
 
 import re as _re
+from datetime import datetime as _dt
 from urllib.parse import quote as _urlquote
 
 SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "youtube.com", "youtu.be"]
@@ -105,9 +106,15 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 lg = data.get("legacy", {})
                 if not lg:
                     return {"status": "Non-Active"}
+                pub_date = ""
+                try:
+                    pub_date = _dt.strptime(lg["created_at"], "%a %b %d %H:%M:%S +0000 %Y").strftime("%d.%m.%Y")
+                except Exception:
+                    pass
                 return {
                     "status":    "Active",
                     "api_views": data.get("views", {}).get("count", ""),
+                    "api_date":  pub_date,
                     "likes":     lg.get("favorite_count", ""),
                     "comments":  lg.get("reply_count", ""),
                     "shares":    lg.get("retweet_count", ""),
@@ -126,9 +133,17 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 if not detail:
                     return {"status": "Non-Active"}
                 st = detail.get("statistics", {})
+                pub_date = ""
+                try:
+                    ts = detail.get("create_time", 0)
+                    if ts:
+                        pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
+                except Exception:
+                    pass
                 return {
                     "status":    "Active",
                     "api_views": st.get("play_count", ""),
+                    "api_date":  pub_date,
                     "likes":     st.get("digg_count", ""),
                     "comments":  st.get("comment_count", ""),
                     "shares":    st.get("share_count", ""),
@@ -146,9 +161,17 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 if not items:
                     return {"status": "Non-Active"}
                 item = items[0]
+                pub_date = ""
+                try:
+                    ts = item.get("taken_at", 0)
+                    if ts:
+                        pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
+                except Exception:
+                    pass
                 return {
                     "status":    "Active",
                     "api_views": item.get("play_count", item.get("view_count", "")),
+                    "api_date":  pub_date,
                     "likes":     item.get("like_count", ""),
                     "comments":  item.get("comment_count", ""),
                     "shares":    "",
@@ -162,10 +185,10 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 return {"status": "Non-Active"}
             yt_key = YOUTUBE_API_KEY
             if not yt_key:
-                return {"status": "Non-Active", "error": "YOUTUBE_API_KEY не задан"}
+                return {"status": "Non-Active"}
             r = await client.get(
                 "https://www.googleapis.com/youtube/v3/videos",
-                params={"part": "statistics,status", "id": video_id, "key": yt_key},
+                params={"part": "statistics,status,snippet", "id": video_id, "key": yt_key},
                 timeout=15,
             )
             if r.status_code == 200:
@@ -173,14 +196,21 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 if not items:
                     return {"status": "Non-Active"}
                 item = items[0]
-                # check if video is private/deleted
                 priv = item.get("status", {}).get("privacyStatus", "public")
                 if priv in ("private", "unlisted"):
                     return {"status": "Non-Active"}
                 st = item.get("statistics", {})
+                pub_date = ""
+                try:
+                    raw = item.get("snippet", {}).get("publishedAt", "")
+                    if raw:
+                        pub_date = _dt.strptime(raw[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+                except Exception:
+                    pass
                 return {
                     "status":    "Active",
                     "api_views": st.get("viewCount", ""),
+                    "api_date":  pub_date,
                     "likes":     st.get("likeCount", ""),
                     "comments":  st.get("commentCount", ""),
                     "shares":    "",
@@ -813,10 +843,11 @@ async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict, update_
     writer.writeheader()
     for r in results:
         views = (r.get("api_views") or r.get("views", "")) if update_views else (r.get("views") or r.get("api_views", ""))
+        date  = r.get("api_date") or r.get("date", "")
         writer.writerow({
             "URL": r["url"], "Views": views,
             "Platform": _detect_platform(r["url"]),
-            "Date": r.get("date", ""),
+            "Date": date,
             "Likes": r.get("likes", ""), "Comments": r.get("comments", ""),
             "Shares": r.get("shares", ""), "Saves": r.get("saves", ""),
             "Status": r.get("status", ""),
