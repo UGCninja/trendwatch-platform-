@@ -11,3 +11,4 @@ apscheduler
 itsdangerous
 httpx[asyncio]
 psycopg2-binary
+anthropic

@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 
 SCRAPECREATORS_API_KEY = os.getenv("SCRAPECREATORS_KEY", "")
 YOUTUBE_API_KEY        = os.getenv("YOUTUBE_API_KEY", "")
+ANTHROPIC_API_KEY      = os.getenv("ANTHROPIC_API_KEY", "")
 
 
 # ── Enrich helpers ────────────────────────────────────────────────────────────
@@ -1023,3 +1024,328 @@ async def campaign_edit(
         db.commit()
     db.close()
     return RedirectResponse(f"/campaigns/{campaign_id}", status_code=302)
+
+
+# ── Comments ──────────────────────────────────────────────────────────────────
+
+_comments_tasks: dict[str, dict] = {}
+
+
+async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
+    r = await client.get(
+        "https://api.scrapecreators.com/v1/tiktok/video/comments",
+        params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
+    )
+    if r.status_code != 200:
+        return []
+    out = []
+    for c in r.json().get("comments", []):
+        ts = c.get("create_time", 0)
+        date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+        out.append({
+            "post_url":  url,
+            "platform":  "TikTok",
+            "author":    "@" + c.get("user", {}).get("unique_id", ""),
+            "comment":   c.get("text", ""),
+            "likes":     c.get("digg_count", 0),
+            "date":      date,
+            "is_reply":  bool(c.get("reply_id")),
+        })
+    return out
+
+
+async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
+    r = await client.get(
+        "https://api.scrapecreators.com/v2/instagram/post/comments",
+        params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
+    )
+    if r.status_code != 200:
+        return []
+    out = []
+    for c in r.json().get("comments", []):
+        ts = c.get("created_at", 0)
+        date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+        out.append({
+            "post_url":  url,
+            "platform":  "Instagram",
+            "author":    "@" + c.get("user", {}).get("username", ""),
+            "comment":   c.get("text", ""),
+            "likes":     c.get("like_count", 0),
+            "date":      date,
+            "is_reply":  bool(c.get("replied_to_author")),
+        })
+    return out
+
+
+async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
+    r = await client.get(
+        "https://api.scrapecreators.com/v1/youtube/video/comments",
+        params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
+    )
+    if r.status_code != 200:
+        return []
+    out = []
+    for c in r.json().get("comments", []):
+        date = ""
+        try:
+            raw = c.get("publishedTime", "")
+            if raw:
+                date = _dt.fromisoformat(raw.replace("Z", "+00:00")).strftime("%d.%m.%Y")
+        except Exception:
+            pass
+        out.append({
+            "post_url":  url,
+            "platform":  "YouTube",
+            "author":    c.get("author", {}).get("name", ""),
+            "comment":   c.get("content", ""),
+            "likes":     c.get("engagement", {}).get("likes", 0),
+            "date":      date,
+            "is_reply":  c.get("replyLevel", 0) > 0,
+        })
+    return out
+
+
+async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict) -> list[dict]:
+    sem = asyncio.Semaphore(10)
+    all_comments = []
+
+    async def fetch_one(client, row):
+        async with sem:
+            url = row["url"]
+            platform = _detect_platform(url)
+            try:
+                if platform == "TikTok":
+                    comments = await _fetch_comments_tiktok(client, url, sc_key)
+                elif platform == "Instagram":
+                    comments = await _fetch_comments_instagram(client, url, sc_key)
+                elif platform == "YouTube":
+                    comments = await _fetch_comments_youtube(client, url, sc_key)
+                else:
+                    comments = []
+            except Exception:
+                comments = []
+            task["done"] = task.get("done", 0) + 1
+            return comments
+
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(*[fetch_one(client, r) for r in urls], return_exceptions=True)
+
+    for r in results:
+        if isinstance(r, list):
+            all_comments.extend(r)
+    return all_comments
+
+
+def _comments_to_csv(comments: list[dict]) -> str:
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=["post_url", "platform", "author", "comment", "likes", "date", "is_reply"])
+    writer.writeheader()
+    for c in comments:
+        writer.writerow(c)
+    return out.getvalue()
+
+
+def _generate_audit_html(comments: list[dict], product: str, anthropic_key: str) -> str:
+    import anthropic as _anthropic
+
+    total = len(comments)
+    replies = sum(1 for c in comments if c.get("is_reply"))
+    main_comments = total - replies
+    total_likes = sum(int(c.get("likes") or 0) for c in comments)
+    platforms = {}
+    for c in comments:
+        p = c.get("platform", "Unknown")
+        platforms[p] = platforms.get(p, 0) + 1
+
+    comments_text = "\n".join(
+        f'[{c["platform"]}] @{c["author"]}: {c["comment"]} (лайков: {c["likes"]})'
+        for c in comments[:800]
+    )
+
+    prompt = f"""Ты аналитик UGC-маркетинга в агентстве UGC Ninja. Проанализируй комментарии к рекламной кампании продукта «{product}».
+
+СТАТИСТИКА:
+- Всего комментариев: {total} (основных: {main_comments}, ответов: {replies})
+- Лайков на комментарии: {total_likes}
+- Платформы: {', '.join(f'{k}: {v}' for k,v in platforms.items())}
+
+КОММЕНТАРИИ:
+{comments_text}
+
+Сделай структурированный аудит на русском языке. Верни ТОЛЬКО готовый HTML (без markdown, без ```html блоков) со следующими разделами:
+
+1. Общие показатели (таблица с цифрами)
+2. Общий сентимент в % (позитивный / неоднозначный / негативный) с пояснением
+3. Ключевые темы и паттерны (топ-5 тем с примерами комментариев и кол-вом упоминаний)
+4. Сравнения с конкурентами (если есть)
+5. Вопросы от аудитории (типы вопросов и их кол-во)
+6. Скептицизм к рекламному формату (если есть)
+7. Рекомендации (конкретные, по каждой проблеме)
+
+Используй этот HTML-скелет (заполни данными):
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Аудит комментариев — {product}</title>
+<style>
+body{{font-family:Inter,sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#1a1a1a;line-height:1.6}}
+h1{{font-size:2rem;margin-bottom:4px}}
+.subtitle{{color:#666;margin-bottom:32px;font-size:.95rem}}
+h2{{font-size:1.2rem;border-bottom:2px solid #eee;padding-bottom:8px;margin-top:40px}}
+.stats-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin:20px 0}}
+.stat-card{{background:#f8f9fa;border-radius:10px;padding:16px;text-align:center}}
+.stat-num{{font-size:1.8rem;font-weight:700;color:#0d6efd}}
+.stat-label{{font-size:.8rem;color:#666;margin-top:4px}}
+.sentiment{{display:flex;gap:16px;margin:16px 0}}
+.sent-block{{flex:1;border-radius:8px;padding:12px 16px;text-align:center}}
+.sent-pos{{background:#d1e7dd}}.sent-mix{{background:#fff3cd}}.sent-neg{{background:#f8d7da}}
+.sent-pct{{font-size:1.6rem;font-weight:700}}
+table{{width:100%;border-collapse:collapse;margin:16px 0}}
+th{{background:#f8f9fa;padding:10px;text-align:left;font-size:.85rem;border-bottom:2px solid #dee2e6}}
+td{{padding:10px;border-bottom:1px solid #f0f0f0;font-size:.9rem}}
+.quote{{background:#f8f9fa;border-left:3px solid #0d6efd;padding:8px 12px;margin:8px 0;border-radius:0 6px 6px 0;font-style:italic;font-size:.9rem}}
+.rec{{background:#e8f4fd;border-radius:8px;padding:12px 16px;margin:8px 0}}
+.badge{{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:600}}
+.badge-pos{{background:#d1e7dd;color:#0f5132}}.badge-neg{{background:#f8d7da;color:#842029}}.badge-neu{{background:#fff3cd;color:#664d03}}
+</style>
+</head>
+<body>
+<!-- ЗАПОЛНИ ЗДЕСЬ ВЕСЬ КОНТЕНТ -->
+</body>
+</html>"""
+
+    client = _anthropic.Anthropic(api_key=anthropic_key)
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=8000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return msg.content[0].text
+
+
+def _run_comments_task(task_id: str, content: bytes, product: str, mode: str, sc_key: str, anthropic_key: str):
+    task = _comments_tasks[task_id]
+    try:
+        text = None
+        for enc in ("utf-8-sig", "utf-8", "cp1251", "latin-1"):
+            try:
+                text = content.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            task.update({"status": "error", "error": "Не удалось прочитать файл"})
+            return
+
+        urls = []
+        for line in csv.reader(io.StringIO(text)):
+            for cell in line:
+                cell = cell.strip()
+                if cell.startswith("http") and any(m in cell.lower() for m in SOCIAL_URL_MARKERS):
+                    urls.append({"url": cell})
+                    break
+
+        if not urls:
+            task.update({"status": "error", "error": "URL не найдены в файле"})
+            return
+
+        task["total"] = len(urls)
+        task["status"] = "collecting"
+
+        comments = asyncio.run(_collect_all_comments(urls, sc_key, task))
+        task["comments_count"] = len(comments)
+
+        if mode == "audit":
+            task["status"] = "auditing"
+            result = _generate_audit_html(comments, product, anthropic_key)
+            task.update({"status": "done", "result": result, "result_type": "html",
+                         "filename": f"{product}_audit.html"})
+        else:
+            result = _comments_to_csv(comments)
+            task.update({"status": "done", "result": result, "result_type": "csv",
+                         "filename": f"{product}_comments.csv"})
+    except Exception as e:
+        task.update({"status": "error", "error": str(e)})
+
+
+@app.get("/comments", response_class=HTMLResponse)
+def comments_page(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(request=request, name="comments.html",
+                                      context={"active_page": "comments"})
+
+
+@app.post("/comments")
+async def comments_upload(request: Request, file: UploadFile = File(...),
+                          product: str = Form(""), mode: str = Form("comments")):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    if not SCRAPECREATORS_API_KEY:
+        return JSONResponse({"error": "SCRAPECREATORS_KEY не задан"}, status_code=500)
+    if mode == "audit" and not ANTHROPIC_API_KEY:
+        return JSONResponse({"error": "ANTHROPIC_API_KEY не задан"}, status_code=500)
+
+    content = await file.read()
+    product_name = product.strip() or "Продукт"
+    _cleanup_old_tasks()
+    task_id = str(uuid.uuid4())
+    _comments_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time()}
+    threading.Thread(
+        target=_run_comments_task,
+        args=[task_id, content, product_name, mode, SCRAPECREATORS_API_KEY, ANTHROPIC_API_KEY],
+        daemon=True,
+    ).start()
+    return RedirectResponse(f"/comments/task/{task_id}", status_code=302)
+
+
+@app.get("/comments/task/{task_id}", response_class=HTMLResponse)
+def comments_task_page(request: Request, task_id: str):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    if task_id not in _comments_tasks:
+        return RedirectResponse("/comments", status_code=302)
+    return templates.TemplateResponse(request=request, name="comments_task.html",
+                                      context={"active_page": "comments", "task_id": task_id})
+
+
+@app.get("/api/comments/status/{task_id}")
+def comments_task_status(request: Request, task_id: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    task = _comments_tasks.get(task_id)
+    if not task:
+        return JSONResponse({"status": "not_found"})
+    return JSONResponse({
+        "status":         task.get("status"),
+        "done":           task.get("done", 0),
+        "total":          task.get("total", 0),
+        "comments_count": task.get("comments_count", 0),
+        "result_type":    task.get("result_type", ""),
+        "filename":       task.get("filename", ""),
+        "error":          task.get("error", ""),
+    })
+
+
+@app.get("/comments/download/{task_id}")
+def comments_download(request: Request, task_id: str):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    task = _comments_tasks.get(task_id)
+    if not task or task.get("status") != "done":
+        return RedirectResponse("/comments", status_code=302)
+    fname = task["filename"]
+    result_type = task.get("result_type", "csv")
+    if result_type == "html":
+        return StreamingResponse(
+            io.BytesIO(task["result"].encode("utf-8")),
+            media_type="text/html; charset=utf-8",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_urlquote(fname.encode('utf-8'))}"},
+        )
+    return StreamingResponse(
+        io.BytesIO(task["result"].encode("utf-8-sig")),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_urlquote(fname.encode('utf-8'))}"},
+    )
