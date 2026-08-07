@@ -21,6 +21,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from fastapi.responses import JSONResponse
 
 SCRAPECREATORS_API_KEY = os.getenv("SCRAPECREATORS_KEY", "")
+YOUTUBE_API_KEY        = os.getenv("YOUTUBE_API_KEY", "")
 
 
 # ── Enrich helpers ────────────────────────────────────────────────────────────
@@ -34,7 +35,23 @@ def _detect_platform(url: str) -> str:
     return "Unknown"
 
 
+import re as _re
+
 SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "youtube.com", "youtu.be"]
+
+
+def _extract_youtube_id(url: str):
+    patterns = [
+        r"youtube\.com/watch\?.*v=([A-Za-z0-9_-]{11})",
+        r"youtu\.be/([A-Za-z0-9_-]{11})",
+        r"youtube\.com/shorts/([A-Za-z0-9_-]{11})",
+        r"youtube\.com/embed/([A-Za-z0-9_-]{11})",
+    ]
+    for p in patterns:
+        m = _re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
 
 def _parse_contractor_csv(text: str) -> list[dict]:
     rows = []
@@ -134,6 +151,38 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "api_views": item.get("play_count", item.get("view_count", "")),
                     "likes":     item.get("like_count", ""),
                     "comments":  item.get("comment_count", ""),
+                    "shares":    "",
+                    "saves":     "",
+                }
+            return {"status": "Non-Active"}
+
+        elif platform == "YouTube":
+            video_id = _extract_youtube_id(url)
+            if not video_id:
+                return {"status": "Non-Active"}
+            yt_key = YOUTUBE_API_KEY
+            if not yt_key:
+                return {"status": "Non-Active", "error": "YOUTUBE_API_KEY не задан"}
+            r = await client.get(
+                "https://www.googleapis.com/youtube/v3/videos",
+                params={"part": "statistics,status", "id": video_id, "key": yt_key},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                items = r.json().get("items") or []
+                if not items:
+                    return {"status": "Non-Active"}
+                item = items[0]
+                # check if video is private/deleted
+                priv = item.get("status", {}).get("privacyStatus", "public")
+                if priv in ("private", "unlisted"):
+                    return {"status": "Non-Active"}
+                st = item.get("statistics", {})
+                return {
+                    "status":    "Active",
+                    "api_views": st.get("viewCount", ""),
+                    "likes":     st.get("likeCount", ""),
+                    "comments":  st.get("commentCount", ""),
                     "shares":    "",
                     "saves":     "",
                 }
