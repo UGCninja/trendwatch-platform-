@@ -100,15 +100,14 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             )
             if r.status_code == 200:
                 data = r.json()
-                res = data.get("data", {}).get("tweetResult", {}).get("result", {})
-                # tombstone = deleted/suspended tweet
-                if res.get("__typename") == "TweetTombstone" or not res.get("legacy"):
+                if not data.get("success") or data.get("__typename") == "TweetTombstone":
                     return {"status": "Non-Active"}
-                lg = res.get("legacy", {})
-                views_str = res.get("views", {}).get("count", "")
+                lg = data.get("legacy", {})
+                if not lg:
+                    return {"status": "Non-Active"}
                 return {
                     "status":    "Active",
-                    "api_views": views_str,
+                    "api_views": data.get("views", {}).get("count", ""),
                     "likes":     lg.get("favorite_count", ""),
                     "comments":  lg.get("reply_count", ""),
                     "shares":    lg.get("retweet_count", ""),
