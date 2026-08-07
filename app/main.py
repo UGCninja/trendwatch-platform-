@@ -24,6 +24,17 @@ SCRAPECREATORS_API_KEY = os.getenv("SCRAPECREATORS_KEY", "")
 YOUTUBE_API_KEY        = os.getenv("YOUTUBE_API_KEY", "")
 ANTHROPIC_API_KEY      = os.getenv("ANTHROPIC_API_KEY", "")
 
+_sc_credits = None
+
+def _update_sc_credits(response_data: dict):
+    global _sc_credits
+    val = response_data.get("credits_remaining")
+    if val is not None:
+        try:
+            _sc_credits = int(val)
+        except (TypeError, ValueError):
+            pass
+
 
 # ── Enrich helpers ────────────────────────────────────────────────────────────
 
@@ -102,6 +113,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             )
             if r.status_code == 200:
                 data = r.json()
+                _update_sc_credits(data)
                 if not data.get("success") or data.get("__typename") == "TweetTombstone":
                     return {"status": "Non-Active"}
                 lg = data.get("legacy", {})
@@ -130,6 +142,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             )
             if r.status_code == 200:
                 data = r.json()
+                _update_sc_credits(data)
                 detail = data.get("aweme_detail")
                 if not detail:
                     return {"status": "Non-Active"}
@@ -812,6 +825,15 @@ def campaign_delete(request: Request, campaign_id: int):
     db.commit()
     db.close()
     return RedirectResponse("/", status_code=302)
+
+
+# ── Balance ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/balance")
+def api_balance(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return JSONResponse({"sc_credits": _sc_credits})
 
 
 # ── Enrich Reports ────────────────────────────────────────────────────────────
