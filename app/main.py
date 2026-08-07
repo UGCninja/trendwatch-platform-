@@ -76,7 +76,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
         if platform == "X":
             r = await client.get(
                 "https://api.scrapecreators.com/v1/twitter/tweet",
-                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=15,
             )
             if r.status_code == 200:
                 data = r.json()
@@ -99,7 +99,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
         elif platform == "TikTok":
             r = await client.get(
                 "https://api.scrapecreators.com/v2/tiktok/video",
-                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=15,
             )
             if r.status_code == 200:
                 data = r.json()
@@ -120,7 +120,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
         elif platform == "Instagram":
             r = await client.get(
                 "https://api.scrapecreators.com/v2/instagram/post",
-                params={"url": url}, headers={"x-api-key": api_key}, timeout=30,
+                params={"url": url}, headers={"x-api-key": api_key}, timeout=15,
             )
             if r.status_code == 200:
                 items = r.json().get("items") or []
@@ -748,24 +748,41 @@ async def enrich_upload(request: Request, file: UploadFile = File(...)):
         return RedirectResponse("/login", status_code=302)
 
     if not SCRAPECREATORS_API_KEY:
-        return JSONResponse({"error": "SCRAPECREATORS_API_KEY не настроен в Railway"}, status_code=500)
+        return JSONResponse({"error": "SCRAPECREATORS_KEY не задан в переменных Railway"}, status_code=500)
 
     content = await file.read()
-    text = content.decode("utf-8-sig")
+    # try common encodings
+    text = None
+    for enc in ("utf-8-sig", "utf-8", "cp1251", "latin-1"):
+        try:
+            text = content.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        return JSONResponse({"error": "Не удалось прочитать файл — проверь кодировку"}, status_code=400)
     rows = _parse_contractor_csv(text)
 
     if not rows:
         return JSONResponse({"error": "Не найдено URL в файле. Проверь формат."}, status_code=400)
 
-    sem = asyncio.Semaphore(10)
+    sem = asyncio.Semaphore(50)
 
     async def fetch_with_sem(client, row):
         async with sem:
-            metrics = await _fetch_metrics(client, row["url"], SCRAPECREATORS_API_KEY)
+            try:
+                metrics = await _fetch_metrics(client, row["url"], SCRAPECREATORS_API_KEY)
+            except Exception:
+                metrics = {"status": "Non-Active"}
             return {**row, **metrics}
 
     async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(*[fetch_with_sem(client, r) for r in rows])
+        results = await asyncio.gather(
+            *[fetch_with_sem(client, r) for r in rows],
+            return_exceptions=True,
+        )
+    # filter out any exceptions that slipped through
+    results = [r if isinstance(r, dict) else {"url": "", "views": "", "date": "", "status": "Non-Active"} for r in results]
 
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=["URL","Views","Platform","Date","Likes","Comments","Shares","Saves","Status"])
