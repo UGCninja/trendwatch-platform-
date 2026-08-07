@@ -867,14 +867,14 @@ def enrich_page(request: Request):
 
 
 @app.post("/enrich")
-async def enrich_upload(request: Request, file: UploadFile = File(...), views_mode: str = Form("keep")):
+async def enrich_upload(request: Request, file: UploadFile = File(...), views_mode: str = Form("")):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     if not SCRAPECREATORS_API_KEY:
         return JSONResponse({"error": "SCRAPECREATORS_KEY не задан в Railway"}, status_code=500)
     content = await file.read()
     filename = file.filename or "report.csv"
-    update_views = (views_mode == "update")
+    update_views = (views_mode != "keep")  # default: update all; checked = keep from file
     _cleanup_old_tasks()
     task_id = str(uuid.uuid4())
     _enrich_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time()}

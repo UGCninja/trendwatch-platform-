@@ -28,25 +28,16 @@
             <input type="file" id="fileInput" name="file" accept=".csv" style="display:none">
           </div>
 
-          <div class="mb-3 p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa);border:1px solid var(--border-color,#dee2e6)">
-            <div class="fw-semibold mb-2" style="font-size:.9rem">Просмотры</div>
-            <div class="form-check mb-1">
-              <input class="form-check-input" type="radio" name="views_mode" id="views_keep" value="keep" checked>
-              <label class="form-check-label" for="views_keep" style="font-size:.9rem">
-                Оставить из файла, добавить лайки / комменты / шеры
-              </label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="views_mode" id="views_update" value="update">
-              <label class="form-check-label" for="views_update" style="font-size:.9rem">
-                Обновить все данные из API (просмотры + метрики)
-              </label>
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
+          <button type="submit" class="btn btn-primary w-100 py-2 mb-3" id="submitBtn">
             Обогатить и скачать CSV
           </button>
+
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="views_mode" id="views_keep" value="keep">
+            <label class="form-check-label" for="views_keep">
+              Оставить просмотры из файла подрядчика
+            </label>
+          </div>
         </form>
 
         <div id="loadingBlock" style="display:none;text-align:center;padding:2rem 0">
