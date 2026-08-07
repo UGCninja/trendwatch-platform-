@@ -788,7 +788,7 @@ def campaign_delete(request: Request, campaign_id: int):
 _enrich_tasks: dict[str, dict] = {}
 
 
-async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict) -> str:
+async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict, update_views: bool = False) -> str:
     sem = asyncio.Semaphore(50)
 
     async def fetch_one(client, row):
@@ -812,7 +812,7 @@ async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict) -> str:
     writer = csv.DictWriter(out, fieldnames=["URL", "Views", "Platform", "Date", "Likes", "Comments", "Shares", "Saves", "Status"])
     writer.writeheader()
     for r in results:
-        views = r.get("api_views") or r.get("views", "")
+        views = (r.get("api_views") or r.get("views", "")) if update_views else (r.get("views") or r.get("api_views", ""))
         writer.writerow({
             "URL": r["url"], "Views": views,
             "Platform": _detect_platform(r["url"]),
@@ -824,8 +824,9 @@ async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict) -> str:
     return out.getvalue()
 
 
-def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str):
+def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str, update_views: bool = False):
     task = _enrich_tasks[task_id]
+    task["update_views"] = update_views
     try:
         text = None
         for enc in ("utf-8-sig", "utf-8", "cp1251", "latin-1"):
@@ -843,7 +844,7 @@ def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str):
             return
         task["total"] = len(rows)
         task["status"] = "processing"
-        result_csv = asyncio.run(_enrich_rows_async(rows, api_key, task))
+        result_csv = asyncio.run(_enrich_rows_async(rows, api_key, task, update_views))
         task.update({"status": "done", "result": result_csv,
                      "filename": filename.replace(".csv", "_enriched.csv")})
     except Exception as e:
@@ -866,18 +867,20 @@ def enrich_page(request: Request):
 
 
 @app.post("/enrich")
-async def enrich_upload(request: Request, file: UploadFile = File(...)):
+async def enrich_upload(request: Request, file: UploadFile = File(...), views_mode: str = Form("keep")):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     if not SCRAPECREATORS_API_KEY:
         return JSONResponse({"error": "SCRAPECREATORS_KEY не задан в Railway"}, status_code=500)
     content = await file.read()
     filename = file.filename or "report.csv"
+    update_views = (views_mode == "update")
     _cleanup_old_tasks()
     task_id = str(uuid.uuid4())
     _enrich_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time()}
     threading.Thread(target=_run_enrich_task,
                      args=[task_id, content, filename, SCRAPECREATORS_API_KEY],
+                     kwargs={"update_views": update_views},
                      daemon=True).start()
     return RedirectResponse(f"/enrich/task/{task_id}", status_code=302)
 
