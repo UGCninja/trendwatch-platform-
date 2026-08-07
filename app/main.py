@@ -36,6 +36,7 @@ def _detect_platform(url: str) -> str:
 
 
 import re as _re
+from urllib.parse import quote as _urlquote
 
 SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "youtube.com", "youtu.be"]
 
@@ -911,10 +912,12 @@ def enrich_download(request: Request, task_id: str):
     task = _enrich_tasks.get(task_id)
     if not task or task.get("status") != "done":
         return RedirectResponse("/enrich", status_code=302)
+    fname = task["filename"]
+    fname_encoded = _urlquote(fname.encode("utf-8"))
     return StreamingResponse(
         io.BytesIO(task["result"].encode("utf-8-sig")),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{task["filename"]}"'},
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname_encoded}"},
     )
 
 
