@@ -926,10 +926,50 @@ def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str, 
 
 
 def _cleanup_old_tasks():
-    cutoff = time.time() - 3600
+    cutoff = time.time() - 86400  # хранить 24 часа
     for tid in list(_enrich_tasks.keys()):
         if _enrich_tasks[tid].get("ts", 0) < cutoff:
             del _enrich_tasks[tid]
+    for tid in list(_comments_tasks.keys()):
+        if _comments_tasks[tid].get("ts", 0) < cutoff:
+            del _comments_tasks[tid]
+
+
+@app.get("/api/enrich/history")
+def enrich_history(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    items = []
+    for tid, t in sorted(_enrich_tasks.items(), key=lambda x: x[1].get("ts", 0), reverse=True)[:20]:
+        if t.get("status") in ("done", "error"):
+            items.append({
+                "task_id":  tid,
+                "status":   t.get("status"),
+                "filename": t.get("filename", ""),
+                "total":    t.get("total", 0),
+                "ts":       t.get("ts", 0),
+                "error":    t.get("error", ""),
+            })
+    return JSONResponse(items)
+
+
+@app.get("/api/comments/history")
+def comments_history(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    items = []
+    for tid, t in sorted(_comments_tasks.items(), key=lambda x: x[1].get("ts", 0), reverse=True)[:20]:
+        if t.get("status") in ("done", "error"):
+            items.append({
+                "task_id":        tid,
+                "status":         t.get("status"),
+                "filename":       t.get("filename", ""),
+                "comments_count": t.get("comments_count", 0),
+                "result_type":    t.get("result_type", ""),
+                "ts":             t.get("ts", 0),
+                "error":          t.get("error", ""),
+            })
+    return JSONResponse(items)
 
 
 @app.get("/enrich", response_class=HTMLResponse)

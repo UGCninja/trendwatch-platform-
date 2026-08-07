@@ -2,11 +2,23 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Enrich Reports</h1>
-  <p class="page-subtitle">Загрузи CSV со ссылками — получишь просмотры, лайки, комменты, шеры и статус поста</p>
 </div>
 
 <div class="row justify-content-center">
   <div class="col-md-7">
+
+    <!-- Tabs -->
+    <div class="page-tabs mb-4">
+      <button class="page-tab active" onclick="switchTab('new')">Новый запрос</button>
+      <button class="page-tab" onclick="switchTab('history')">История</button>
+    </div>
+
+    <!-- History panel -->
+    <div id="panel-history" style="display:none">
+      <div id="history-list"><div class="text-muted text-center py-4">Загружаем...</div></div>
+    </div>
+
+    <div id="panel-new">
 
     <div class="card mb-4">
       <div class="card-body p-4">
@@ -104,10 +116,17 @@
       </div>
     </details>
 
+    </div><!-- /panel-new -->
   </div>
 </div>
 
 <style>
+.page-tabs{display:flex;gap:4px;border-bottom:2px solid #eee;padding-bottom:0}
+.page-tab{background:none;border:none;padding:8px 18px;font-size:.95rem;color:#666;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;border-radius:4px 4px 0 0;transition:color .15s}
+.page-tab.active{color:#0d6efd;border-bottom-color:#0d6efd;font-weight:600}
+.page-tab:hover:not(.active){color:#333}
+.history-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f0f0f0;font-size:.9rem}
+.history-row:last-child{border-bottom:none}
 .drop-zone {
   border: 2px dashed var(--border-color, #dee2e6);
   border-radius: 12px;
@@ -155,5 +174,33 @@ form.addEventListener('submit', () => {
   form.style.display = 'none';
   loading.style.display = 'block';
 });
+
+function switchTab(tab) {
+  document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-new').style.display = tab === 'new' ? '' : 'none';
+  document.getElementById('panel-history').style.display = tab === 'history' ? '' : 'none';
+  if (tab === 'history') loadHistory();
+}
+
+function loadHistory() {
+  fetch('/api/enrich/history')
+    .then(r => r.json())
+    .then(items => {
+      const el = document.getElementById('history-list');
+      if (!items.length) { el.innerHTML = '<div class="text-muted text-center py-4">Нет запусков за последние 24 часа</div>'; return; }
+      el.innerHTML = '<div class="card"><div class="card-body p-0">' +
+        items.map(i => {
+          const d = new Date(i.ts * 1000).toLocaleString('ru');
+          const badge = i.status === 'done'
+            ? '<span class="badge bg-success">Готово</span>'
+            : '<span class="badge bg-danger">Ошибка</span>';
+          const dl = i.status === 'done'
+            ? `<a href="/enrich/download/${i.task_id}" class="btn btn-sm btn-outline-primary">Скачать</a>`
+            : `<span class="text-muted" style="font-size:.8rem">${i.error||''}</span>`;
+          return `<div class="history-row"><div>${badge} <strong>${i.filename||'—'}</strong> <span class="text-muted ms-2">${i.total} строк</span></div><div class="d-flex align-items-center gap-2"><span class="text-muted" style="font-size:.8rem">${d}</span>${dl}</div></div>`;
+        }).join('') + '</div></div>';
+    });
+}
 </script>
 {% endblock %}
