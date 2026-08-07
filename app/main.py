@@ -829,10 +829,30 @@ def campaign_delete(request: Request, campaign_id: int):
 
 # ── Balance ───────────────────────────────────────────────────────────────────
 
+def _fetch_sc_credits_sync():
+    global _sc_credits
+    try:
+        import requests as _requests
+        r = _requests.get(
+            "https://api.scrapecreators.com/v1/twitter/tweet",
+            params={"url": "https://x.com/elonmusk/status/1", "cache_max_age": "30d"},
+            headers={"x-api-key": SCRAPECREATORS_API_KEY},
+            timeout=10,
+        )
+        data = r.json()
+        val = data.get("credits_remaining")
+        if val is not None:
+            _sc_credits = int(val)
+    except Exception:
+        pass
+
+
 @app.get("/api/balance")
 def api_balance(request: Request):
     if not check_auth(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if _sc_credits is None and SCRAPECREATORS_API_KEY:
+        threading.Thread(target=_fetch_sc_credits_sync, daemon=True).start()
     return JSONResponse({"sc_credits": _sc_credits})
 
 
