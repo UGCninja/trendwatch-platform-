@@ -812,7 +812,7 @@ async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict) -> str:
     writer = csv.DictWriter(out, fieldnames=["URL", "Views", "Platform", "Date", "Likes", "Comments", "Shares", "Saves", "Status"])
     writer.writeheader()
     for r in results:
-        views = r.get("views") or r.get("api_views", "")
+        views = r.get("api_views") or r.get("views", "")
         writer.writerow({
             "URL": r["url"], "Views": views,
             "Platform": _detect_platform(r["url"]),
