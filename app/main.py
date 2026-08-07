@@ -4,6 +4,8 @@ import io
 import json
 import os
 import threading
+import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -734,6 +736,78 @@ def campaign_delete(request: Request, campaign_id: int):
 
 # ── Enrich Reports ────────────────────────────────────────────────────────────
 
+_enrich_tasks: dict[str, dict] = {}
+
+
+async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict) -> str:
+    sem = asyncio.Semaphore(50)
+
+    async def fetch_one(client, row):
+        async with sem:
+            try:
+                metrics = await _fetch_metrics(client, row["url"], api_key)
+            except Exception:
+                metrics = {"status": "Non-Active"}
+            task["done"] = task.get("done", 0) + 1
+            return {**row, **metrics}
+
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(
+            *[fetch_one(client, r) for r in rows],
+            return_exceptions=True,
+        )
+
+    results = [r if isinstance(r, dict) else {"url": "", "views": "", "date": "", "status": "Non-Active"} for r in results]
+
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=["URL", "Views", "Platform", "Date", "Likes", "Comments", "Shares", "Saves", "Status"])
+    writer.writeheader()
+    for r in results:
+        views = r.get("views") or r.get("api_views", "")
+        writer.writerow({
+            "URL": r["url"], "Views": views,
+            "Platform": _detect_platform(r["url"]),
+            "Date": r.get("date", ""),
+            "Likes": r.get("likes", ""), "Comments": r.get("comments", ""),
+            "Shares": r.get("shares", ""), "Saves": r.get("saves", ""),
+            "Status": r.get("status", ""),
+        })
+    return out.getvalue()
+
+
+def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str):
+    task = _enrich_tasks[task_id]
+    try:
+        text = None
+        for enc in ("utf-8-sig", "utf-8", "cp1251", "latin-1"):
+            try:
+                text = content.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            task.update({"status": "error", "error": "Не удалось прочитать кодировку файла"})
+            return
+        rows = _parse_contractor_csv(text)
+        if not rows:
+            task.update({"status": "error", "error": "URL не найдены в файле"})
+            return
+        task["total"] = len(rows)
+        task["status"] = "processing"
+        result_csv = asyncio.run(_enrich_rows_async(rows, api_key, task))
+        task.update({"status": "done", "result": result_csv,
+                     "filename": filename.replace(".csv", "_enriched.csv")})
+    except Exception as e:
+        task.update({"status": "error", "error": str(e)})
+
+
+def _cleanup_old_tasks():
+    cutoff = time.time() - 3600
+    for tid in list(_enrich_tasks.keys()):
+        if _enrich_tasks[tid].get("ts", 0) < cutoff:
+            del _enrich_tasks[tid]
+
+
 @app.get("/enrich", response_class=HTMLResponse)
 def enrich_page(request: Request):
     if not check_auth(request):
@@ -746,67 +820,52 @@ def enrich_page(request: Request):
 async def enrich_upload(request: Request, file: UploadFile = File(...)):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
-
     if not SCRAPECREATORS_API_KEY:
-        return JSONResponse({"error": "SCRAPECREATORS_KEY не задан в переменных Railway"}, status_code=500)
-
+        return JSONResponse({"error": "SCRAPECREATORS_KEY не задан в Railway"}, status_code=500)
     content = await file.read()
-    # try common encodings
-    text = None
-    for enc in ("utf-8-sig", "utf-8", "cp1251", "latin-1"):
-        try:
-            text = content.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    if text is None:
-        return JSONResponse({"error": "Не удалось прочитать файл — проверь кодировку"}, status_code=400)
-    rows = _parse_contractor_csv(text)
+    filename = file.filename or "report.csv"
+    _cleanup_old_tasks()
+    task_id = str(uuid.uuid4())
+    _enrich_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time()}
+    threading.Thread(target=_run_enrich_task,
+                     args=[task_id, content, filename, SCRAPECREATORS_API_KEY],
+                     daemon=True).start()
+    return RedirectResponse(f"/enrich/task/{task_id}", status_code=302)
 
-    if not rows:
-        return JSONResponse({"error": "Не найдено URL в файле. Проверь формат."}, status_code=400)
 
-    sem = asyncio.Semaphore(50)
+@app.get("/enrich/task/{task_id}", response_class=HTMLResponse)
+def enrich_task_page(request: Request, task_id: str):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    if task_id not in _enrich_tasks:
+        return RedirectResponse("/enrich", status_code=302)
+    return templates.TemplateResponse(request=request, name="enrich_task.html",
+                                      context={"active_page": "enrich", "task_id": task_id})
 
-    async def fetch_with_sem(client, row):
-        async with sem:
-            try:
-                metrics = await _fetch_metrics(client, row["url"], SCRAPECREATORS_API_KEY)
-            except Exception:
-                metrics = {"status": "Non-Active"}
-            return {**row, **metrics}
 
-    async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(
-            *[fetch_with_sem(client, r) for r in rows],
-            return_exceptions=True,
-        )
-    # filter out any exceptions that slipped through
-    results = [r if isinstance(r, dict) else {"url": "", "views": "", "date": "", "status": "Non-Active"} for r in results]
+@app.get("/api/enrich/status/{task_id}")
+def enrich_task_status(request: Request, task_id: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    task = _enrich_tasks.get(task_id)
+    if not task:
+        return JSONResponse({"status": "not_found"})
+    return JSONResponse({"status": task.get("status"), "done": task.get("done", 0),
+                         "total": task.get("total", 0), "error": task.get("error", ""),
+                         "filename": task.get("filename", "")})
 
-    out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=["URL","Views","Platform","Date","Likes","Comments","Shares","Saves","Status"])
-    writer.writeheader()
-    for r in results:
-        # Use API views if contractor file had none
-        views = r.get("views") or r.get("api_views", "")
-        writer.writerow({
-            "URL":      r["url"],
-            "Views":    views,
-            "Platform": _detect_platform(r["url"]),
-            "Date":     r.get("date", ""),
-            "Likes":    r.get("likes", ""),
-            "Comments": r.get("comments", ""),
-            "Shares":   r.get("shares", ""),
-            "Saves":    r.get("saves", ""),
-            "Status":   r.get("status", ""),
-        })
 
-    filename = (file.filename or "report").replace(".csv", "_enriched.csv")
+@app.get("/enrich/download/{task_id}")
+def enrich_download(request: Request, task_id: str):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    task = _enrich_tasks.get(task_id)
+    if not task or task.get("status") != "done":
+        return RedirectResponse("/enrich", status_code=302)
     return StreamingResponse(
-        io.BytesIO(out.getvalue().encode("utf-8-sig")),
+        io.BytesIO(task["result"].encode("utf-8-sig")),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{task["filename"]}"'},
     )
 
 

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Enrich Reports</h1>
+  <p class="page-subtitle" id="subtitle">Обрабатываем файл...</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body p-4" style="text-align:center">
+
+        <!-- Processing state -->
+        <div id="stateProcessing">
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <div class="fw-semibold mb-2" id="progressText">Запускаем...</div>
+          <div class="progress mb-2" style="height:8px;border-radius:4px">
+            <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+          </div>
+          <div class="text-muted" style="font-size:.85rem" id="progressCount"></div>
+        </div>
+
+        <!-- Done state -->
+        <div id="stateDone" style="display:none">
+          <div style="font-size:3rem;margin-bottom:.75rem">✅</div>
+          <div class="fw-semibold mb-1">Готово!</div>
+          <div class="text-muted mb-3" id="doneText" style="font-size:.9rem"></div>
+          <a id="downloadBtn" href="/enrich/download/{{ task_id }}" class="btn btn-primary px-4 py-2">
+            Скачать CSV
+          </a>
+          <div class="mt-3">
+            <a href="/enrich" class="text-muted" style="font-size:.85rem">Загрузить другой файл</a>
+          </div>
+        </div>
+
+        <!-- Error state -->
+        <div id="stateError" style="display:none">
+          <div style="font-size:3rem;margin-bottom:.75rem">❌</div>
+          <div class="fw-semibold mb-1">Ошибка</div>
+          <div class="text-muted mb-3" id="errorText" style="font-size:.9rem"></div>
+          <a href="/enrich" class="btn btn-outline-secondary px-4">Попробовать снова</a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const taskId = "{{ task_id }}";
+let pollInterval;
+
+function poll() {
+  fetch(`/api/enrich/status/${taskId}`)
+    .then(r => r.json())
+    .then(data => {
+      const { status, done, total, error, filename } = data;
+
+      if (status === "queued") {
+        document.getElementById("progressText").textContent = "В очереди...";
+
+      } else if (status === "processing") {
+        const pct = total > 0 ? Math.round(done / total * 100) : 0;
+        document.getElementById("progressBar").style.width = pct + "%";
+        document.getElementById("progressText").textContent = `Обрабатываем строки... ${pct}%`;
+        document.getElementById("progressCount").textContent = `${done} из ${total}`;
+
+      } else if (status === "done") {
+        clearInterval(pollInterval);
+        document.getElementById("stateProcessing").style.display = "none";
+        document.getElementById("stateDone").style.display = "block";
+        document.getElementById("subtitle").textContent = "Файл готов к скачиванию";
+        document.getElementById("doneText").textContent = `Обработано строк: ${total} · ${filename}`;
+
+      } else if (status === "error") {
+        clearInterval(pollInterval);
+        document.getElementById("stateProcessing").style.display = "none";
+        document.getElementById("stateError").style.display = "block";
+        document.getElementById("subtitle").textContent = "Что-то пошло не так";
+        document.getElementById("errorText").textContent = error || "Неизвестная ошибка";
+      }
+    })
+    .catch(() => {}); // ignore network errors during polling
+}
+
+poll();
+pollInterval = setInterval(poll, 2000);
+</script>
+{% endblock %}
