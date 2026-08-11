@@ -60,22 +60,27 @@ def _extract_ig_shortcode(url: str):
     return m.group(1) if m else None
 
 
+# Rate limiter for direct Instagram API — max 3 requests per second to avoid detection
+_ig_semaphore = asyncio.Semaphore(3)
+
 async def _fetch_instagram_direct(client: httpx.AsyncClient, url: str, session_id: str) -> dict:
     """Fetch Instagram Reel metrics directly using session cookie (bypasses login wall)."""
     shortcode = _extract_ig_shortcode(url)
     if not shortcode:
         return {"status": "Not Updated"}
     try:
-        r = await client.get(
-            f"https://i.instagram.com/api/v1/media/by_shortcode/?shortcode={shortcode}",
-            headers={
-                "Cookie": f"sessionid={session_id}",
-                "User-Agent": "Instagram 219.0.0.12.117 Android (29/10; 420dpi; 1080x2154; Xiaomi; M2004J19C; ginkgo; qcom; ru_RU; 314665256)",
-                "x-ig-app-id": "936619743392459",
-                "Accept": "*/*",
-            },
-            timeout=15,
-        )
+        async with _ig_semaphore:
+            await asyncio.sleep(0.5)  # 500ms pause between requests
+            r = await client.get(
+                f"https://i.instagram.com/api/v1/media/by_shortcode/?shortcode={shortcode}",
+                headers={
+                    "Cookie": f"sessionid={session_id}",
+                    "User-Agent": "Instagram 219.0.0.12.117 Android (29/10; 420dpi; 1080x2154; Xiaomi; M2004J19C; ginkgo; qcom; ru_RU; 314665256)",
+                    "x-ig-app-id": "936619743392459",
+                    "Accept": "*/*",
+                },
+                timeout=15,
+            )
         if r.status_code == 200:
             items = r.json().get("items") or []
             if not items:
