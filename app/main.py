@@ -20,9 +20,10 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 from fastapi.responses import JSONResponse
 
-SCRAPECREATORS_API_KEY = os.getenv("SCRAPECREATORS_KEY", "")
-YOUTUBE_API_KEY        = os.getenv("YOUTUBE_API_KEY", "")
-ANTHROPIC_API_KEY      = os.getenv("ANTHROPIC_API_KEY", "")
+SCRAPECREATORS_API_KEY  = os.getenv("SCRAPECREATORS_KEY", "")
+YOUTUBE_API_KEY         = os.getenv("YOUTUBE_API_KEY", "")
+ANTHROPIC_API_KEY       = os.getenv("ANTHROPIC_API_KEY", "")
+INSTAGRAM_SESSION_ID    = os.getenv("INSTAGRAM_SESSION_ID", "")
 
 _sc_credits = None
 
@@ -52,6 +53,55 @@ from datetime import datetime as _dt
 from urllib.parse import quote as _urlquote
 
 SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "youtube.com", "youtu.be"]
+
+
+def _extract_ig_shortcode(url: str):
+    m = _re.search(r'/(?:reel|p|tv)/([A-Za-z0-9_-]+)', url)
+    return m.group(1) if m else None
+
+
+async def _fetch_instagram_direct(client: httpx.AsyncClient, url: str, session_id: str) -> dict:
+    """Fetch Instagram Reel metrics directly using session cookie (bypasses login wall)."""
+    shortcode = _extract_ig_shortcode(url)
+    if not shortcode:
+        return {"status": "Not Updated"}
+    try:
+        r = await client.get(
+            f"https://i.instagram.com/api/v1/media/by_shortcode/?shortcode={shortcode}",
+            headers={
+                "Cookie": f"sessionid={session_id}",
+                "User-Agent": "Instagram 219.0.0.12.117 Android (29/10; 420dpi; 1080x2154; Xiaomi; M2004J19C; ginkgo; qcom; ru_RU; 314665256)",
+                "x-ig-app-id": "936619743392459",
+                "Accept": "*/*",
+            },
+            timeout=15,
+        )
+        if r.status_code == 200:
+            items = r.json().get("items") or []
+            if not items:
+                return {"status": "Not Updated"}
+            item = items[0]
+            pub_date = ""
+            try:
+                ts = item.get("taken_at", 0)
+                if ts:
+                    pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
+            except Exception:
+                pass
+            return {
+                "status":    "Active",
+                "api_views": item.get("play_count", item.get("view_count", "")),
+                "api_date":  pub_date,
+                "likes":     item.get("like_count", ""),
+                "comments":  item.get("comment_count", ""),
+                "shares":    "",
+                "saves":     item.get("saved_count", ""),
+            }
+        if r.status_code == 401:
+            return {"status": "Session Expired"}
+    except Exception:
+        pass
+    return {"status": "Not Updated"}
 
 
 def _extract_youtube_id(url: str):
@@ -179,7 +229,10 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             return {"status": "Non-Active"}
 
         elif platform == "Instagram":
-            # Strip tracking params (?igsh=...) that may confuse the API
+            # If session cookie is configured — use direct Instagram API (bypasses login wall)
+            if INSTAGRAM_SESSION_ID:
+                return await _fetch_instagram_direct(client, url, INSTAGRAM_SESSION_ID)
+            # Fallback: ScrapeCreators (strip tracking params first)
             clean_url = url.split("?")[0].rstrip("/") + "/"
             r = await client.get(
                 "https://api.scrapecreators.com/v2/instagram/post",
@@ -190,7 +243,6 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 _update_sc_credits(data)
                 items = data.get("items") or []
                 if not items:
-                    # API couldn't fetch (private/auth-required) — preserve original CSV data
                     return {"status": "Not Updated"}
                 item = items[0]
                 pub_date = ""
