@@ -96,8 +96,21 @@ def _parse_contractor_csv(text: str) -> list[dict]:
             rows.append({"url": url, "views": views, "date": date})
             continue
 
-        # Generic single-URL format (just a URL per row, no views)
-        rows.append({"url": url, "views": "", "date": ""})
+        # Standard enriched-export format: URL | Views | Platform | Date | Likes | Comments | Shares | ...
+        # Reads original values so they survive when API can't refresh (private accounts, etc.)
+        if url_col == 0 and len(line) >= 2:
+            def _clean(v): return v.strip().replace("\xa0", "").replace(" ", "")
+            raw_views = _clean(line[1]) if len(line) > 1 else ""
+            views     = raw_views if raw_views.lstrip("-").replace(",","").isdigit() else ""
+            date      = line[3].strip() if len(line) > 3 else ""
+            likes     = _clean(line[4]) if len(line) > 4 else ""
+            comments  = _clean(line[5]) if len(line) > 5 else ""
+            shares    = _clean(line[6]) if len(line) > 6 else ""
+            rows.append({"url": url, "views": views, "date": date,
+                         "likes": likes, "comments": comments, "shares": shares})
+        else:
+            # Generic single-URL format (just a URL per row, no views)
+            rows.append({"url": url, "views": "", "date": ""})
 
     return rows
 
@@ -166,14 +179,19 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             return {"status": "Non-Active"}
 
         elif platform == "Instagram":
+            # Strip tracking params (?igsh=...) that may confuse the API
+            clean_url = url.split("?")[0].rstrip("/") + "/"
             r = await client.get(
                 "https://api.scrapecreators.com/v2/instagram/post",
-                params={"url": url}, headers={"x-api-key": api_key}, timeout=15,
+                params={"url": clean_url}, headers={"x-api-key": api_key}, timeout=15,
             )
             if r.status_code == 200:
-                items = r.json().get("items") or []
+                data = r.json()
+                _update_sc_credits(data)
+                items = data.get("items") or []
                 if not items:
-                    return {"status": "Non-Active"}
+                    # API couldn't fetch (private/auth-required) — preserve original CSV data
+                    return {"status": "Not Updated"}
                 item = items[0]
                 pub_date = ""
                 try:
@@ -189,9 +207,9 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "likes":     item.get("like_count", ""),
                     "comments":  item.get("comment_count", ""),
                     "shares":    "",
-                    "saves":     "",
+                    "saves":     item.get("saved_count", ""),
                 }
-            return {"status": "Non-Active"}
+            return {"status": "Not Updated"}
 
         elif platform == "YouTube":
             video_id = _extract_youtube_id(url)
