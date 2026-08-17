@@ -20,7 +20,8 @@
     <a href="/comments" class="topnav-link {% if active_page == 'comments' %}active{% endif %}">Comments</a>
     <div class="topnav-sep"></div>
     <div class="topnav-right">
-        <a href="https://app.scrapecreators.com" target="_blank" id="sc-balance" style="font-size:.8rem;color:#ccc;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:20px;margin-right:8px;text-decoration:none" title="ScrapeCreators credits — click to open dashboard"></a>
+        <a href="https://app.scrapecreators.com" target="_blank" id="sc-balance" style="font-size:.8rem;color:#ccc;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:20px;margin-right:6px;text-decoration:none" title="ScrapeCreators credits"></a>
+        <a href="https://console.apify.com/billing" target="_blank" id="apify-balance" style="font-size:.8rem;color:#ccc;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:20px;margin-right:8px;text-decoration:none" title="Apify balance"></a>
         <a href="/campaigns/new" class="btn-nav btn-nav-primary">+ New Campaign</a>
         <a href="/system" class="btn-nav">⚙ Settings</a>
         <a href="/logout" class="btn-nav">Logout</a>
@@ -39,7 +40,13 @@ function loadBalance() {
     .then(data => {
       const el = document.getElementById('sc-balance');
       if (el && data.sc_credits !== null && data.sc_credits !== undefined) {
-        el.textContent = '✦ ' + Number(data.sc_credits).toLocaleString() + ' credits';
+        el.textContent = '✦ ' + Number(data.sc_credits).toLocaleString() + ' SC';
+      }
+      const ap = document.getElementById('apify-balance');
+      if (ap && data.apify) {
+        const used = data.apify.usage ?? 0;
+        const limit = data.apify.limit ?? 0;
+        ap.textContent = '⬡ $' + used.toFixed(2) + (limit ? ' / $' + limit.toFixed(0) : '') + ' Apify';
       }
     })
     .catch(() => {});

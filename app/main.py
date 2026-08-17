@@ -901,6 +901,8 @@ def campaign_delete(request: Request, campaign_id: int):
 
 # ── Balance ───────────────────────────────────────────────────────────────────
 
+_apify_balance = None
+
 def _fetch_sc_credits_sync():
     global _sc_credits
     try:
@@ -919,13 +921,34 @@ def _fetch_sc_credits_sync():
         pass
 
 
+def _fetch_apify_balance_sync():
+    global _apify_balance
+    try:
+        import requests as _requests
+        r = _requests.get(
+            f"https://api.apify.com/v2/users/me",
+            params={"token": APIFY_TOKEN},
+            timeout=10,
+        )
+        data = r.json()
+        balance = data.get("data", {}).get("plan", {}).get("monthlyUsage", {})
+        # Apify returns usage in USD cents
+        usage_usd = data.get("data", {}).get("monthlyUsage", 0) or 0
+        limit_usd = data.get("data", {}).get("plan", {}).get("monthlyUsageCreditsUsd", 0) or 0
+        _apify_balance = {"usage": round(usage_usd, 2), "limit": round(limit_usd, 2)}
+    except Exception:
+        pass
+
+
 @app.get("/api/balance")
 def api_balance(request: Request):
     if not check_auth(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     if _sc_credits is None and SCRAPECREATORS_API_KEY:
         threading.Thread(target=_fetch_sc_credits_sync, daemon=True).start()
-    return JSONResponse({"sc_credits": _sc_credits})
+    if _apify_balance is None and APIFY_TOKEN:
+        threading.Thread(target=_fetch_apify_balance_sync, daemon=True).start()
+    return JSONResponse({"sc_credits": _sc_credits, "apify": _apify_balance})
 
 
 # ── Enrich Reports ────────────────────────────────────────────────────────────
