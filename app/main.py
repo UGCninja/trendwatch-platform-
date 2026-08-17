@@ -48,6 +48,25 @@ def _get_ig_client():
                 pass
     return _ig_client
 
+def _fetch_ig_post_location_sync(url: str) -> dict:
+    """Возвращает геолокацию поста Instagram если есть геотег."""
+    cl = _get_ig_client()
+    if not cl:
+        return {}
+    try:
+        media_pk = cl.media_pk_from_url(url)
+        media = cl.media_info(media_pk)
+        loc = getattr(media, "location", None)
+        if loc:
+            return {
+                "name": getattr(loc, "name", "") or "",
+                "lat":  getattr(loc, "lat", None),
+                "lng":  getattr(loc, "lng", None),
+            }
+    except Exception:
+        pass
+    return {}
+
 def _fetch_ig_comments_sync(url: str) -> list[dict]:
     cl = _get_ig_client()
     if not cl:
@@ -1837,6 +1856,12 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                             handle = c.get("author", "").lstrip("@").lower()
                             c["user_region"] = regions.get(handle, "")
 
+                    # Instagram post location via instagrapi
+                    post_loc = {}
+                    if platform == "Instagram" and INSTAGRAM_USERNAME:
+                        loop = asyncio.get_event_loop()
+                        post_loc = await loop.run_in_executor(None, _fetch_ig_post_location_sync, source.url)
+
                     new_count = _save_comments_to_db(source.id, comments, platform)
 
                     # Update source metadata
@@ -1845,6 +1870,10 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     if src:
                         src.last_fetched_at = datetime.utcnow()
                         src.comments_count = db2.query(_StoredComment).filter(_StoredComment.source_id == source.id).count()
+                        if post_loc.get("name"):
+                            src.post_location = post_loc["name"]
+                            src.post_location_lat = post_loc.get("lat")
+                            src.post_location_lng = post_loc.get("lng")
                         db2.commit()
                     db2.close()
 

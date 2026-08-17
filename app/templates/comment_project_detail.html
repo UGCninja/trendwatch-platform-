@@ -34,6 +34,33 @@
   </div>
 </div>
 
+{% set geo_sources = sources | selectattr("post_location") | list %}
+{% if geo_sources %}
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="fw-semibold mb-3">📍 Геолокация постов (Instagram)</div>
+    <div style="font-size:.88rem">
+      {% set loc_counts = {} %}
+      {% for s in geo_sources %}
+        {% if s.post_location in loc_counts %}
+          {% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
+        {% else %}
+          {% set _ = loc_counts.update({s.post_location: 1}) %}
+        {% endif %}
+      {% endfor %}
+      <div class="d-flex flex-wrap gap-2">
+        {% for loc, cnt in loc_counts.items() %}
+        <span class="badge" style="background:#e8f4fd;color:#1a73e8;font-size:.85rem;font-weight:500;padding:6px 12px">
+          📍 {{ loc }} <span style="opacity:.7">× {{ cnt }}</span>
+        </span>
+        {% endfor %}
+      </div>
+      <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if lang_stats or region_stats %}
 <div class="row g-3 mb-4">
   {% if lang_stats %}
@@ -94,6 +121,9 @@
         <div class="d-flex align-items-center gap-3 text-muted">
           <span>{{ s.comments_count }} комм.</span>
           {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
+          {% if s.post_location %}
+          <span title="Геотег поста">📍 {{ s.post_location }}</span>
+          {% endif %}
           <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
             <input type="hidden" name="source_id" value="{{ s.id }}">
             <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>

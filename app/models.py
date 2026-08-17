@@ -99,6 +99,9 @@ class CommentSource(Base):
     platform        = Column(String)
     last_fetched_at = Column(DateTime, nullable=True)
     comments_count  = Column(Integer, default=0)
+    post_location   = Column(String, nullable=True)   # город/место из геотега поста
+    post_location_lat = Column(Float, nullable=True)
+    post_location_lng = Column(Float, nullable=True)
     __table_args__  = (UniqueConstraint("project_id", "url"),)
 
 
