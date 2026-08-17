@@ -234,37 +234,33 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
             return {"status": "Non-Active"}
 
         elif platform == "Instagram":
-            # If session cookie is configured — use direct Instagram API (bypasses login wall)
-            if INSTAGRAM_SESSION_ID:
-                return await _fetch_instagram_direct(client, url, INSTAGRAM_SESSION_ID)
-            # Fallback: ScrapeCreators (strip tracking params first)
+            # ScrapeCreators v1 — returns video_play_count, likes, comments
             clean_url = url.split("?")[0].rstrip("/") + "/"
             r = await client.get(
-                "https://api.scrapecreators.com/v2/instagram/post",
+                "https://api.scrapecreators.com/v1/instagram/post",
                 params={"url": clean_url}, headers={"x-api-key": api_key}, timeout=15,
             )
             if r.status_code == 200:
                 data = r.json()
                 _update_sc_credits(data)
-                items = data.get("items") or []
-                if not items:
+                media = data.get("data", {}).get("xdt_shortcode_media", {})
+                if not media:
                     return {"status": "Not Updated"}
-                item = items[0]
                 pub_date = ""
                 try:
-                    ts = item.get("taken_at", 0)
+                    ts = media.get("taken_at_timestamp", 0)
                     if ts:
                         pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
                 except Exception:
                     pass
                 return {
                     "status":    "Active",
-                    "api_views": item.get("play_count", item.get("view_count", "")),
+                    "api_views": media.get("video_play_count", media.get("video_view_count", "")),
                     "api_date":  pub_date,
-                    "likes":     item.get("like_count", ""),
-                    "comments":  item.get("comment_count", ""),
+                    "likes":     media.get("edge_media_preview_like", {}).get("count", ""),
+                    "comments":  media.get("edge_media_preview_comment", {}).get("count", ""),
                     "shares":    "",
-                    "saves":     item.get("saved_count", ""),
+                    "saves":     "",
                 }
             return {"status": "Not Updated"}
 
