@@ -37,6 +37,9 @@ def init_db():
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_days TEXT DEFAULT '[]'")
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_end_date TIMESTAMP")
     _run_migration("ALTER TABLE campaigns ADD COLUMN schedule_end_date DATETIME")
+    _run_migration("CREATE TABLE IF NOT EXISTS comment_projects (id INTEGER PRIMARY KEY, name VARCHAR UNIQUE NOT NULL, created_at TIMESTAMP, schedule VARCHAR DEFAULT 'manual', schedule_time VARCHAR DEFAULT '10:00')")
+    _run_migration("CREATE TABLE IF NOT EXISTS comment_sources (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, url VARCHAR NOT NULL, platform VARCHAR, last_fetched_at TIMESTAMP, comments_count INTEGER DEFAULT 0, UNIQUE(project_id, url))")
+    _run_migration("CREATE TABLE IF NOT EXISTS stored_comments (id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, platform VARCHAR, comment_id VARCHAR, author VARCHAR, text TEXT, likes INTEGER DEFAULT 0, date VARCHAR, is_reply BOOLEAN DEFAULT 0, language VARCHAR, user_region VARCHAR, fetched_at TIMESTAMP, UNIQUE(source_id, comment_id))")
 
     from app.models import Vertical
     db = SessionLocal()

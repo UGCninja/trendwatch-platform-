@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header d-flex align-items-center gap-3">
+  <a href="/comments/projects" class="text-muted text-decoration-none">← Проекты</a>
+  <h1 class="page-title mb-0">{{ project.name }}</h1>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ sources|length }}</div>
+        <div class="text-muted">постов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ total_comments }}</div>
+        <div class="text-muted">комментариев</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card h-100">
+      <div class="card-body text-center d-flex flex-column align-items-center justify-content-center gap-2">
+        <form method="post" action="/comments/projects/{{ project.id }}/run">
+          <button class="btn btn-primary px-4">▶ Обновить</button>
+        </form>
+        <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Скачать CSV</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if lang_stats or region_stats %}
+<div class="row g-3 mb-4">
+  {% if lang_stats %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="fw-semibold mb-3">Язык комментариев</div>
+        {% for lang, count in lang_stats %}
+        {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <div style="width:2.5rem;font-size:.85rem;color:#666">{{ lang }}</div>
+          <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+            <div style="width:{{ pct }}%;height:100%;background:var(--bs-primary);border-radius:4px"></div>
+          </div>
+          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#666">{{ pct }}%</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if region_stats %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="fw-semibold mb-3">Регион профиля (TikTok)</div>
+        {% for region, count in region_stats %}
+        {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <div style="width:2.5rem;font-size:.85rem;color:#666">{{ region }}</div>
+          <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+            <div style="width:{{ pct }}%;height:100%;background:#198754;border-radius:4px"></div>
+          </div>
+          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#666">{{ pct }}%</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="fw-semibold">Посты ({{ sources|length }})</div>
+      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Добавить ссылки</button>
+    </div>
+    {% if sources %}
+    <div style="font-size:.88rem">
+      {% for s in sources %}
+      <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
+        <div>
+          <span class="badge bg-secondary me-2">{{ s.platform }}</span>
+          <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+        </div>
+        <div class="d-flex align-items-center gap-3 text-muted">
+          <span>{{ s.comments_count }} комм.</span>
+          {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
+          <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
+            <input type="hidden" name="source_id" value="{{ s.id }}">
+            <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted text-center py-3">Нет постов. Добавь ссылки чтобы начать.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal fade" id="addUrlsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/comments/projects/{{ project.id }}/sources" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title">Добавить ссылки</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Вставь ссылки (по одной на строку)</label>
+            <textarea name="urls" class="form-control" rows="6" placeholder="https://www.tiktok.com/@user/video/123&#10;https://www.instagram.com/reel/ABC/&#10;https://www.youtube.com/watch?v=XYZ"></textarea>
+          </div>
+          <div class="text-muted text-center mb-3" style="font-size:.85rem">— или —</div>
+          <div>
+            <label class="form-label fw-semibold">Загрузи CSV файл</label>
+            <input type="file" name="file" class="form-control" accept=".csv,.txt">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">Добавить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

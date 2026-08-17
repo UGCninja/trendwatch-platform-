@@ -24,6 +24,7 @@ SCRAPECREATORS_API_KEY  = os.getenv("SCRAPECREATORS_KEY", "")
 YOUTUBE_API_KEY         = os.getenv("YOUTUBE_API_KEY", "")
 ANTHROPIC_API_KEY       = os.getenv("ANTHROPIC_API_KEY", "")
 INSTAGRAM_SESSION_ID    = os.getenv("INSTAGRAM_SESSION_ID", "")
+APIFY_TOKEN             = os.getenv("APIFY_TOKEN", "")
 
 _sc_credits = None
 
@@ -1183,6 +1184,89 @@ async def campaign_edit(
 
 _comments_tasks: dict[str, dict] = {}
 
+# ── Apify TikTok region lookup ────────────────────────────────────────────────
+
+async def _fetch_tiktok_regions_apify(usernames: list[str]) -> dict[str, str]:
+    """Batch lookup TikTok profile regions via Apify. Returns {username: region}."""
+    if not APIFY_TOKEN or not usernames:
+        return {}
+    # Strip @ prefix
+    handles = [u.lstrip("@") for u in usernames]
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"https://api.apify.com/v2/acts/clockworks~tiktok-profile-scraper/run-sync-get-dataset-items",
+                params={"token": APIFY_TOKEN, "timeout": 120},
+                json={"profiles": handles, "resultsType": "profiles", "scrapeComments": False},
+                timeout=130,
+            )
+        if r.status_code != 200:
+            return {}
+        results = r.json()
+        out = {}
+        for item in results:
+            author = item.get("authorMeta", {})
+            username = author.get("name", "")
+            region = author.get("region", "")
+            if username and region:
+                out[username.lower()] = region
+        return out
+    except Exception:
+        return {}
+
+
+# ── Language detection ────────────────────────────────────────────────────────
+
+def _detect_language(text: str) -> str:
+    if not text or len(text.strip()) < 3:
+        return ""
+    try:
+        from langdetect import detect
+        return detect(text)
+    except Exception:
+        return ""
+
+
+# ── Save comments to DB ───────────────────────────────────────────────────────
+
+def _save_comments_to_db(source_id: int, comments: list[dict], platform: str):
+    """Save new comments to DB, skip duplicates. Returns count of new comments saved."""
+    from app.database import SessionLocal
+    from app.models import StoredComment
+    db = SessionLocal()
+    new_count = 0
+    try:
+        for c in comments:
+            comment_id = str(c.get("comment_id") or "")
+            if not comment_id:
+                continue
+            exists = db.query(StoredComment).filter(
+                StoredComment.source_id == source_id,
+                StoredComment.comment_id == comment_id,
+            ).first()
+            if exists:
+                continue
+            sc = StoredComment(
+                source_id=source_id,
+                platform=platform,
+                comment_id=comment_id,
+                author=c.get("author", ""),
+                text=c.get("comment", ""),
+                likes=int(c.get("likes", 0) or 0),
+                date=c.get("date", ""),
+                is_reply=bool(c.get("is_reply", False)),
+                language=_detect_language(c.get("comment", "")),
+                user_region=c.get("user_region", ""),
+            )
+            db.add(sc)
+            new_count += 1
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+    return new_count
+
 
 async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
     r = await client.get(
@@ -1499,6 +1583,242 @@ def comments_download(request: Request, task_id: str):
         )
     return StreamingResponse(
         io.BytesIO(task["result"].encode("utf-8-sig")),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_urlquote(fname.encode('utf-8'))}"},
+    )
+
+
+# ── Comment Projects ───────────────────────────────────────────────────────────
+
+from app.models import CommentProject, CommentSource, StoredComment as _StoredComment
+
+
+@app.get("/comments/projects", response_class=HTMLResponse)
+def comment_projects_list(request: Request):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    projects = db.query(CommentProject).order_by(CommentProject.created_at.desc()).all()
+    result = []
+    for p in projects:
+        sources = db.query(CommentSource).filter(CommentSource.project_id == p.id).all()
+        total_comments = sum(s.comments_count for s in sources)
+        last_fetched = max((s.last_fetched_at for s in sources if s.last_fetched_at), default=None)
+        result.append({"project": p, "sources_count": len(sources), "comments_count": total_comments, "last_fetched": last_fetched})
+    db.close()
+    return templates.TemplateResponse(request=request, name="comment_projects.html",
+                                      context={"active_page": "comments", "projects": result})
+
+
+@app.post("/comments/projects")
+async def comment_project_create(request: Request, name: str = Form(...)):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    existing = db.query(CommentProject).filter(CommentProject.name == name).first()
+    if not existing:
+        db.add(CommentProject(name=name))
+        db.commit()
+        p = db.query(CommentProject).filter(CommentProject.name == name).first()
+    else:
+        p = existing
+    pid = p.id
+    db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.get("/comments/projects/{pid}", response_class=HTMLResponse)
+def comment_project_detail(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+    if not project:
+        db.close()
+        return RedirectResponse("/comments/projects", status_code=302)
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+
+    # GEO stats
+    all_comments = db.query(_StoredComment).filter(
+        _StoredComment.source_id.in_([s.id for s in sources])
+    ).all() if sources else []
+
+    lang_counts: dict[str, int] = {}
+    region_counts: dict[str, int] = {}
+    for c in all_comments:
+        if c.language:
+            lang_counts[c.language] = lang_counts.get(c.language, 0) + 1
+        if c.user_region:
+            region_counts[c.user_region] = region_counts.get(c.user_region, 0) + 1
+
+    lang_stats = sorted(lang_counts.items(), key=lambda x: -x[1])[:10]
+    region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
+    total = len(all_comments)
+
+    db.close()
+    return templates.TemplateResponse(request=request, name="comment_project_detail.html", context={
+        "active_page": "comments",
+        "project": project,
+        "sources": sources,
+        "total_comments": total,
+        "lang_stats": lang_stats,
+        "region_stats": region_stats,
+    })
+
+
+@app.post("/comments/projects/{pid}/sources")
+async def comment_project_add_sources(request: Request, pid: int, urls: str = Form(...), file: UploadFile = File(None)):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+    if not project:
+        db.close()
+        return RedirectResponse("/comments/projects", status_code=302)
+
+    raw_lines = []
+    if file and file.filename:
+        content = await file.read()
+        raw_lines += content.decode("utf-8-sig", errors="ignore").splitlines()
+    if urls.strip():
+        raw_lines += urls.strip().splitlines()
+
+    added = 0
+    for line in raw_lines:
+        line = line.strip().strip(",").strip()
+        if not line.startswith("http"):
+            continue
+        platform = _detect_platform(line)
+        if platform == "Unknown":
+            continue
+        existing = db.query(CommentSource).filter(
+            CommentSource.project_id == pid, CommentSource.url == line
+        ).first()
+        if not existing:
+            db.add(CommentSource(project_id=pid, url=line, platform=platform))
+            added += 1
+    db.commit()
+    db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.post("/comments/projects/{pid}/delete-source")
+async def comment_project_delete_source(request: Request, pid: int, source_id: int = Form(...)):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    db.query(_StoredComment).filter(_StoredComment.source_id == source_id).delete()
+    db.query(CommentSource).filter(CommentSource.id == source_id, CommentSource.project_id == pid).delete()
+    db.commit()
+    db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token: str):
+    async def _inner():
+        from app.database import SessionLocal
+        from app.models import CommentProject, CommentSource
+        db = SessionLocal()
+        sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+        db.close()
+
+        task = _comments_tasks[task_id]
+        task["total"] = len(sources)
+        task["status"] = "running"
+
+        async with httpx.AsyncClient() as client:
+            for source in sources:
+                if task.get("status") == "cancelled":
+                    break
+                platform = source.platform or _detect_platform(source.url)
+                try:
+                    if platform == "TikTok":
+                        comments = await _fetch_comments_tiktok(client, source.url, sc_key)
+                    elif platform == "Instagram":
+                        comments = await _fetch_comments_instagram(client, source.url, sc_key)
+                    elif platform == "YouTube":
+                        comments = await _fetch_comments_youtube(client, source.url, sc_key)
+                    else:
+                        comments = []
+
+                    # TikTok region lookup via Apify for unique authors
+                    if platform == "TikTok" and comments and apify_token:
+                        unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
+                        regions = await _fetch_tiktok_regions_apify(unique_authors)
+                        for c in comments:
+                            handle = c.get("author", "").lstrip("@").lower()
+                            c["user_region"] = regions.get(handle, "")
+
+                    new_count = _save_comments_to_db(source.id, comments, platform)
+
+                    # Update source metadata
+                    db2 = SessionLocal()
+                    src = db2.query(CommentSource).filter(CommentSource.id == source.id).first()
+                    if src:
+                        src.last_fetched_at = datetime.utcnow()
+                        src.comments_count = db2.query(_StoredComment).filter(_StoredComment.source_id == source.id).count()
+                        db2.commit()
+                    db2.close()
+
+                except Exception:
+                    pass
+
+                task["done"] = task.get("done", 0) + 1
+
+        # Total comments in project
+        db3 = SessionLocal()
+        srcs = db3.query(CommentSource).filter(CommentSource.project_id == pid).all()
+        total = sum(s.comments_count for s in srcs)
+        db3.close()
+        task["comments_count"] = total
+        task["status"] = "done"
+
+    asyncio.run(_inner())
+
+
+@app.post("/comments/projects/{pid}/run")
+async def comment_project_run(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    _cleanup_old_tasks()
+    task_id = str(uuid.uuid4())
+    _comments_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time(), "project_id": pid}
+    threading.Thread(
+        target=_run_project_comments_task,
+        args=[task_id, pid, SCRAPECREATORS_API_KEY, APIFY_TOKEN],
+        daemon=True,
+    ).start()
+    return RedirectResponse(f"/comments/task/{task_id}?project={pid}", status_code=302)
+
+
+@app.get("/comments/projects/{pid}/download")
+def comment_project_download(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+    comments = db.query(_StoredComment).filter(
+        _StoredComment.source_id.in_([s.id for s in sources])
+    ).order_by(_StoredComment.fetched_at.desc()).all() if sources else []
+    db.close()
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["post_url", "platform", "author", "comment", "likes", "date", "is_reply", "language", "user_region"])
+    for c in comments:
+        src = next((s for s in sources if s.id == c.source_id), None)
+        writer.writerow([src.url if src else "", c.platform, c.author, c.text, c.likes, c.date, c.is_reply, c.language, c.user_region])
+
+    fname = f"{project.name}_comments.csv" if project else "comments.csv"
+    return StreamingResponse(
+        io.BytesIO(out.getvalue().encode("utf-8-sig")),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_urlquote(fname.encode('utf-8'))}"},
     )

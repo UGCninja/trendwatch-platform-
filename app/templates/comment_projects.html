@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between">
+  <h1 class="page-title">Comment Projects</h1>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">+ Новый проект</button>
+</div>
+
+{% if projects %}
+<div class="card">
+  <div class="card-body p-0">
+    {% for row in projects %}
+    <a href="/comments/projects/{{ row.project.id }}" class="text-decoration-none text-reset">
+      <div class="d-flex align-items-center justify-content-between px-4 py-3" style="border-bottom:1px solid #f0f0f0;transition:background .15s" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''">
+        <div>
+          <div class="fw-semibold">{{ row.project.name }}</div>
+          <div class="text-muted" style="font-size:.85rem">
+            {{ row.sources_count }} постов &nbsp;·&nbsp; {{ row.comments_count }} комментариев
+            {% if row.last_fetched %}&nbsp;·&nbsp; последний сбор {{ row.last_fetched.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+          </div>
+        </div>
+        <span class="text-muted">›</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body text-center py-5 text-muted">
+    Нет проектов. Создай первый проект чтобы начать собирать комментарии.
+  </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="newProjectModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/comments/projects">
+        <div class="modal-header">
+          <h5 class="modal-title">Новый проект</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label fw-semibold">Название проекта</label>
+          <input type="text" name="name" class="form-control" placeholder="Например: Bestplay Q3 2026" required autofocus>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">Создать</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
