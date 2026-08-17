@@ -56,7 +56,7 @@ SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "yo
 
 
 def _extract_ig_shortcode(url: str):
-    m = _re.search(r'/(?:reel|p|tv)/([A-Za-z0-9_-]+)', url)
+    m = _re.search(r'/(?:reels?|p|tv)/([A-Za-z0-9_-]+)', url)
     return m.group(1) if m else None
 
 
