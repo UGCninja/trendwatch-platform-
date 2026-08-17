@@ -1303,13 +1303,14 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
         ts = c.get("create_time", 0)
         date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
         out.append({
-            "post_url":  url,
-            "platform":  "TikTok",
-            "author":    "@" + c.get("user", {}).get("unique_id", ""),
-            "comment":   c.get("text", ""),
-            "likes":     c.get("digg_count", 0),
-            "date":      date,
-            "is_reply":  bool(c.get("reply_id")),
+            "comment_id": str(c.get("cid") or c.get("id") or ""),
+            "post_url":   url,
+            "platform":   "TikTok",
+            "author":     "@" + c.get("user", {}).get("unique_id", ""),
+            "comment":    c.get("text", ""),
+            "likes":      c.get("digg_count", 0),
+            "date":       date,
+            "is_reply":   bool(c.get("reply_id")),
         })
     return out
 
@@ -1326,13 +1327,14 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
         ts = c.get("created_at", 0)
         date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
         out.append({
-            "post_url":  url,
-            "platform":  "Instagram",
-            "author":    "@" + c.get("user", {}).get("username", ""),
-            "comment":   c.get("text", ""),
-            "likes":     c.get("like_count", 0),
-            "date":      date,
-            "is_reply":  bool(c.get("replied_to_author")),
+            "comment_id": str(c.get("id") or c.get("pk") or ""),
+            "post_url":   url,
+            "platform":   "Instagram",
+            "author":     "@" + c.get("user", {}).get("username", ""),
+            "comment":    c.get("text", ""),
+            "likes":      c.get("like_count", 0),
+            "date":       date,
+            "is_reply":   bool(c.get("replied_to_author")),
         })
     return out
 
@@ -1354,13 +1356,14 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
         except Exception:
             pass
         out.append({
-            "post_url":  url,
-            "platform":  "YouTube",
-            "author":    c.get("author", {}).get("name", ""),
-            "comment":   c.get("content", ""),
-            "likes":     c.get("engagement", {}).get("likes", 0),
-            "date":      date,
-            "is_reply":  c.get("replyLevel", 0) > 0,
+            "comment_id": str(c.get("id") or ""),
+            "post_url":   url,
+            "platform":   "YouTube",
+            "author":     c.get("author", {}).get("name", ""),
+            "comment":    c.get("content", ""),
+            "likes":      c.get("engagement", {}).get("likes", 0),
+            "date":       date,
+            "is_reply":   c.get("replyLevel", 0) > 0,
         })
     return out
 
