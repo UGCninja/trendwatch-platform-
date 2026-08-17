@@ -25,6 +25,51 @@ YOUTUBE_API_KEY         = os.getenv("YOUTUBE_API_KEY", "")
 ANTHROPIC_API_KEY       = os.getenv("ANTHROPIC_API_KEY", "")
 INSTAGRAM_SESSION_ID    = os.getenv("INSTAGRAM_SESSION_ID", "")
 APIFY_TOKEN             = os.getenv("APIFY_TOKEN", "")
+INSTAGRAM_USERNAME      = os.getenv("INSTAGRAM_USERNAME", "")
+INSTAGRAM_PASSWORD      = os.getenv("INSTAGRAM_PASSWORD", "")
+
+# ── Instagram client (instagrapi) ─────────────────────────────────────────────
+_ig_client = None
+_ig_client_lock = threading.Lock()
+
+def _get_ig_client():
+    global _ig_client
+    if _ig_client is not None:
+        return _ig_client
+    with _ig_client_lock:
+        if _ig_client is None and INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+            try:
+                from instagrapi import Client as _IGClient
+                cl = _IGClient()
+                cl.delay_range = [1, 3]
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                _ig_client = cl
+            except Exception:
+                pass
+    return _ig_client
+
+def _fetch_ig_comments_sync(url: str) -> list[dict]:
+    cl = _get_ig_client()
+    if not cl:
+        return []
+    try:
+        media_pk = cl.media_pk_from_url(url)
+        comments = cl.media_comments(media_pk, amount=100)
+        out = []
+        for c in comments:
+            out.append({
+                "comment_id": str(c.pk),
+                "post_url":   url,
+                "platform":   "Instagram",
+                "author":     "@" + (c.user.username if c.user else ""),
+                "comment":    c.text or "",
+                "likes":      c.like_count or 0,
+                "date":       c.created_at_utc.strftime("%d.%m.%Y") if c.created_at_utc else "",
+                "is_reply":   bool(getattr(c, "replied_to_id", None)),
+            })
+        return out
+    except Exception:
+        return []
 
 _sc_credits = None
 
@@ -1316,27 +1361,39 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
 
 
 async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
-    r = await client.get(
-        "https://api.scrapecreators.com/v2/instagram/post/comments",
-        params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
-    )
-    if r.status_code != 200:
-        return []
-    out = []
-    for c in r.json().get("comments", []):
-        ts = c.get("created_at", 0)
-        date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
-        out.append({
-            "comment_id": str(c.get("id") or c.get("pk") or ""),
-            "post_url":   url,
-            "platform":   "Instagram",
-            "author":     "@" + c.get("user", {}).get("username", ""),
-            "comment":    c.get("text", ""),
-            "likes":      c.get("like_count", 0),
-            "date":       date,
-            "is_reply":   bool(c.get("replied_to_author")),
-        })
-    return out
+    # Сначала пробуем ScrapeCreators (дешевле, быстрее)
+    try:
+        r = await client.get(
+            "https://api.scrapecreators.com/v2/instagram/post/comments",
+            params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
+        )
+        if r.status_code == 200:
+            raw = r.json().get("comments", [])
+            if raw:
+                out = []
+                for c in raw:
+                    ts = c.get("created_at", 0)
+                    date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+                    out.append({
+                        "comment_id": str(c.get("id") or c.get("pk") or ""),
+                        "post_url":   url,
+                        "platform":   "Instagram",
+                        "author":     "@" + c.get("user", {}).get("username", ""),
+                        "comment":    c.get("text", ""),
+                        "likes":      c.get("like_count", 0),
+                        "date":       date,
+                        "is_reply":   bool(c.get("replied_to_author")),
+                    })
+                return out
+    except Exception:
+        pass
+
+    # Fallback — instagrapi (работает даже для постов за логином)
+    if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _fetch_ig_comments_sync, url)
+
+    return []
 
 
 async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
