@@ -34,74 +34,74 @@
   </div>
 </div>
 
-{% set geo_sources = sources | selectattr("post_location") | list %}
-{% if geo_sources %}
+{% macro stat_bar(label, count, total, color, label_width) %}
+{% set pct = (count / total * 100)|round(1) if total else 0 %}
+<div class="d-flex align-items-center gap-2 mb-2">
+  <div style="width:{{ label_width }};font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ label }}</div>
+  <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+    <div style="width:{{ pct }}%;height:100%;background:{{ color }};border-radius:4px"></div>
+  </div>
+  <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
+  <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
+</div>
+{% endmacro %}
+
+{% if top_commenters %}
 <div class="card mb-4">
   <div class="card-body">
-    <div class="fw-semibold mb-3">📍 Геолокация постов (Instagram)</div>
-    {% set loc_counts = {} %}
-    {% for s in geo_sources %}
-      {% if s.post_location in loc_counts %}
-        {% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
-      {% else %}
-        {% set _ = loc_counts.update({s.post_location: 1}) %}
-      {% endif %}
-    {% endfor %}
-    {% set geo_total = geo_sources|length %}
-    {% for loc, cnt in loc_counts.items() %}
-    {% set pct = (cnt / geo_total * 100)|round(1) if geo_total else 0 %}
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <div style="width:9rem;font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ loc }}</div>
-      <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
-        <div style="width:{{ pct }}%;height:100%;background:#1a73e8;border-radius:4px"></div>
-      </div>
-      <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ cnt }}</div>
-      <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
+    <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topCommentersBody').classList.toggle('d-none');this.querySelector('.tc-arrow').textContent=document.getElementById('topCommentersBody').classList.contains('d-none')?'▾':'▴'">
+      <div class="fw-semibold">Топ комментаторов</div>
+      <span class="tc-arrow text-muted">▾</span>
     </div>
-    {% endfor %}
-    <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
+    <div id="topCommentersBody" class="d-none mt-3">
+      {% set tc_max = top_commenters[0][1] %}
+      {% for author, cnt in top_commenters %}
+      {{ stat_bar(author, cnt, total_comments, "#6366f1", "10rem") }}
+      {% endfor %}
+    </div>
   </div>
 </div>
 {% endif %}
 
-{% if lang_stats or region_stats %}
+{% set geo_sources = sources | selectattr("post_location") | list %}
+{% set has_geo = geo_sources|length > 0 %}
+{% set has_lang = lang_stats|length > 0 %}
+{% set has_region = region_stats|length > 0 %}
+
+{% if has_geo or has_lang or has_region %}
 <div class="row g-3 mb-4">
-  {% if lang_stats %}
-  <div class="col-md-6">
+  {% if has_lang %}
+  <div class="col-md-4">
     <div class="card h-100">
       <div class="card-body">
         <div class="fw-semibold mb-3">Язык комментариев</div>
-        {% for lang, count in lang_stats %}
-        {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <div style="width:2.5rem;font-size:.85rem;color:#666">{{ lang }}</div>
-          <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
-            <div style="width:{{ pct }}%;height:100%;background:var(--bs-primary);border-radius:4px"></div>
-          </div>
-          <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
-          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
-        </div>
-        {% endfor %}
+        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "2.5rem") }}{% endfor %}
       </div>
     </div>
   </div>
   {% endif %}
-  {% if region_stats %}
-  <div class="col-md-6">
+  {% if has_region %}
+  <div class="col-md-4">
     <div class="card h-100">
       <div class="card-body">
         <div class="fw-semibold mb-3">Регион комментаторов</div>
-        {% for region, count in region_stats %}
-        {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <div style="width:7rem;font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ region }}</div>
-          <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
-            <div style="width:{{ pct }}%;height:100%;background:#198754;border-radius:4px"></div>
-          </div>
-          <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
-          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
-        </div>
-        {% endfor %}
+        {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "7rem") }}{% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if has_geo %}
+  {% set loc_counts = {} %}
+  {% for s in geo_sources %}
+    {% if s.post_location in loc_counts %}{% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
+    {% else %}{% set _ = loc_counts.update({s.post_location: 1}) %}{% endif %}
+  {% endfor %}
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="fw-semibold mb-3">📍 Геолокация постов</div>
+        {% for loc, cnt in loc_counts.items() %}{{ stat_bar(loc, cnt, geo_sources|length, "#1a73e8", "7rem") }}{% endfor %}
+        <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
       </div>
     </div>
   </div>
@@ -111,23 +111,28 @@
 
 <div class="card mb-4">
   <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div class="fw-semibold">Посты ({{ sources|length }})</div>
-      <div class="d-flex align-items-center gap-2">
-        <div class="btn-group btn-group-sm" id="platformFilter">
-          <button class="btn btn-outline-secondary active" data-platform="all">Все</button>
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <div class="fw-semibold">Посты (<span id="visibleCount">{{ sources|length }}</span> из {{ sources|length }})</div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <select class="form-select form-select-sm" id="platformFilter" style="width:auto">
+          <option value="all">Все платформы</option>
           {% set platforms = sources | map(attribute='platform') | unique | list %}
-          {% for p in platforms %}
-          <button class="btn btn-outline-secondary" data-platform="{{ p }}">{{ p }}</button>
-          {% endfor %}
-        </div>
+          {% for p in platforms %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+        <select class="form-select form-select-sm" id="commentsFilter" style="width:auto">
+          <option value="all">Все комментарии</option>
+          <option value="has">Есть комментарии</option>
+          <option value="none">Без комментариев</option>
+          <option value="5">5+</option>
+          <option value="10">10+</option>
+        </select>
         <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Добавить ссылки</button>
       </div>
     </div>
     {% if sources %}
     <div style="font-size:.88rem" id="sourcesList">
       {% for s in sources %}
-      <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}">
+      <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}">
         <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
           <div class="d-flex align-items-center gap-2">
             <span class="badge bg-secondary">{{ s.platform }}</span>
@@ -165,17 +170,26 @@
 </div>
 
 <script>
-// Platform filter
-document.querySelectorAll('#platformFilter button').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#platformFilter button').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    const p = this.dataset.platform;
-    document.querySelectorAll('.source-row').forEach(row => {
-      row.style.display = (p === 'all' || row.dataset.platform === p) ? '' : 'none';
-    });
+function applyFilters() {
+  const platform = document.getElementById('platformFilter').value;
+  const commentsVal = document.getElementById('commentsFilter').value;
+  let visible = 0;
+  document.querySelectorAll('.source-row').forEach(row => {
+    const pMatch = platform === 'all' || row.dataset.platform === platform;
+    const cnt = parseInt(row.dataset.comments || '0');
+    let cMatch = true;
+    if (commentsVal === 'has') cMatch = cnt > 0;
+    else if (commentsVal === 'none') cMatch = cnt === 0;
+    else if (commentsVal !== 'all') cMatch = cnt >= parseInt(commentsVal);
+    const show = pMatch && cMatch;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
   });
-});
+  const el = document.getElementById('visibleCount');
+  if (el) el.textContent = visible;
+}
+document.getElementById('platformFilter').addEventListener('change', applyFilters);
+document.getElementById('commentsFilter').addEventListener('change', applyFilters);
 
 // Expand comments
 document.querySelectorAll('.toggle-comments').forEach(btn => {

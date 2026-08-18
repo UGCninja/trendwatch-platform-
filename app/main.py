@@ -1836,6 +1836,12 @@ def comment_project_detail(request: Request, pid: int):
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
     total = len(all_comments)
 
+    author_counts: dict[str, int] = {}
+    for c in all_comments:
+        if c.author:
+            author_counts[c.author] = author_counts.get(c.author, 0) + 1
+    top_commenters = sorted(author_counts.items(), key=lambda x: -x[1])[:30]
+
     db.close()
     return templates.TemplateResponse(request=request, name="comment_project_detail.html", context={
         "active_page": "comments",
@@ -1844,6 +1850,7 @@ def comment_project_detail(request: Request, pid: int):
         "total_comments": total,
         "lang_stats": lang_stats,
         "region_stats": region_stats,
+        "top_commenters": top_commenters,
     })
 
 
