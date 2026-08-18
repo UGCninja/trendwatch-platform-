@@ -160,7 +160,7 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
 
 
 async def _fetch_ig_regions_apify(client: httpx.AsyncClient, usernames: list, apify_token: str) -> dict:
-    """Batch lookup Instagram profile regions via Apify. Returns {username_lower: country}."""
+    """Instagram 'About country' via Apify profile scraper. Returns {username_lower: country}."""
     if not apify_token or not usernames:
         return {}
     try:
@@ -178,13 +178,16 @@ async def _fetch_ig_regions_apify(client: httpx.AsyncClient, usernames: list, ap
             if not username:
                 continue
             region = ""
-            # city / location поле профиля
-            for field in ["city", "location", "cityName", "country"]:
-                val = item.get(field) or ""
-                if val:
-                    region = str(val)
+            # "About this account" country — официальное поле Instagram
+            for field in ["aboutThisAccountCountry", "countryOfRegistration", "country",
+                          "businessContactInfo", "city", "location", "cityName"]:
+                val = item.get(field)
+                if isinstance(val, dict):
+                    val = val.get("addressCountry") or val.get("country") or ""
+                if val and isinstance(val, str):
+                    region = val
                     break
-            # флаги в bio
+            # флаги в bio как fallback
             if not region:
                 bio = item.get("biography") or item.get("bio") or ""
                 region = _parse_bio_for_country(bio)
@@ -1532,34 +1535,76 @@ def _save_comments_to_db(source_id: int, comments: list[dict], platform: str):
     return new_count
 
 
-async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
-    r = await client.get(
-        "https://api.scrapecreators.com/v1/tiktok/video/comments",
-        params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
-    )
-    if r.status_code in (404, 410):
-        raise Exception("media not found")
-    if r.status_code != 200:
-        return []
-    body = r.json()
-    err = (body.get("error") or body.get("message") or "").lower()
-    if any(x in err for x in ["not found", "deleted", "unavailable", "does not exist", "no longer"]):
-        raise Exception("media not found")
-    out = []
-    for c in body.get("comments", []):
-        ts = c.get("create_time", 0)
-        date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
-        out.append({
-            "comment_id": str(c.get("cid") or c.get("id") or ""),
-            "post_url":   url,
-            "platform":   "TikTok",
-            "author":     "@" + c.get("user", {}).get("unique_id", ""),
-            "comment":    c.get("text", ""),
-            "likes":      c.get("digg_count", 0),
-            "date":       date,
-            "is_reply":   bool(c.get("reply_id")),
-        })
-    return out
+async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
+    # 1. Clockworks Apify — возвращает authorRegion прямо в комментарии
+    if apify_token:
+        try:
+            r = await client.post(
+                "https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items",
+                params={"token": apify_token, "timeout": 120},
+                json={"postURLs": [url], "commentsPerPost": 200, "scrapeComments": True, "resultsType": "comments"},
+                timeout=130,
+            )
+            if r.status_code in (200, 201):
+                items = r.json()
+                if items:
+                    out = []
+                    for c in items:
+                        ts = c.get("createTimeISO") or c.get("createTime") or ""
+                        try:
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                        except Exception:
+                            date = ""
+                        author_meta = c.get("authorMeta") or {}
+                        out.append({
+                            "comment_id": str(c.get("id") or c.get("cid") or ""),
+                            "post_url":   url,
+                            "platform":   "TikTok",
+                            "author":     "@" + (author_meta.get("name") or c.get("uniqueId") or ""),
+                            "comment":    c.get("text") or c.get("commentText") or "",
+                            "likes":      c.get("diggCount") or c.get("likeCount") or 0,
+                            "date":       date,
+                            "is_reply":   bool(c.get("isReply") or c.get("replyCommentId")),
+                            "user_region": c.get("authorRegion") or "",
+                        })
+                    if out:
+                        return out
+        except Exception:
+            pass
+
+    # 2. ScrapeCreators fallback (без authorRegion)
+    try:
+        r = await client.get(
+            "https://api.scrapecreators.com/v1/tiktok/video/comments",
+            params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
+        )
+        if r.status_code in (404, 410):
+            raise Exception("media not found")
+        if r.status_code != 200:
+            return []
+        body = r.json()
+        err = (body.get("error") or body.get("message") or "").lower()
+        if any(x in err for x in ["not found", "deleted", "unavailable", "does not exist", "no longer"]):
+            raise Exception("media not found")
+        out = []
+        for c in body.get("comments", []):
+            ts = c.get("create_time", 0)
+            date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+            out.append({
+                "comment_id": str(c.get("cid") or c.get("id") or ""),
+                "post_url":   url,
+                "platform":   "TikTok",
+                "author":     "@" + c.get("user", {}).get("unique_id", ""),
+                "comment":    c.get("text", ""),
+                "likes":      c.get("digg_count", 0),
+                "date":       date,
+                "is_reply":   bool(c.get("reply_id")),
+            })
+        return out
+    except Exception as e:
+        if "media not found" in str(e):
+            raise
+    return []
 
 
 async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
@@ -2171,7 +2216,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 platform = source.platform or _detect_platform(source.url)
                 try:
                     if platform == "TikTok":
-                        comments = await _fetch_comments_tiktok(client, source.url, sc_key)
+                        comments = await _fetch_comments_tiktok(client, source.url, sc_key, apify_token)
                     elif platform == "Instagram":
                         comments = await _fetch_comments_instagram(client, source.url, sc_key, apify_token)
                     elif platform == "YouTube":
@@ -2179,13 +2224,17 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     else:
                         comments = []
 
-                    # TikTok region lookup via Apify for unique authors
-                    if platform == "TikTok" and comments and apify_token:
-                        unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
-                        regions = await _fetch_tiktok_regions_apify(unique_authors)
-                        for c in comments:
-                            handle = c.get("author", "").lstrip("@").lower()
-                            c["user_region"] = regions.get(handle, "")
+                    # TikTok: authorRegion уже в комментарии (из Clockworks)
+                    # Если не пришёл — fallback через profile lookup
+                    if platform == "TikTok" and comments:
+                        missing = [c for c in comments if not c.get("user_region")]
+                        if missing and apify_token:
+                            unique_authors = list({c["author"].lstrip("@") for c in missing if c.get("author")})
+                            regions = await _fetch_tiktok_regions_apify(unique_authors)
+                            for c in missing:
+                                handle = c.get("author", "").lstrip("@").lower()
+                                if not c.get("user_region"):
+                                    c["user_region"] = regions.get(handle, "")
 
                     # Instagram commenter region — многоуровневый поиск
                     if platform == "Instagram" and comments:
