@@ -31,9 +31,10 @@ INSTAGRAM_PASSWORD      = os.getenv("INSTAGRAM_PASSWORD", "")
 # ── Instagram client (instagrapi) ─────────────────────────────────────────────
 _ig_client = None
 _ig_client_lock = threading.Lock()
+_ig_client_error = ""
 
 def _get_ig_client():
-    global _ig_client
+    global _ig_client, _ig_client_error
     if _ig_client is not None:
         return _ig_client
     with _ig_client_lock:
@@ -44,8 +45,9 @@ def _get_ig_client():
                 cl.delay_range = [1, 3]
                 cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
                 _ig_client = cl
-            except Exception:
-                pass
+                _ig_client_error = ""
+            except Exception as e:
+                _ig_client_error = str(e)
     return _ig_client
 
 def _fetch_ig_post_location_sync(url: str) -> dict:
@@ -1002,6 +1004,18 @@ def _fetch_apify_balance_sync():
         _apify_balance = {"usage": round(usage_usd, 2), "limit": round(limit_usd, 2)}
     except Exception:
         pass
+
+
+@app.get("/api/ig-status")
+def api_ig_status(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    cl = _ig_client
+    return JSONResponse({
+        "logged_in": cl is not None,
+        "username": INSTAGRAM_USERNAME or "not set",
+        "error": _ig_client_error,
+    })
 
 
 @app.get("/api/balance")
