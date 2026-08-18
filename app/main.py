@@ -47,7 +47,9 @@ def _get_ig_client():
             # Вариант 1: session_id (без challenge, предпочтительно)
             if INSTAGRAM_SESSION_ID:
                 try:
-                    cl.login_by_sessionid(INSTAGRAM_SESSION_ID)
+                    from urllib.parse import unquote as _unquote
+                    clean_session = _unquote(INSTAGRAM_SESSION_ID)
+                    cl.login_by_sessionid(clean_session)
                     _ig_client = cl
                     _ig_client_error = "ok:sessionid"
                     return _ig_client
