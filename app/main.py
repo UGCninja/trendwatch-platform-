@@ -1891,6 +1891,35 @@ async def comment_project_add_sources(request: Request, pid: int, urls: str = Fo
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
+@app.post("/comments/projects/{pid}/sources/upload")
+async def comment_project_upload_sources(request: Request, pid: int, file: UploadFile = File(...)):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+    if not project:
+        db.close()
+        return RedirectResponse("/comments/projects", status_code=302)
+    content = await file.read()
+    raw_lines = content.decode("utf-8-sig", errors="ignore").splitlines()
+    for line in raw_lines:
+        line = line.strip().strip(",").strip()
+        if not line.startswith("http"):
+            continue
+        platform = _detect_platform(line)
+        if platform == "Unknown":
+            continue
+        existing = db.query(CommentSource).filter(
+            CommentSource.project_id == pid, CommentSource.url == line
+        ).first()
+        if not existing:
+            db.add(CommentSource(project_id=pid, url=line, platform=platform))
+    db.commit()
+    db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
 @app.post("/comments/projects/{pid}/delete-source")
 async def comment_project_delete_source(request: Request, pid: int, source_id: int = Form(...)):
     if not check_auth(request):

@@ -230,27 +230,37 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
 <div class="modal fade" id="addUrlsModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
-      <form method="post" action="/comments/projects/{{ project.id }}/sources" enctype="multipart/form-data">
-        <div class="modal-header">
+      <div class="modal-header">
           <h5 class="modal-title">Добавить ссылки</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Вставь ссылки (по одной на строку)</label>
-            <textarea name="urls" class="form-control" rows="6" placeholder="https://www.tiktok.com/@user/video/123&#10;https://www.instagram.com/reel/ABC/&#10;https://www.youtube.com/watch?v=XYZ"></textarea>
-          </div>
-          <div class="text-muted text-center mb-3" style="font-size:.85rem">— или —</div>
-          <div>
-            <label class="form-label fw-semibold">Загрузи CSV файл</label>
-            <input type="file" name="file" class="form-control" accept=".csv,.txt">
+          <ul class="nav nav-tabs mb-3" id="addUrlsTabs">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabText">Вручную</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabFile">CSV файл</a></li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabText">
+              <form method="post" action="/comments/projects/{{ project.id }}/sources" enctype="multipart/form-data">
+                <textarea name="urls" class="form-control" rows="7" placeholder="https://www.tiktok.com/@user/video/123&#10;https://www.instagram.com/reel/ABC/&#10;https://www.youtube.com/watch?v=XYZ"></textarea>
+                <div class="mt-3 text-end">
+                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
+                  <button type="submit" class="btn btn-primary">Добавить</button>
+                </div>
+              </form>
+            </div>
+            <div class="tab-pane fade" id="tabFile">
+              <form method="post" action="/comments/projects/{{ project.id }}/sources/upload" enctype="multipart/form-data">
+                <label class="form-label fw-semibold">CSV или TXT файл (одна ссылка на строку)</label>
+                <input type="file" name="file" class="form-control" accept=".csv,.txt">
+                <div class="mt-3 text-end">
+                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
+                  <button type="submit" class="btn btn-primary">Загрузить</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary">Добавить</button>
-        </div>
-      </form>
     </div>
   </div>
 </div>
