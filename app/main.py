@@ -1418,10 +1418,16 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
         "https://api.scrapecreators.com/v1/tiktok/video/comments",
         params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
     )
+    if r.status_code in (404, 410):
+        raise Exception("media not found")
     if r.status_code != 200:
         return []
+    body = r.json()
+    err = (body.get("error") or body.get("message") or "").lower()
+    if any(x in err for x in ["not found", "deleted", "unavailable", "does not exist", "no longer"]):
+        raise Exception("media not found")
     out = []
-    for c in r.json().get("comments", []):
+    for c in body.get("comments", []):
         ts = c.get("create_time", 0)
         date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
         out.append({
@@ -1444,8 +1450,14 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
             "https://api.scrapecreators.com/v2/instagram/post/comments",
             params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
         )
+        if r.status_code in (404, 410):
+            raise Exception("media not found")
         if r.status_code == 200:
-            raw = r.json().get("comments", [])
+            body = r.json()
+            err = (body.get("error") or body.get("message") or "").lower()
+            if any(x in err for x in ["not found", "deleted", "unavailable", "does not exist", "no longer"]):
+                raise Exception("media not found")
+            raw = body.get("comments", [])
             if raw:
                 out = []
                 for c in raw:
@@ -1478,10 +1490,16 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
         "https://api.scrapecreators.com/v1/youtube/video/comments",
         params={"url": url}, headers={"x-api-key": sc_key}, timeout=20,
     )
+    if r.status_code in (404, 410):
+        raise Exception("media not found")
     if r.status_code != 200:
         return []
+    body = r.json()
+    err = (body.get("error") or body.get("message") or "").lower()
+    if any(x in err for x in ["not found", "deleted", "unavailable", "does not exist", "no longer"]):
+        raise Exception("media not found")
     out = []
-    for c in r.json().get("comments", []):
+    for c in body.get("comments", []):
         date = ""
         try:
             raw = c.get("publishedTime", "")
