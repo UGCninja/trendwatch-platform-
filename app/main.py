@@ -1901,20 +1901,30 @@ async def comment_project_upload_sources(request: Request, pid: int, file: Uploa
     if not project:
         db.close()
         return RedirectResponse("/comments/projects", status_code=302)
+    import csv as _csv
     content = await file.read()
-    raw_lines = content.decode("utf-8-sig", errors="ignore").splitlines()
-    for line in raw_lines:
-        line = line.strip().strip(",").strip()
-        if not line.startswith("http"):
+    text = content.decode("utf-8-sig", errors="ignore")
+    # Собираем все строки из CSV — берём каждую ячейку каждой строки
+    candidates = []
+    try:
+        reader = _csv.reader(text.splitlines())
+        for row in reader:
+            for cell in row:
+                candidates.append(cell.strip())
+    except Exception:
+        candidates = [l.strip() for l in text.splitlines()]
+
+    for url in candidates:
+        if not url.startswith("http"):
             continue
-        platform = _detect_platform(line)
+        platform = _detect_platform(url)
         if platform == "Unknown":
             continue
         existing = db.query(CommentSource).filter(
-            CommentSource.project_id == pid, CommentSource.url == line
+            CommentSource.project_id == pid, CommentSource.url == url
         ).first()
         if not existing:
-            db.add(CommentSource(project_id=pid, url=line, platform=platform))
+            db.add(CommentSource(project_id=pid, url=url, platform=platform))
     db.commit()
     db.close()
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
