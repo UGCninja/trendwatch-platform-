@@ -89,6 +89,12 @@ function poll() {
         document.getElementById("stateError").style.display = "block";
         document.getElementById("subtitle").textContent = "Что-то пошло не так";
         document.getElementById("errorText").textContent = error || "Неизвестная ошибка";
+      } else if (status === "not_found") {
+        clearInterval(pollInterval);
+        document.getElementById("stateProcessing").style.display = "none";
+        document.getElementById("stateError").style.display = "block";
+        document.getElementById("subtitle").textContent = "Задача потеряна";
+        document.getElementById("errorText").textContent = "Сервер перезапустился во время сбора. Вернись в проект и нажми Обновить снова.";
       }
     })
     .catch(() => {});
