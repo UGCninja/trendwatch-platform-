@@ -1026,7 +1026,7 @@ def _fetch_apify_balance_sync():
 def api_ig_status(request: Request):
     if not check_auth(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
-    cl = _ig_client
+    cl = _get_ig_client()
     return JSONResponse({
         "logged_in": cl is not None,
         "username": INSTAGRAM_USERNAME or "not set",
