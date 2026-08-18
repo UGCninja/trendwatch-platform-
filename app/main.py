@@ -1831,7 +1831,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
 
         task = _comments_tasks[task_id]
         task["total"] = len(sources)
-        task["status"] = "running"
+        task["status"] = "collecting"
 
         async with httpx.AsyncClient() as client:
             for source in sources:
