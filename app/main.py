@@ -159,36 +159,40 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
     return results
 
 
-async def _fetch_ig_regions_scrapecreators(client: httpx.AsyncClient, usernames: list, sc_key: str) -> dict:
-    """Try ScrapeCreators for Instagram profile location. Returns {username_lower: country}."""
-    results = {}
-    for username in usernames:
-        try:
-            r = await client.get(
-                "https://api.scrapecreators.com/v1/instagram/user",
-                params={"username": username},
-                headers={"x-api-key": sc_key},
-                timeout=15,
-            )
-            if r.status_code != 200:
+async def _fetch_ig_regions_apify(client: httpx.AsyncClient, usernames: list, apify_token: str) -> dict:
+    """Batch lookup Instagram profile regions via Apify. Returns {username_lower: country}."""
+    if not apify_token or not usernames:
+        return {}
+    try:
+        r = await client.post(
+            "https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items",
+            params={"token": apify_token, "timeout": 120},
+            json={"usernames": usernames[:30]},
+            timeout=130,
+        )
+        if r.status_code not in (200, 201):
+            return {}
+        results = {}
+        for item in r.json():
+            username = (item.get("username") or "").lower()
+            if not username:
                 continue
-            data = r.json()
             region = ""
-            # Пробуем разные поля которые могут содержать локацию
-            for field in ["city", "location", "city_name", "country", "region"]:
-                val = data.get(field) or ""
+            # city / location поле профиля
+            for field in ["city", "location", "cityName", "country"]:
+                val = item.get(field) or ""
                 if val:
                     region = str(val)
                     break
-            # Если нет — парсим bio на флаги
+            # флаги в bio
             if not region:
-                bio = data.get("biography") or data.get("bio") or ""
+                bio = item.get("biography") or item.get("bio") or ""
                 region = _parse_bio_for_country(bio)
             if region:
-                results[username.lower()] = region
-        except Exception:
-            pass
-    return results
+                results[username] = region
+        return results
+    except Exception:
+        return {}
 
 def _fetch_ig_comments_sync(url: str) -> list[dict]:
     cl = _get_ig_client()
@@ -2049,27 +2053,51 @@ async def comment_project_upload_sources(request: Request, pid: int, file: Uploa
     import csv as _csv
     content = await file.read()
     text = content.decode("utf-8-sig", errors="ignore")
-    # Собираем все строки из CSV — берём каждую ячейку каждой строки
-    candidates = []
     try:
-        reader = _csv.reader(text.splitlines())
-        for row in reader:
-            for cell in row:
-                candidates.append(cell.strip())
-    except Exception:
-        candidates = [l.strip() for l in text.splitlines()]
+        reader = _csv.DictReader(text.splitlines())
+        headers = [h.lower().strip() for h in (reader.fieldnames or [])]
+        # Ищем колонку с URL
+        url_col = next((h for h in (reader.fieldnames or []) if h.lower().strip() in ("post url", "url", "link")), None)
+        provider_col = next((h for h in (reader.fieldnames or []) if h.lower().strip() == "provider"), None)
+        creator_col = next((h for h in (reader.fieldnames or []) if h.lower().strip() == "creator"), None)
 
-    for url in candidates:
-        if not url.startswith("http"):
-            continue
-        platform = _detect_platform(url)
-        if platform == "Unknown":
-            continue
-        existing = db.query(CommentSource).filter(
-            CommentSource.project_id == pid, CommentSource.url == url
-        ).first()
-        if not existing:
-            db.add(CommentSource(project_id=pid, url=url, platform=platform))
+        if url_col:
+            for row in reader:
+                url = (row.get(url_col) or "").strip()
+                if not url.startswith("http"):
+                    continue
+                platform = _detect_platform(url)
+                if platform == "Unknown":
+                    continue
+                provider = (row.get(provider_col) or "").strip() if provider_col else ""
+                creator = (row.get(creator_col) or "").strip() if creator_col else ""
+                existing = db.query(CommentSource).filter(
+                    CommentSource.project_id == pid, CommentSource.url == url
+                ).first()
+                if not existing:
+                    db.add(CommentSource(project_id=pid, url=url, platform=platform,
+                                        provider=provider, creator=creator))
+                else:
+                    # Обновляем метаданные если уже есть
+                    if provider: existing.provider = provider
+                    if creator: existing.creator = creator
+        else:
+            # Fallback — файл без заголовков, просто ссылки
+            for row in reader:
+                for cell in row.values():
+                    url = (cell or "").strip()
+                    if not url.startswith("http"):
+                        continue
+                    platform = _detect_platform(url)
+                    if platform == "Unknown":
+                        continue
+                    existing = db.query(CommentSource).filter(
+                        CommentSource.project_id == pid, CommentSource.url == url
+                    ).first()
+                    if not existing:
+                        db.add(CommentSource(project_id=pid, url=url, platform=platform))
+    except Exception:
+        pass
     db.commit()
     db.close()
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
@@ -2141,16 +2169,16 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     if platform == "Instagram" and comments:
                         loop = asyncio.get_event_loop()
                         unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
-                        # 1. ScrapeCreators (bio флаги + location поле)
-                        sc_regions = {}
-                        if sc_key:
-                            sc_regions = await _fetch_ig_regions_scrapecreators(client, unique_authors, sc_key)
-                        # 2. instagrapi (city, phone code, bio флаги) для тех кого SC не нашёл
-                        ig_authors = [u for u in unique_authors if not sc_regions.get(u.lower())]
+                        # 1. Apify Instagram profile scraper (bio, city, location)
+                        apify_regions = {}
+                        if apify_token:
+                            apify_regions = await _fetch_ig_regions_apify(client, unique_authors, apify_token)
+                        # 2. instagrapi (city, phone code, bio флаги) для тех кого Apify не нашёл
+                        remaining = [u for u in unique_authors if not apify_regions.get(u.lower())]
                         ig_regions = {}
-                        if ig_authors:
-                            ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, ig_authors)
-                        regions = {**ig_regions, **sc_regions}
+                        if remaining:
+                            ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining)
+                        regions = {**ig_regions, **apify_regions}
                         for c in comments:
                             handle = c.get("author", "").lstrip("@").lower()
                             c["user_region"] = regions.get(handle, "")
@@ -2207,16 +2235,16 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             if unique_authors:
                 loop = asyncio.get_event_loop()
                 async with httpx.AsyncClient() as bf_client:
-                    # 1. ScrapeCreators
-                    sc_regions = {}
-                    if sc_key:
-                        sc_regions = await _fetch_ig_regions_scrapecreators(bf_client, unique_authors, sc_key)
+                    # 1. Apify Instagram profile scraper
+                    apify_regions = {}
+                    if apify_token:
+                        apify_regions = await _fetch_ig_regions_apify(bf_client, unique_authors, apify_token)
                     # 2. instagrapi для оставшихся
-                    ig_authors = [u for u in unique_authors if not sc_regions.get(u.lower())]
+                    remaining = [u for u in unique_authors if not apify_regions.get(u.lower())]
                     ig_regions = {}
-                    if ig_authors:
-                        ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, ig_authors)
-                regions = {**ig_regions, **sc_regions}
+                    if remaining:
+                        ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining)
+                regions = {**ig_regions, **apify_regions}
                 for c in no_region:
                     handle = (c.author or "").lstrip("@").lower()
                     region = regions.get(handle, "")

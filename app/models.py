@@ -103,6 +103,8 @@ class CommentSource(Base):
     post_location_lat = Column(Float, nullable=True)
     post_location_lng = Column(Float, nullable=True)
     status          = Column(String, default="active")   # active / deleted
+    provider        = Column(String, nullable=True)      # подрядчик из CSV
+    creator         = Column(String, nullable=True)      # креатор из CSV
     __table_args__  = (UniqueConstraint("project_id", "url"),)
 
 

@@ -141,7 +141,9 @@
             {% else %}
             <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">active</span>
             {% endif %}
-            <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+            <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:55] }}{% if s.url|length > 55 %}…{% endif %}</a>
+            {% if s.provider %}<span class="badge ms-1" style="background:#f0f0f0;color:#555;font-size:.75rem">{{ s.provider }}</span>{% endif %}
+            {% if s.creator %}<span class="text-muted ms-1" style="font-size:.8rem">{{ s.creator }}</span>{% endif %}
           </div>
           <div class="d-flex align-items-center gap-3 text-muted">
             {% if s.comments_count > 0 %}

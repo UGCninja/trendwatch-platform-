@@ -44,6 +44,8 @@ def init_db():
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_location_lng FLOAT")
     _run_migration("CREATE TABLE IF NOT EXISTS stored_comments (id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, platform VARCHAR, comment_id VARCHAR, author VARCHAR, text TEXT, likes INTEGER DEFAULT 0, date VARCHAR, is_reply BOOLEAN DEFAULT 0, language VARCHAR, user_region VARCHAR, fetched_at TIMESTAMP, UNIQUE(source_id, comment_id))")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN status VARCHAR DEFAULT 'active'")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN provider VARCHAR")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN creator VARCHAR")
 
     from app.models import Vertical
     db = SessionLocal()
