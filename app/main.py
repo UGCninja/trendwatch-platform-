@@ -93,8 +93,45 @@ def _fetch_ig_post_location_sync(url: str) -> dict:
         pass
     return {}
 
+# Флаги → страны для парсинга bio
+_FLAG_TO_COUNTRY = {
+    "🇺🇸": "USA", "🇬🇧": "UK", "🇵🇭": "Philippines", "🇦🇺": "Australia",
+    "🇨🇦": "Canada", "🇩🇪": "Germany", "🇫🇷": "France", "🇧🇷": "Brazil",
+    "🇲🇽": "Mexico", "🇮🇳": "India", "🇮🇩": "Indonesia", "🇯🇵": "Japan",
+    "🇰🇷": "South Korea", "🇳🇬": "Nigeria", "🇿🇦": "South Africa",
+    "🇪🇸": "Spain", "🇮🇹": "Italy", "🇳🇱": "Netherlands", "🇵🇱": "Poland",
+    "🇺🇦": "Ukraine", "🇸🇦": "Saudi Arabia", "🇦🇪": "UAE",
+    "🇸🇬": "Singapore", "🇳🇿": "New Zealand", "🇦🇷": "Argentina",
+    "🇨🇴": "Colombia", "🇵🇰": "Pakistan", "🇻🇳": "Vietnam", "🇹🇭": "Thailand",
+    "🇲🇾": "Malaysia", "🇹🇼": "Taiwan", "🇨🇳": "China", "🇷🇺": "Russia",
+    "🇸🇪": "Sweden", "🇳🇴": "Norway", "🇩🇰": "Denmark", "🇫🇮": "Finland",
+    "🇨🇭": "Switzerland", "🇵🇹": "Portugal", "🇹🇷": "Turkey",
+    "🇮🇱": "Israel", "🇪🇬": "Egypt", "🇲🇦": "Morocco", "🇰🇪": "Kenya",
+    "🇬🇭": "Ghana", "🇷🇴": "Romania", "🇨🇿": "Czech Republic",
+    "🇵🇪": "Peru", "🇨🇱": "Chile", "🇻🇪": "Venezuela", "🇧🇩": "Bangladesh",
+}
+
+# Язык → страна как fallback
+_LANG_TO_COUNTRY = {
+    "tl": "Philippines", "pt": "Brazil/Portugal", "es": "Latin America/Spain",
+    "de": "Germany", "fr": "France", "it": "Italy", "nl": "Netherlands",
+    "pl": "Poland", "uk": "Ukraine", "ru": "Russia", "tr": "Turkey",
+    "ar": "Arabic-speaking", "hi": "India", "id": "Indonesia", "vi": "Vietnam",
+    "th": "Thailand", "ko": "South Korea", "ja": "Japan", "zh-cn": "China",
+    "sw": "East Africa", "af": "South Africa", "so": "Somalia/East Africa",
+    "fi": "Finland", "sv": "Sweden", "no": "Norway", "da": "Denmark",
+}
+
+def _parse_bio_for_country(bio: str) -> str:
+    if not bio:
+        return ""
+    for flag, country in _FLAG_TO_COUNTRY.items():
+        if flag in bio:
+            return country
+    return ""
+
 def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
-    """Returns {username_lower: city_or_country} via instagrapi. Max 40 unique users."""
+    """Returns {username_lower: country} via instagrapi (city, phone code, bio flags). Max 40 users."""
     cl = _get_ig_client()
     if not cl or not usernames:
         return {}
@@ -103,14 +140,54 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
         try:
             time.sleep(0.8)
             info = cl.user_info_by_username(username)
-            region = getattr(info, "city_name", "") or ""
+            region = ""
+            # 1. city_name (business accounts)
+            if getattr(info, "city_name", None):
+                region = info.city_name
+            # 2. phone country code
             if not region:
                 code = str(getattr(info, "public_phone_country_code", "") or "")
                 if code:
                     region = f"+{code}"
+            # 3. flag emoji in bio
+            if not region:
+                bio = getattr(info, "biography", "") or ""
+                region = _parse_bio_for_country(bio)
             results[username.lower()] = region
         except Exception:
             results[username.lower()] = ""
+    return results
+
+
+async def _fetch_ig_regions_scrapecreators(client: httpx.AsyncClient, usernames: list, sc_key: str) -> dict:
+    """Try ScrapeCreators for Instagram profile location. Returns {username_lower: country}."""
+    results = {}
+    for username in usernames:
+        try:
+            r = await client.get(
+                "https://api.scrapecreators.com/v1/instagram/user",
+                params={"username": username},
+                headers={"x-api-key": sc_key},
+                timeout=15,
+            )
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            region = ""
+            # Пробуем разные поля которые могут содержать локацию
+            for field in ["city", "location", "city_name", "country", "region"]:
+                val = data.get(field) or ""
+                if val:
+                    region = str(val)
+                    break
+            # Если нет — парсим bio на флаги
+            if not region:
+                bio = data.get("biography") or data.get("bio") or ""
+                region = _parse_bio_for_country(bio)
+            if region:
+                results[username.lower()] = region
+        except Exception:
+            pass
     return results
 
 def _fetch_ig_comments_sync(url: str) -> list[dict]:
@@ -1992,11 +2069,20 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                             handle = c.get("author", "").lstrip("@").lower()
                             c["user_region"] = regions.get(handle, "")
 
-                    # Instagram commenter region via instagrapi user_info
+                    # Instagram commenter region — многоуровневый поиск
                     if platform == "Instagram" and comments:
                         loop = asyncio.get_event_loop()
                         unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
-                        regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, unique_authors)
+                        # 1. ScrapeCreators (bio флаги + location поле)
+                        sc_regions = {}
+                        if sc_key:
+                            sc_regions = await _fetch_ig_regions_scrapecreators(client, unique_authors, sc_key)
+                        # 2. instagrapi (city, phone code, bio флаги) для тех кого SC не нашёл
+                        ig_authors = [u for u in unique_authors if not sc_regions.get(u.lower())]
+                        ig_regions = {}
+                        if ig_authors:
+                            ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, ig_authors)
+                        regions = {**ig_regions, **sc_regions}
                         for c in comments:
                             handle = c.get("author", "").lstrip("@").lower()
                             c["user_region"] = regions.get(handle, "")
@@ -2052,7 +2138,17 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             unique_authors = list({c.author.lstrip("@") for c in no_region if c.author})
             if unique_authors:
                 loop = asyncio.get_event_loop()
-                regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, unique_authors)
+                async with httpx.AsyncClient() as bf_client:
+                    # 1. ScrapeCreators
+                    sc_regions = {}
+                    if sc_key:
+                        sc_regions = await _fetch_ig_regions_scrapecreators(bf_client, unique_authors, sc_key)
+                    # 2. instagrapi для оставшихся
+                    ig_authors = [u for u in unique_authors if not sc_regions.get(u.lower())]
+                    ig_regions = {}
+                    if ig_authors:
+                        ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, ig_authors)
+                regions = {**ig_regions, **sc_regions}
                 for c in no_region:
                     handle = (c.author or "").lstrip("@").lower()
                     region = regions.get(handle, "")
