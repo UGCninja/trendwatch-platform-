@@ -93,6 +93,26 @@ def _fetch_ig_post_location_sync(url: str) -> dict:
         pass
     return {}
 
+def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
+    """Returns {username_lower: city_or_country} via instagrapi. Max 40 unique users."""
+    cl = _get_ig_client()
+    if not cl or not usernames:
+        return {}
+    results = {}
+    for username in usernames[:40]:
+        try:
+            time.sleep(0.8)
+            info = cl.user_info_by_username(username)
+            region = getattr(info, "city_name", "") or ""
+            if not region:
+                code = str(getattr(info, "public_phone_country_code", "") or "")
+                if code:
+                    region = f"+{code}"
+            results[username.lower()] = region
+        except Exception:
+            results[username.lower()] = ""
+    return results
+
 def _fetch_ig_comments_sync(url: str) -> list[dict]:
     cl = _get_ig_client()
     if not cl:
@@ -1890,6 +1910,15 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     if platform == "TikTok" and comments and apify_token:
                         unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
                         regions = await _fetch_tiktok_regions_apify(unique_authors)
+                        for c in comments:
+                            handle = c.get("author", "").lstrip("@").lower()
+                            c["user_region"] = regions.get(handle, "")
+
+                    # Instagram commenter region via instagrapi user_info
+                    if platform == "Instagram" and comments:
+                        loop = asyncio.get_event_loop()
+                        unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
+                        regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, unique_authors)
                         for c in comments:
                             handle = c.get("author", "").lstrip("@").lower()
                             c["user_region"] = regions.get(handle, "")
