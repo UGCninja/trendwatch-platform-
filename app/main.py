@@ -1568,7 +1568,7 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
                 json={"directUrls": [url], "resultsLimit": 200},
                 timeout=130,
             )
-            if r.status_code == 200:
+            if r.status_code in (200, 201):
                 items = r.json()
                 if items:
                     out = []
