@@ -39,24 +39,27 @@
 <div class="card mb-4">
   <div class="card-body">
     <div class="fw-semibold mb-3">📍 Геолокация постов (Instagram)</div>
-    <div style="font-size:.88rem">
-      {% set loc_counts = {} %}
-      {% for s in geo_sources %}
-        {% if s.post_location in loc_counts %}
-          {% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
-        {% else %}
-          {% set _ = loc_counts.update({s.post_location: 1}) %}
-        {% endif %}
-      {% endfor %}
-      <div class="d-flex flex-wrap gap-2">
-        {% for loc, cnt in loc_counts.items() %}
-        <span class="badge" style="background:#e8f4fd;color:#1a73e8;font-size:.85rem;font-weight:500;padding:6px 12px">
-          📍 {{ loc }} <span style="opacity:.7">× {{ cnt }}</span>
-        </span>
-        {% endfor %}
+    {% set loc_counts = {} %}
+    {% for s in geo_sources %}
+      {% if s.post_location in loc_counts %}
+        {% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
+      {% else %}
+        {% set _ = loc_counts.update({s.post_location: 1}) %}
+      {% endif %}
+    {% endfor %}
+    {% set geo_total = geo_sources|length %}
+    {% for loc, cnt in loc_counts.items() %}
+    {% set pct = (cnt / geo_total * 100)|round(1) if geo_total else 0 %}
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <div style="width:9rem;font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ loc }}</div>
+      <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+        <div style="width:{{ pct }}%;height:100%;background:#1a73e8;border-radius:4px"></div>
       </div>
-      <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
+      <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ cnt }}</div>
+      <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
     </div>
+    {% endfor %}
+    <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
   </div>
 </div>
 {% endif %}
@@ -75,7 +78,8 @@
           <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
             <div style="width:{{ pct }}%;height:100%;background:var(--bs-primary);border-radius:4px"></div>
           </div>
-          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#666">{{ pct }}%</div>
+          <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
+          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
         </div>
         {% endfor %}
       </div>
@@ -86,15 +90,16 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-body">
-        <div class="fw-semibold mb-3">Регион профиля (TikTok)</div>
+        <div class="fw-semibold mb-3">Регион комментаторов</div>
         {% for region, count in region_stats %}
         {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
         <div class="d-flex align-items-center gap-2 mb-2">
-          <div style="width:2.5rem;font-size:.85rem;color:#666">{{ region }}</div>
+          <div style="width:7rem;font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ region }}</div>
           <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
             <div style="width:{{ pct }}%;height:100%;background:#198754;border-radius:4px"></div>
           </div>
-          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#666">{{ pct }}%</div>
+          <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
+          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
         </div>
         {% endfor %}
       </div>
