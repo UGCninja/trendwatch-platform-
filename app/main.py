@@ -24,6 +24,7 @@ SCRAPECREATORS_API_KEY  = os.getenv("SCRAPECREATORS_KEY", "")
 YOUTUBE_API_KEY         = os.getenv("YOUTUBE_API_KEY", "")
 ANTHROPIC_API_KEY       = os.getenv("ANTHROPIC_API_KEY", "")
 INSTAGRAM_SESSION_ID    = os.getenv("INSTAGRAM_SESSION_ID", "")
+INSTAGRAM_SESSION_JSON  = os.getenv("INSTAGRAM_SESSION_JSON", "")
 APIFY_TOKEN             = os.getenv("APIFY_TOKEN", "")
 INSTAGRAM_USERNAME      = os.getenv("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD      = os.getenv("INSTAGRAM_PASSWORD", "")
@@ -44,7 +45,21 @@ def _get_ig_client():
             from instagrapi import Client as _IGClient
             cl = _IGClient()
             cl.delay_range = [1, 3]
-            # Вариант 1: session_id (без challenge, предпочтительно)
+            # Вариант 1: готовая сессия из JSON (локально сгенерированная, без challenge)
+            if INSTAGRAM_SESSION_JSON:
+                try:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+                        f.write(INSTAGRAM_SESSION_JSON)
+                        tmp_path = f.name
+                    cl.load_settings(tmp_path)
+                    os.unlink(tmp_path)
+                    _ig_client = cl
+                    _ig_client_error = "ok:session_json"
+                    return _ig_client
+                except Exception as e1:
+                    _ig_client_error = f"session_json failed: {e1}"
+            # Вариант 2: session_id из куки
             if INSTAGRAM_SESSION_ID:
                 try:
                     from urllib.parse import unquote as _unquote
@@ -55,13 +70,6 @@ def _get_ig_client():
                     return _ig_client
                 except Exception as e1:
                     _ig_client_error = f"sessionid failed: {e1}"
-            # Вариант 2: username + password
-            if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-                cl2 = _IGClient()
-                cl2.delay_range = [1, 3]
-                cl2.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                _ig_client = cl2
-                _ig_client_error = "ok:password"
         except Exception as e:
             _ig_client_error = str(e)
     return _ig_client
