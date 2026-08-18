@@ -34,6 +34,30 @@
   </div>
 </div>
 
+{% if provider_stats %}
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="fw-semibold mb-3">Подрядчики</div>
+    <div class="row g-2">
+      {% for name, st in provider_stats %}
+      <div class="col-auto">
+        <div class="card h-100" style="min-width:160px;border:1px solid #e5e7eb">
+          <div class="card-body p-3">
+            <div class="fw-semibold mb-1" style="font-size:.9rem">{{ name }}</div>
+            <div class="text-muted" style="font-size:.8rem">{{ st.posts }} постов · {{ st.comments }} комм.</div>
+            <div class="mt-1 d-flex gap-1">
+              {% if st.active %}<span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.72rem">{{ st.active }} active</span>{% endif %}
+              {% if st.deleted %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.72rem">{{ st.deleted }} deleted</span>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% macro stat_bar(label, count, total, color, label_width) %}
 {% set pct = (count / total * 100)|round(1) if total else 0 %}
 <div class="d-flex align-items-center gap-2 mb-2">
@@ -119,6 +143,12 @@
           {% set platforms = sources | map(attribute='platform') | unique | list %}
           {% for p in platforms %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
         </select>
+        {% if providers %}
+        <select class="form-select form-select-sm" id="providerFilter" style="width:auto">
+          <option value="all">Все подрядчики</option>
+          {% for p in providers %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+        {% endif %}
         <select class="form-select form-select-sm" id="commentsFilter" style="width:auto">
           <option value="all">Все комментарии</option>
           <option value="has">Есть комментарии</option>
@@ -132,7 +162,7 @@
     {% if sources %}
     <div style="font-size:.88rem" id="sourcesList">
       {% for s in sources %}
-      <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}">
+      <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}" data-provider="{{ s.provider or '' }}">
         <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
           <div class="d-flex align-items-center gap-2">
             <span class="badge bg-secondary">{{ s.platform }}</span>
@@ -175,15 +205,18 @@
 function applyFilters() {
   const platform = document.getElementById('platformFilter').value;
   const commentsVal = document.getElementById('commentsFilter').value;
+  const providerEl = document.getElementById('providerFilter');
+  const provider = providerEl ? providerEl.value : 'all';
   let visible = 0;
   document.querySelectorAll('.source-row').forEach(row => {
     const pMatch = platform === 'all' || row.dataset.platform === platform;
+    const prMatch = provider === 'all' || row.dataset.provider === provider;
     const cnt = parseInt(row.dataset.comments || '0');
     let cMatch = true;
     if (commentsVal === 'has') cMatch = cnt > 0;
     else if (commentsVal === 'none') cMatch = cnt === 0;
     else if (commentsVal !== 'all') cMatch = cnt >= parseInt(commentsVal);
-    const show = pMatch && cMatch;
+    const show = pMatch && prMatch && cMatch;
     row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
@@ -192,6 +225,8 @@ function applyFilters() {
 }
 document.getElementById('platformFilter').addEventListener('change', applyFilters);
 document.getElementById('commentsFilter').addEventListener('change', applyFilters);
+const pf = document.getElementById('providerFilter');
+if (pf) pf.addEventListener('change', applyFilters);
 
 // Expand comments
 document.querySelectorAll('.toggle-comments').forEach(btn => {

@@ -1991,6 +1991,26 @@ def comment_project_detail(request: Request, pid: int):
             author_counts[c.author] = author_counts.get(c.author, 0) + 1
     top_commenters = sorted(author_counts.items(), key=lambda x: -x[1])[:30]
 
+    # Статистика по подрядчикам
+    source_comments = {}
+    for c in all_comments:
+        source_comments[c.source_id] = source_comments.get(c.source_id, 0) + 1
+
+    provider_stats = {}
+    for s in sources:
+        p = s.provider or "—"
+        if p not in provider_stats:
+            provider_stats[p] = {"posts": 0, "comments": 0, "active": 0, "deleted": 0}
+        provider_stats[p]["posts"] += 1
+        provider_stats[p]["comments"] += source_comments.get(s.id, 0)
+        if s.status == "deleted":
+            provider_stats[p]["deleted"] += 1
+        else:
+            provider_stats[p]["active"] += 1
+    provider_stats = sorted(provider_stats.items(), key=lambda x: -x[1]["comments"])
+
+    providers = sorted({s.provider for s in sources if s.provider})
+
     db.close()
     return templates.TemplateResponse(request=request, name="comment_project_detail.html", context={
         "active_page": "comments",
@@ -2000,6 +2020,8 @@ def comment_project_detail(request: Request, pid: int):
         "lang_stats": lang_stats,
         "region_stats": region_stats,
         "top_commenters": top_commenters,
+        "provider_stats": provider_stats,
+        "providers": providers,
     })
 
 
