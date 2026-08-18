@@ -1139,6 +1139,44 @@ def api_ig_status(request: Request):
     })
 
 
+@app.get("/api/test-ig-comments")
+async def api_test_ig_comments(request: Request, url: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    results = {}
+    async with httpx.AsyncClient() as client:
+        # Test Apify
+        if APIFY_TOKEN:
+            try:
+                r = await client.post(
+                    "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
+                    params={"token": APIFY_TOKEN, "timeout": 60},
+                    json={"directUrls": [url], "resultsLimit": 10},
+                    timeout=70,
+                )
+                results["apify_status"] = r.status_code
+                body = r.json()
+                results["apify_count"] = len(body) if isinstance(body, list) else 0
+                results["apify_sample"] = body[:2] if isinstance(body, list) else body
+            except Exception as e:
+                results["apify_error"] = str(e)
+        # Test ScrapeCreators
+        if SCRAPECREATORS_API_KEY:
+            try:
+                r2 = await client.get(
+                    "https://api.scrapecreators.com/v2/instagram/post/comments",
+                    params={"url": url}, headers={"x-api-key": SCRAPECREATORS_API_KEY}, timeout=20,
+                )
+                results["sc_status"] = r2.status_code
+                body2 = r2.json()
+                results["sc_count"] = len(body2.get("comments", []))
+                results["sc_sample"] = body2.get("comments", [])[:2]
+                results["sc_raw_keys"] = list(body2.keys())
+            except Exception as e:
+                results["sc_error"] = str(e)
+    return JSONResponse(results)
+
+
 @app.get("/api/balance")
 def api_balance(request: Request):
     if not check_auth(request):
