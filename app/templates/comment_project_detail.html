@@ -113,27 +113,48 @@
   <div class="card-body">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div class="fw-semibold">Посты ({{ sources|length }})</div>
-      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Добавить ссылки</button>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group btn-group-sm" id="platformFilter">
+          <button class="btn btn-outline-secondary active" data-platform="all">Все</button>
+          {% set platforms = sources | map(attribute='platform') | unique | list %}
+          {% for p in platforms %}
+          <button class="btn btn-outline-secondary" data-platform="{{ p }}">{{ p }}</button>
+          {% endfor %}
+        </div>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Добавить ссылки</button>
+      </div>
     </div>
     {% if sources %}
-    <div style="font-size:.88rem">
+    <div style="font-size:.88rem" id="sourcesList">
       {% for s in sources %}
-      <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
-        <div>
-          <span class="badge bg-secondary me-2">{{ s.platform }}</span>
-          <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+      <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}">
+        <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary">{{ s.platform }}</span>
+            {% if s.status == 'deleted' %}
+            <span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.75rem">deleted</span>
+            {% else %}
+            <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">active</span>
+            {% endif %}
+            <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+          </div>
+          <div class="d-flex align-items-center gap-3 text-muted">
+            {% if s.comments_count > 0 %}
+            <button class="btn btn-link btn-sm p-0 text-primary toggle-comments" data-sid="{{ s.id }}" style="font-size:.85rem;text-decoration:none">
+              {{ s.comments_count }} комм. ▾
+            </button>
+            {% else %}
+            <span>0 комм.</span>
+            {% endif %}
+            {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
+            {% if s.post_location %}<span title="Геотег поста">📍 {{ s.post_location }}</span>{% endif %}
+            <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
+              <input type="hidden" name="source_id" value="{{ s.id }}">
+              <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>
+            </form>
+          </div>
         </div>
-        <div class="d-flex align-items-center gap-3 text-muted">
-          <span>{{ s.comments_count }} комм.</span>
-          {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
-          {% if s.post_location %}
-          <span title="Геотег поста">📍 {{ s.post_location }}</span>
-          {% endif %}
-          <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
-            <input type="hidden" name="source_id" value="{{ s.id }}">
-            <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>
-          </form>
-        </div>
+        <div class="comments-panel d-none" id="comments-{{ s.id }}" style="background:#f9f9f9;border-bottom:1px solid #eee;padding:8px 12px;font-size:.82rem"></div>
       </div>
       {% endfor %}
     </div>
@@ -142,6 +163,55 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+// Platform filter
+document.querySelectorAll('#platformFilter button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#platformFilter button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const p = this.dataset.platform;
+    document.querySelectorAll('.source-row').forEach(row => {
+      row.style.display = (p === 'all' || row.dataset.platform === p) ? '' : 'none';
+    });
+  });
+});
+
+// Expand comments
+document.querySelectorAll('.toggle-comments').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const sid = this.dataset.sid;
+    const panel = document.getElementById('comments-' + sid);
+    if (!panel.classList.contains('d-none')) {
+      panel.classList.add('d-none');
+      this.textContent = this.textContent.replace('▴', '▾');
+      return;
+    }
+    if (panel.dataset.loaded) {
+      panel.classList.remove('d-none');
+      this.textContent = this.textContent.replace('▾', '▴');
+      return;
+    }
+    panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+    panel.classList.remove('d-none');
+    const pid = {{ project.id }};
+    const resp = await fetch(`/comments/projects/${pid}/sources/${sid}/comments`);
+    const data = await resp.json();
+    if (!data.length) { panel.innerHTML = '<span class="text-muted">Нет комментариев</span>'; }
+    else {
+      panel.innerHTML = data.map(c =>
+        `<div style="padding:4px 0;border-bottom:1px solid #eee">
+          <span style="color:#888;width:8rem;display:inline-block">${c.author}</span>
+          <span>${c.text}</span>
+          <span style="color:#aaa;margin-left:8px;font-size:.78rem">${c.date || ''} ${c.language ? '· '+c.language : ''} ${c.user_region ? '· '+c.user_region : ''}</span>
+        </div>`
+      ).join('');
+    }
+    panel.dataset.loaded = '1';
+    this.textContent = this.textContent.replace('▾', '▴');
+  });
+});
+</script>
 
 <div class="modal fade" id="addUrlsModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">

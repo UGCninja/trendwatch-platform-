@@ -1879,6 +1879,20 @@ async def comment_project_delete_source(request: Request, pid: int, source_id: i
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
+@app.get("/comments/projects/{pid}/sources/{sid}/comments")
+async def comment_source_comments(request: Request, pid: int, sid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    comments = db.query(_StoredComment).filter(_StoredComment.source_id == sid).order_by(_StoredComment.fetched_at.desc()).all()
+    db.close()
+    return JSONResponse([{
+        "author": c.author, "text": c.text, "likes": c.likes,
+        "date": c.date, "is_reply": c.is_reply, "language": c.language, "user_region": c.user_region,
+    } for c in comments])
+
+
 def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token: str):
     async def _inner():
         from app.database import SessionLocal
@@ -1944,8 +1958,18 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db2.commit()
                     db2.close()
 
-                except Exception:
-                    pass
+                except Exception as fetch_err:
+                    err_str = str(fetch_err).lower()
+                    if any(x in err_str for x in ["not found", "404", "deleted", "media not found", "no media", "media_not_found"]):
+                        try:
+                            db_err = SessionLocal()
+                            src_err = db_err.query(CommentSource).filter(CommentSource.id == source.id).first()
+                            if src_err:
+                                src_err.status = "deleted"
+                                db_err.commit()
+                            db_err.close()
+                        except Exception:
+                            pass
 
                 task["done"] = task.get("done", 0) + 1
 
