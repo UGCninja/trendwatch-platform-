@@ -74,22 +74,8 @@
   <div class="col-md-4">
     <div class="card h-100">
       <div class="card-body">
-        <div class="fw-semibold mb-3">Язык комментариев <span class="text-muted fw-normal" style="font-size:.8rem">(как сигнал GEO)</span></div>
-        {% set lang_to_country = {"tl": "🇵🇭 Philippines", "pt": "🇧🇷 Brazil/Portugal", "es": "🇪🇸 Latin America/Spain", "de": "🇩🇪 Germany", "fr": "🇫🇷 France", "it": "🇮🇹 Italy", "nl": "🇳🇱 Netherlands", "pl": "🇵🇱 Poland", "uk": "🇺🇦 Ukraine", "ru": "🇷🇺 Russia", "tr": "🇹🇷 Turkey", "ar": "🇸🇦 Arabic", "hi": "🇮🇳 India", "id": "🇮🇩 Indonesia", "vi": "🇻🇳 Vietnam", "th": "🇹🇭 Thailand", "ko": "🇰🇷 South Korea", "ja": "🇯🇵 Japan", "sw": "🇰🇪 East Africa", "af": "🇿🇦 South Africa", "fi": "🇫🇮 Finland", "sv": "🇸🇪 Sweden", "so": "🇸🇴 Somalia"} %}
-        {% for lang, count in lang_stats %}
-        {% set pct = (count / total_comments * 100)|round(1) if total_comments else 0 %}
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <div style="width:2.5rem;font-size:.85rem;color:#666">{{ lang }}</div>
-          <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
-            <div style="width:{{ pct }}%;height:100%;background:var(--bs-primary);border-radius:4px"></div>
-          </div>
-          <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
-          <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
-          {% if lang in lang_to_country %}
-          <div style="font-size:.75rem;color:#aaa;width:9rem">{{ lang_to_country[lang] }}</div>
-          {% endif %}
-        </div>
-        {% endfor %}
+        <div class="fw-semibold mb-3">Язык комментариев</div>
+        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "2.5rem") }}{% endfor %}
       </div>
     </div>
   </div>
