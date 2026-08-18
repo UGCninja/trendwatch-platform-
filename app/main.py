@@ -1949,6 +1949,32 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
 
                 task["done"] = task.get("done", 0) + 1
 
+        # Backfill user_region for existing Instagram comments without region
+        try:
+            from app.models import StoredComment as _SC2
+            db_bf = SessionLocal()
+            source_ids = [s.id for s in db_bf.query(CommentSource).filter(CommentSource.project_id == pid).all()]
+            no_region = (
+                db_bf.query(_SC2)
+                .filter(_SC2.source_id.in_(source_ids))
+                .filter(_SC2.platform == "Instagram")
+                .filter((_SC2.user_region == None) | (_SC2.user_region == ""))
+                .all()
+            )
+            unique_authors = list({c.author.lstrip("@") for c in no_region if c.author})
+            if unique_authors:
+                loop = asyncio.get_event_loop()
+                regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, unique_authors)
+                for c in no_region:
+                    handle = (c.author or "").lstrip("@").lower()
+                    region = regions.get(handle, "")
+                    if region:
+                        c.user_region = region
+                db_bf.commit()
+            db_bf.close()
+        except Exception:
+            pass
+
         # Total comments in project
         db3 = SessionLocal()
         srcs = db3.query(CommentSource).filter(CommentSource.project_id == pid).all()
