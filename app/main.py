@@ -1520,8 +1520,42 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
     return out
 
 
-async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
-    # Сначала пробуем ScrapeCreators (дешевле, быстрее)
+async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
+    # 1. Apify — самый надёжный, не требует логина в Instagram
+    if apify_token:
+        try:
+            r = await client.post(
+                "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
+                params={"token": apify_token, "timeout": 120},
+                json={"directUrls": [url], "resultsLimit": 200},
+                timeout=130,
+            )
+            if r.status_code == 200:
+                items = r.json()
+                if items:
+                    out = []
+                    for c in items:
+                        ts = c.get("timestamp") or c.get("created_at") or ""
+                        try:
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                        except Exception:
+                            date = str(ts)[:10] if ts else ""
+                        out.append({
+                            "comment_id": str(c.get("id") or c.get("commentId") or ""),
+                            "post_url":   url,
+                            "platform":   "Instagram",
+                            "author":     "@" + (c.get("ownerUsername") or c.get("username") or ""),
+                            "comment":    c.get("text") or c.get("comment") or "",
+                            "likes":      c.get("likesCount") or c.get("likes") or 0,
+                            "date":       date,
+                            "is_reply":   bool(c.get("repliedToId") or c.get("is_reply")),
+                        })
+                    if out:
+                        return out
+        except Exception:
+            pass
+
+    # 2. ScrapeCreators fallback
     try:
         r = await client.get(
             "https://api.scrapecreators.com/v2/instagram/post/comments",
@@ -1551,13 +1585,9 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
                         "is_reply":   bool(c.get("replied_to_author")),
                     })
                 return out
-    except Exception:
-        pass
-
-    # Fallback — instagrapi (работает даже для постов за логином)
-    if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _fetch_ig_comments_sync, url)
+    except Exception as e:
+        if "media not found" in str(e):
+            raise
 
     return []
 
@@ -2055,7 +2085,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     if platform == "TikTok":
                         comments = await _fetch_comments_tiktok(client, source.url, sc_key)
                     elif platform == "Instagram":
-                        comments = await _fetch_comments_instagram(client, source.url, sc_key)
+                        comments = await _fetch_comments_instagram(client, source.url, sc_key, apify_token)
                     elif platform == "YouTube":
                         comments = await _fetch_comments_youtube(client, source.url, sc_key)
                     else:
