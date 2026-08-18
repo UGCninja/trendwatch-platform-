@@ -1855,7 +1855,7 @@ def comment_project_detail(request: Request, pid: int):
 
 
 @app.post("/comments/projects/{pid}/sources")
-async def comment_project_add_sources(request: Request, pid: int, urls: str = Form(...), file: UploadFile = File(None)):
+async def comment_project_add_sources(request: Request, pid: int, urls: str = Form(""), file: UploadFile = File(None)):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     from app.database import SessionLocal
