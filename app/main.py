@@ -38,16 +38,30 @@ def _get_ig_client():
     if _ig_client is not None:
         return _ig_client
     with _ig_client_lock:
-        if _ig_client is None and INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
-            try:
-                from instagrapi import Client as _IGClient
-                cl = _IGClient()
-                cl.delay_range = [1, 3]
-                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                _ig_client = cl
-                _ig_client_error = ""
-            except Exception as e:
-                _ig_client_error = str(e)
+        if _ig_client is not None:
+            return _ig_client
+        try:
+            from instagrapi import Client as _IGClient
+            cl = _IGClient()
+            cl.delay_range = [1, 3]
+            # Вариант 1: session_id (без challenge, предпочтительно)
+            if INSTAGRAM_SESSION_ID:
+                try:
+                    cl.login_by_sessionid(INSTAGRAM_SESSION_ID)
+                    _ig_client = cl
+                    _ig_client_error = "ok:sessionid"
+                    return _ig_client
+                except Exception as e1:
+                    _ig_client_error = f"sessionid failed: {e1}"
+            # Вариант 2: username + password
+            if INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD:
+                cl2 = _IGClient()
+                cl2.delay_range = [1, 3]
+                cl2.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                _ig_client = cl2
+                _ig_client_error = "ok:password"
+        except Exception as e:
+            _ig_client_error = str(e)
     return _ig_client
 
 def _fetch_ig_post_location_sync(url: str) -> dict:
