@@ -111,6 +111,26 @@ _FLAG_TO_COUNTRY = {
     "🇵🇪": "Peru", "🇨🇱": "Chile", "🇻🇪": "Venezuela", "🇧🇩": "Bangladesh",
 }
 
+# Язык → полное название
+_LANG_NAMES = {
+    "en": "English", "tl": "Filipino / Tagalog", "sq": "Albanian",
+    "cy": "Welsh", "pt": "Portuguese", "hr": "Croatian", "pl": "Polish",
+    "so": "Somali", "sv": "Swedish", "et": "Estonian", "de": "German",
+    "fr": "French", "es": "Spanish", "it": "Italian", "nl": "Dutch",
+    "uk": "Ukrainian", "ru": "Russian", "tr": "Turkish", "ar": "Arabic",
+    "hi": "Hindi", "id": "Indonesian", "vi": "Vietnamese", "th": "Thai",
+    "ko": "Korean", "ja": "Japanese", "zh-cn": "Chinese (Simplified)",
+    "zh-tw": "Chinese (Traditional)", "sw": "Swahili", "af": "Afrikaans",
+    "fi": "Finnish", "no": "Norwegian", "da": "Danish", "ro": "Romanian",
+    "cs": "Czech", "sk": "Slovak", "hu": "Hungarian", "bg": "Bulgarian",
+    "sr": "Serbian", "mk": "Macedonian", "sl": "Slovenian", "lv": "Latvian",
+    "lt": "Lithuanian", "el": "Greek", "ca": "Catalan", "ms": "Malay",
+    "bn": "Bengali", "ur": "Urdu", "he": "Hebrew", "fa": "Persian / Farsi",
+    "az": "Azerbaijani", "ka": "Georgian", "hy": "Armenian", "kk": "Kazakh",
+    "uz": "Uzbek", "am": "Amharic", "yo": "Yoruba", "ha": "Hausa",
+    "ig": "Igbo",
+}
+
 # Язык → страна как fallback
 _LANG_TO_COUNTRY = {
     "tl": "Philippines", "pt": "Brazil/Portugal", "es": "Latin America/Spain",
@@ -2120,7 +2140,7 @@ def comment_project_detail(request: Request, pid: int):
             if approx:
                 region_counts[approx] = region_counts.get(approx, 0) + 1
 
-    lang_stats = sorted(lang_counts.items(), key=lambda x: -x[1])[:10]
+    lang_stats = [((_LANG_NAMES.get(k) or k), v) for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])[:10]]
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
     total = len(all_comments)
 
