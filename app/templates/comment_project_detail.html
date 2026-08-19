@@ -50,26 +50,34 @@
   const pid = {{ project.id }};
   const STATUS_LABELS = {
     queued: "В очереди...", collecting: "Сбор комментариев",
-    geo_lookup: "Определяем GEO...", done: "Готово!", cancelled: "Отменено", idle: null
+    geo_lookup: "Определяем GEO...", done: "Готово!", cancelled: "Отменено"
   };
+  let wasRunning = false;
+  let stopped = false;
+
   function poll() {
+    if (stopped) return;
     fetch(`/api/comments/projects/${pid}/task-status`)
       .then(r => r.json())
       .then(data => {
+        if (stopped) return;
         const running = data.status && !["done","cancelled","idle","error"].includes(data.status);
         document.getElementById('runControls').classList.toggle('d-none', running);
         document.getElementById('taskProgress').classList.toggle('d-none', !running);
         if (running) {
+          wasRunning = true;
           const pct = data.total > 0 ? Math.round(data.done / data.total * 100) : 0;
-          const skip = data.skipped_x ? ` (Twitter: пропущено ${data.skipped_x})` : '';
+          const skip = data.skipped_x ? ` · Twitter пропущено: ${data.skipped_x}` : '';
           document.getElementById('taskStatusText').textContent =
             (STATUS_LABELS[data.status] || data.status) + ` — ${data.done}/${data.total}${skip}`;
           document.getElementById('taskBar').style.width = pct + '%';
           setTimeout(poll, 2000);
-        } else if (data.status === 'done') {
+        } else if (wasRunning && data.status === 'done') {
+          stopped = true;
           location.reload();
         }
-      }).catch(() => setTimeout(poll, 5000));
+        // idle или done без предыдущего running — просто ничего не делаем
+      }).catch(() => { if (!stopped) setTimeout(poll, 5000); });
   }
   poll();
 })();
