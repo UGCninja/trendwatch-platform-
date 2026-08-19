@@ -2149,7 +2149,11 @@ def comment_project_detail(request: Request, pid: int):
             if approx:
                 lang_region_counts[approx] = lang_region_counts.get(approx, 0) + 1
 
-    lang_stats = [((_LANG_NAMES.get(k) or k), v) for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])[:10]]
+    def _lang_label(code: str) -> str:
+        name = _LANG_NAMES.get(code) or code
+        country = _LANG_TO_COUNTRY.get(code)
+        return f"{name} · {country}" if country else name
+    lang_stats = [(_lang_label(k), v) for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])[:10]]
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
     lang_region_stats_comments = sorted(lang_region_counts.items(), key=lambda x: -x[1])[:10]
     total = len(all_comments)

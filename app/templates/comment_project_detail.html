@@ -167,31 +167,13 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Язык комментариев</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">Точное определение</div>
-        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "9rem", "language", lang) }}{% endfor %}
+        <div class="fw-semibold mb-1">Язык · Вероятная страна</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Язык точный · страна приблизительная</div>
+        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "13rem", "language", lang) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Библиотека <b>langdetect</b> анализирует текст каждого комментария. Короткие комментарии (эмодзи, числа) могут определяться некорректно.
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if has_lang_region %}
-  <div class="col-md-3">
-    <div class="card h-100">
-      <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Страна по языку</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">Приблизительно · {{ total_comments }} комментариев</div>
-        {% for region, count in lang_region_stats_comments %}{{ stat_bar(region, count, total_comments, "#f59e0b", "9rem", "region", region) }}{% endfor %}
-        <div class="mt-auto pt-3">
-          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
-          <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Язык комментария → вероятная страна (Filipino → Philippines и т.д.). <b>Приблизительно</b> — один язык могут использовать жители разных стран. Английский намеренно исключён так как это международный язык.
+            <b>Язык</b> — langdetect анализирует текст комментария (точно). <b>Страна</b> — выведена из языка (Filipino → Philippines). Приблизительно: один язык могут писать из разных стран. English исключён — международный язык.
           </div>
         </div>
       </div>
