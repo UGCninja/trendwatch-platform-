@@ -279,6 +279,15 @@ async def _fetch_ig_regions_apify(client: httpx.AsyncClient, usernames: list, ap
             if not region:
                 bio = item.get("biography") or item.get("bio") or ""
                 region = _parse_bio_for_country(bio)
+            # langdetect на bio как последний fallback
+            if not region:
+                bio = item.get("biography") or item.get("bio") or ""
+                if bio and len(bio.strip()) >= 5:
+                    try:
+                        bio_lang = _detect_language(bio)
+                        region = _LANG_TO_COUNTRY.get(bio_lang, "")
+                    except Exception:
+                        pass
             if region:
                 results[username] = region
         return results
@@ -2309,6 +2318,36 @@ async def comment_project_delete_source(request: Request, pid: int, source_id: i
     db.commit()
     db.close()
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.get("/comments/projects/{pid}/comments-by")
+async def comments_by_filter(request: Request, pid: int, type: str = "", value: str = ""):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    from app.models import CommentSource
+    from sqlalchemy import or_
+    db = SessionLocal()
+    source_ids = [s.id for s in db.query(CommentSource).filter(CommentSource.project_id == pid).all()]
+    if not source_ids:
+        db.close()
+        return JSONResponse([])
+    q = db.query(_StoredComment).filter(_StoredComment.source_id.in_(source_ids))
+    if type == "language":
+        iso = next((k for k, v in _LANG_NAMES.items() if v == value), value)
+        q = q.filter(_StoredComment.language == iso)
+    elif type == "region":
+        lang_codes = [k for k, v in _LANG_TO_COUNTRY.items() if v == value]
+        conds = [_StoredComment.user_region == value]
+        if lang_codes:
+            conds.append(_StoredComment.language.in_(lang_codes))
+        q = q.filter(or_(*conds))
+    comments = q.order_by(_StoredComment.fetched_at.desc()).limit(100).all()
+    db.close()
+    return JSONResponse([{
+        "author": c.author, "text": c.text, "platform": c.platform,
+        "date": c.date, "language": c.language, "user_region": c.user_region,
+    } for c in comments])
 
 
 @app.get("/comments/projects/{pid}/sources/{sid}/comments")

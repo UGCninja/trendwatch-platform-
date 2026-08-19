@@ -116,15 +116,23 @@
 </div>
 {% endif %}
 
-{% macro stat_bar(label, count, total, color, label_width) %}
+{% macro stat_bar(label, count, total, color, label_width, filter_type="", filter_value="") %}
 {% set pct = (count / total * 100)|round(1) if total else 0 %}
-<div class="d-flex align-items-center gap-2 mb-2">
-  <div style="width:{{ label_width }};font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ label }}</div>
-  <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
-    <div style="width:{{ pct }}%;height:100%;background:{{ color }};border-radius:4px"></div>
+{% set clickable = filter_type != "" %}
+<div class="stat-bar-wrapper">
+  <div class="d-flex align-items-center gap-2 mb-1{% if clickable %} stat-clickable{% endif %}"
+       {% if clickable %}onclick="toggleStatPanel(this,'{{ filter_type }}','{{ filter_value|replace("'","\\'") }}')" style="cursor:pointer;border-radius:4px;padding:3px 4px;margin:-3px -4px"{% endif %}>
+    <div style="width:{{ label_width }};font-size:.85rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ label }}</div>
+    <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+      <div style="width:{{ pct }}%;height:100%;background:{{ color }};border-radius:4px"></div>
+    </div>
+    <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
+    <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
+    {% if clickable %}<div class="bar-arrow" style="font-size:.7rem;color:#bbb;width:.8rem">▾</div>{% endif %}
   </div>
-  <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ count }}</div>
-  <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
+  {% if clickable %}
+  <div class="stat-panel d-none mb-2" style="background:#f8f9fa;border-radius:6px;padding:8px 12px;font-size:.81rem;max-height:280px;overflow-y:auto"></div>
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -158,7 +166,7 @@
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
         <div class="fw-semibold mb-3">Язык комментариев</div>
-        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "9rem") }}{% endfor %}
+        {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "9rem", "language", lang) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
@@ -174,7 +182,7 @@
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
         <div class="fw-semibold mb-3">Регион комментаторов</div>
-        {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "9rem") }}{% endfor %}
+        {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "9rem", "region", region) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
@@ -396,4 +404,43 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
     </div>
   </div>
 </div>
+<style>
+.stat-clickable:hover { background: #f0f4ff !important; }
+.stat-clickable:hover .bar-arrow { color: #6366f1 !important; }
+</style>
+<script>
+const GEO_PID = {{ project.id }};
+
+async function toggleStatPanel(el, filterType, filterValue) {
+  const wrapper = el.closest('.stat-bar-wrapper');
+  const panel = wrapper.querySelector('.stat-panel');
+  const arrow = el.querySelector('.bar-arrow');
+  if (!panel.classList.contains('d-none')) {
+    panel.classList.add('d-none');
+    if (arrow) arrow.textContent = '▾';
+    return;
+  }
+  panel.classList.remove('d-none');
+  if (arrow) arrow.textContent = '▴';
+  if (panel.dataset.loaded) return;
+  panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+  try {
+    const resp = await fetch(`/comments/projects/${GEO_PID}/comments-by?type=${encodeURIComponent(filterType)}&value=${encodeURIComponent(filterValue)}`);
+    const data = await resp.json();
+    if (!data.length) {
+      panel.innerHTML = '<span class="text-muted">Нет комментариев</span>';
+    } else {
+      panel.innerHTML = data.map(c => `
+        <div style="padding:5px 0;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:baseline">
+          <span style="color:#6366f1;font-size:.78rem;white-space:nowrap;min-width:8rem;max-width:8rem;overflow:hidden;text-overflow:ellipsis">${c.author || ''}</span>
+          <span style="flex:1;color:#333">${c.text || ''}</span>
+          <span style="color:#bbb;font-size:.75rem;white-space:nowrap">${c.date || ''} · ${c.platform || ''}</span>
+        </div>`).join('');
+    }
+    panel.dataset.loaded = '1';
+  } catch(e) {
+    panel.innerHTML = '<span class="text-danger">Ошибка загрузки</span>';
+  }
+}
+</script>
 {% endblock %}
