@@ -48,6 +48,7 @@
           </form>
         </div>
         <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Скачать CSV</a>
+        <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Пересчитать языки</button>
       </div>
     </div>
   </div>
@@ -429,6 +430,20 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
 </style>
 <script>
 const GEO_PID = {{ project.id }};
+
+async function recalcLangs(btn) {
+  btn.disabled = true;
+  btn.textContent = '⟳ Пересчёт...';
+  try {
+    const r = await fetch(`/comments/projects/${GEO_PID}/recalc-languages`, {method:'POST'});
+    const d = await r.json();
+    btn.textContent = `✓ Обновлено ${d.updated} из ${d.total}`;
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    btn.textContent = '✕ Ошибка';
+    btn.disabled = false;
+  }
+}
 
 async function toggleStatPanel(el, filterType, filterValue) {
   const wrapper = el.closest('.stat-bar-wrapper');

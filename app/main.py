@@ -1603,7 +1603,8 @@ async def _fetch_tiktok_regions_apify(usernames: list[str]) -> dict[str, str]:
 # ── Language detection ────────────────────────────────────────────────────────
 
 def _detect_language(text: str) -> str:
-    if not text or len(text.strip()) < 3:
+    # Короткие тексты langdetect определяет неверно — требуем минимум 20 символов
+    if not text or len(text.strip()) < 20:
         return ""
     try:
         from langdetect import detect
@@ -2354,6 +2355,27 @@ async def comments_by_filter(request: Request, pid: int, type: str = "", value: 
         "author": c.author, "text": c.text, "platform": c.platform,
         "date": c.date, "language": c.language, "user_region": c.user_region,
     } for c in comments])
+
+
+@app.post("/comments/projects/{pid}/recalc-languages")
+async def recalc_languages(request: Request, pid: int):
+    """Пересчитать язык всех комментариев проекта по текущим правилам (мин. 20 символов)."""
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    from app.models import CommentSource
+    db = SessionLocal()
+    source_ids = [s.id for s in db.query(CommentSource).filter(CommentSource.project_id == pid).all()]
+    comments = db.query(_StoredComment).filter(_StoredComment.source_id.in_(source_ids)).all()
+    updated = 0
+    for c in comments:
+        new_lang = _detect_language(c.text or "")
+        if new_lang != (c.language or ""):
+            c.language = new_lang
+            updated += 1
+    db.commit()
+    db.close()
+    return JSONResponse({"updated": updated, "total": len(comments)})
 
 
 @app.get("/comments/projects/{pid}/sources/{sid}/comments")
