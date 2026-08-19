@@ -1146,6 +1146,27 @@ def api_ig_status(request: Request):
     })
 
 
+@app.get("/api/test-tiktok-comments")
+async def api_test_tiktok_comments(request: Request, url: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            "https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items",
+            params={"token": APIFY_TOKEN, "timeout": 60},
+            json={"postURLs": [url], "commentsPerPost": 5, "scrapeComments": True, "resultsType": "comments"},
+            timeout=70,
+        )
+        items = r.json() if r.status_code in (200, 201) else []
+        sample = items[:2] if isinstance(items, list) else items
+        return JSONResponse({
+            "status": r.status_code,
+            "count": len(items) if isinstance(items, list) else 0,
+            "sample": sample,
+            "all_keys": list(sample[0].keys()) if isinstance(sample, list) and sample else []
+        })
+
+
 @app.get("/api/test-ig-comments")
 async def api_test_ig_comments(request: Request, url: str):
     if not check_auth(request):
