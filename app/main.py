@@ -2206,13 +2206,20 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         db.close()
 
         task = _comments_tasks[task_id]
-        task["total"] = len(sources)
+        # Пропускаем Twitter/X — комментарии не собираем
+        active_sources = [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
+        skipped_x = len(sources) - len(active_sources)
+        task["total"] = len(active_sources)
         task["status"] = "collecting"
+        if skipped_x:
+            task["skipped_x"] = skipped_x
 
-        async with httpx.AsyncClient() as client:
-            for source in sources:
+        sem = asyncio.Semaphore(5)  # 5 постов параллельно
+
+        async def process_source(client: httpx.AsyncClient, source):
+            async with sem:
                 if task.get("status") == "cancelled":
-                    break
+                    return
                 platform = source.platform or _detect_platform(source.url)
                 try:
                     if platform == "TikTok":
@@ -2224,54 +2231,13 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     else:
                         comments = []
 
-                    # TikTok: authorRegion уже в комментарии (из Clockworks)
-                    # Если не пришёл — fallback через profile lookup
-                    if platform == "TikTok" and comments:
-                        missing = [c for c in comments if not c.get("user_region")]
-                        if missing and apify_token:
-                            unique_authors = list({c["author"].lstrip("@") for c in missing if c.get("author")})
-                            regions = await _fetch_tiktok_regions_apify(unique_authors)
-                            for c in missing:
-                                handle = c.get("author", "").lstrip("@").lower()
-                                if not c.get("user_region"):
-                                    c["user_region"] = regions.get(handle, "")
+                    _save_comments_to_db(source.id, comments, platform)
 
-                    # Instagram commenter region — многоуровневый поиск
-                    if platform == "Instagram" and comments:
-                        loop = asyncio.get_event_loop()
-                        unique_authors = list({c["author"].lstrip("@") for c in comments if c.get("author")})
-                        # 1. Apify Instagram profile scraper (bio, city, location)
-                        apify_regions = {}
-                        if apify_token:
-                            apify_regions = await _fetch_ig_regions_apify(client, unique_authors, apify_token)
-                        # 2. instagrapi (city, phone code, bio флаги) для тех кого Apify не нашёл
-                        remaining = [u for u in unique_authors if not apify_regions.get(u.lower())]
-                        ig_regions = {}
-                        if remaining:
-                            ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining)
-                        regions = {**ig_regions, **apify_regions}
-                        for c in comments:
-                            handle = c.get("author", "").lstrip("@").lower()
-                            c["user_region"] = regions.get(handle, "")
-
-                    # Instagram post location via instagrapi
-                    post_loc = {}
-                    if platform == "Instagram" and INSTAGRAM_USERNAME:
-                        loop = asyncio.get_event_loop()
-                        post_loc = await loop.run_in_executor(None, _fetch_ig_post_location_sync, source.url)
-
-                    new_count = _save_comments_to_db(source.id, comments, platform)
-
-                    # Update source metadata
                     db2 = SessionLocal()
                     src = db2.query(CommentSource).filter(CommentSource.id == source.id).first()
                     if src:
                         src.last_fetched_at = datetime.utcnow()
                         src.comments_count = db2.query(_StoredComment).filter(_StoredComment.source_id == source.id).count()
-                        if post_loc.get("name"):
-                            src.post_location = post_loc["name"]
-                            src.post_location_lat = post_loc.get("lat")
-                            src.post_location_lng = post_loc.get("lng")
                         db2.commit()
                     db2.close()
 
@@ -2287,46 +2253,53 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                             db_err.close()
                         except Exception:
                             pass
+                finally:
+                    task["done"] = task.get("done", 0) + 1
 
-                task["done"] = task.get("done", 0) + 1
+        async with httpx.AsyncClient(timeout=140) as client:
+            await asyncio.gather(*[process_source(client, s) for s in active_sources])
 
-        # Backfill user_region for existing Instagram comments without region
+        # GEO батчем в конце — один вызов на всех авторов
+        task["status"] = "geo_lookup"
         try:
             from app.models import StoredComment as _SC2
             db_bf = SessionLocal()
             source_ids = [s.id for s in db_bf.query(CommentSource).filter(CommentSource.project_id == pid).all()]
-            no_region = (
-                db_bf.query(_SC2)
-                .filter(_SC2.source_id.in_(source_ids))
-                .filter(_SC2.platform == "Instagram")
-                .filter((_SC2.user_region == None) | (_SC2.user_region == ""))
-                .all()
-            )
-            unique_authors = list({c.author.lstrip("@") for c in no_region if c.author})
-            if unique_authors:
-                loop = asyncio.get_event_loop()
-                async with httpx.AsyncClient() as bf_client:
-                    # 1. Apify Instagram profile scraper
-                    apify_regions = {}
-                    if apify_token:
-                        apify_regions = await _fetch_ig_regions_apify(bf_client, unique_authors, apify_token)
-                    # 2. instagrapi для оставшихся
-                    remaining = [u for u in unique_authors if not apify_regions.get(u.lower())]
-                    ig_regions = {}
-                    if remaining:
-                        ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining)
-                regions = {**ig_regions, **apify_regions}
-                for c in no_region:
-                    handle = (c.author or "").lstrip("@").lower()
-                    region = regions.get(handle, "")
-                    if region:
-                        c.user_region = region
+
+            # TikTok: fallback для тех у кого нет authorRegion
+            tk_no_region = (db_bf.query(_SC2)
+                .filter(_SC2.source_id.in_(source_ids), _SC2.platform == "TikTok")
+                .filter((_SC2.user_region == None) | (_SC2.user_region == "")).all())
+            if tk_no_region and apify_token:
+                tk_authors = list({c.author.lstrip("@") for c in tk_no_region if c.author})
+                tk_regions = await _fetch_tiktok_regions_apify(tk_authors)
+                for c in tk_no_region:
+                    r = tk_regions.get((c.author or "").lstrip("@").lower(), "")
+                    if r: c.user_region = r
                 db_bf.commit()
+
+            # Instagram: Apify profile scraper (About country) + instagrapi bio fallback
+            ig_no_region = (db_bf.query(_SC2)
+                .filter(_SC2.source_id.in_(source_ids), _SC2.platform == "Instagram")
+                .filter((_SC2.user_region == None) | (_SC2.user_region == "")).all())
+            if ig_no_region:
+                ig_authors = list({c.author.lstrip("@") for c in ig_no_region if c.author})
+                loop = asyncio.get_event_loop()
+                async with httpx.AsyncClient(timeout=140) as geo_client:
+                    apify_regions = await _fetch_ig_regions_apify(geo_client, ig_authors, apify_token) if apify_token else {}
+                remaining = [u for u in ig_authors if not apify_regions.get(u.lower())]
+                ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining) if remaining else {}
+                all_regions = {**ig_regions, **apify_regions}
+                for c in ig_no_region:
+                    r = all_regions.get((c.author or "").lstrip("@").lower(), "")
+                    if r: c.user_region = r
+                db_bf.commit()
+
             db_bf.close()
         except Exception:
             pass
 
-        # Total comments in project
+        # Total comments
         db3 = SessionLocal()
         srcs = db3.query(CommentSource).filter(CommentSource.project_id == pid).all()
         total = sum(s.comments_count for s in srcs)
