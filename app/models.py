@@ -99,6 +99,7 @@ class CommentSource(Base):
     platform        = Column(String)
     last_fetched_at = Column(DateTime, nullable=True)
     comments_count  = Column(Integer, default=0)
+    likers_count    = Column(Integer, default=0)
     post_location   = Column(String, nullable=True)
     post_location_lat = Column(Float, nullable=True)
     post_location_lng = Column(Float, nullable=True)
@@ -106,6 +107,18 @@ class CommentSource(Base):
     provider        = Column(String, nullable=True)      # подрядчик из CSV
     creator         = Column(String, nullable=True)      # креатор из CSV
     __table_args__  = (UniqueConstraint("project_id", "url"),)
+
+
+class StoredLiker(Base):
+    __tablename__ = "stored_likers"
+
+    id          = Column(Integer, primary_key=True)
+    source_id   = Column(Integer, ForeignKey("comment_sources.id"), nullable=False, index=True)
+    platform    = Column(String)
+    username    = Column(String)
+    user_region = Column(String)
+    fetched_at  = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("source_id", "username"),)
 
 
 class StoredComment(Base):

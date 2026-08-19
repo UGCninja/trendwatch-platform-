@@ -120,6 +120,15 @@ _LANG_TO_COUNTRY = {
     "th": "Thailand", "ko": "South Korea", "ja": "Japan", "zh-cn": "China",
     "sw": "East Africa", "af": "South Africa", "so": "Somalia/East Africa",
     "fi": "Finland", "sv": "Sweden", "no": "Norway", "da": "Denmark",
+    "sq": "Albania", "hr": "Croatia", "cy": "Wales/UK", "ro": "Romania",
+    "cs": "Czech Republic", "sk": "Slovakia", "hu": "Hungary", "bg": "Bulgaria",
+    "sr": "Serbia", "mk": "Macedonia", "sl": "Slovenia", "et": "Estonia",
+    "lv": "Latvia", "lt": "Lithuania", "el": "Greece", "ca": "Catalonia/Spain",
+    "ms": "Malaysia", "bn": "Bangladesh", "ur": "Pakistan",
+    "he": "Israel", "fa": "Iran/Persia", "az": "Azerbaijan", "ka": "Georgia",
+    "hy": "Armenia", "kk": "Kazakhstan", "uz": "Uzbekistan",
+    "am": "Ethiopia", "yo": "Nigeria", "ha": "West Africa", "ig": "Nigeria",
+    "zh-tw": "Taiwan",
 }
 
 def _parse_bio_for_country(bio: str) -> str:
@@ -157,6 +166,65 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
         except Exception:
             results[username.lower()] = ""
     return results
+
+
+async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_token: str) -> list[dict]:
+    """Fetch users who liked an Instagram post via Apify. Returns list of {username, user_region}."""
+    if not apify_token:
+        return []
+    try:
+        r = await client.post(
+            "https://api.apify.com/v2/acts/apify~instagram-post-likers-scraper/run-sync-get-dataset-items",
+            params={"token": apify_token, "timeout": 120},
+            json={"directUrls": [url], "resultsLimit": 500},
+            timeout=130,
+        )
+        if r.status_code not in (200, 201):
+            return []
+        items = r.json()
+        out = []
+        for item in items:
+            username = (item.get("username") or item.get("ownerUsername") or "").lower()
+            if not username:
+                continue
+            bio = item.get("biography") or item.get("bio") or ""
+            region = _parse_bio_for_country(bio)
+            out.append({"username": "@" + username, "user_region": region})
+        return out
+    except Exception:
+        return []
+
+
+def _save_likers_to_db(source_id: int, likers: list[dict], platform: str) -> int:
+    """Save new likers to DB, skip duplicates. Returns count of new likers saved."""
+    from app.database import SessionLocal
+    from app.models import StoredLiker
+    db = SessionLocal()
+    new_count = 0
+    try:
+        for lk in likers:
+            username = lk.get("username", "")
+            if not username:
+                continue
+            exists = db.query(StoredLiker).filter(
+                StoredLiker.source_id == source_id,
+                StoredLiker.username == username,
+            ).first()
+            if exists:
+                continue
+            db.add(StoredLiker(
+                source_id=source_id,
+                platform=platform,
+                username=username,
+                user_region=lk.get("user_region", ""),
+            ))
+            new_count += 1
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+    return new_count
 
 
 async def _fetch_ig_regions_apify(client: httpx.AsyncClient, usernames: list, apify_token: str) -> dict:
@@ -2046,10 +2114,27 @@ def comment_project_detail(request: Request, pid: int):
             lang_counts[c.language] = lang_counts.get(c.language, 0) + 1
         if c.user_region:
             region_counts[c.user_region] = region_counts.get(c.user_region, 0) + 1
+        elif c.language:
+            # lang→country fallback для комментов без реального regional lookup
+            approx = _LANG_TO_COUNTRY.get(c.language)
+            if approx:
+                region_counts[approx] = region_counts.get(approx, 0) + 1
 
     lang_stats = sorted(lang_counts.items(), key=lambda x: -x[1])[:10]
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
     total = len(all_comments)
+
+    # Лайкеры
+    from app.models import StoredLiker as _StoredLiker
+    all_likers = db.query(_StoredLiker).filter(
+        _StoredLiker.source_id.in_([s.id for s in sources])
+    ).all() if sources else []
+    liker_region_counts: dict[str, int] = {}
+    for lk in all_likers:
+        if lk.user_region:
+            liker_region_counts[lk.user_region] = liker_region_counts.get(lk.user_region, 0) + 1
+    liker_region_stats = sorted(liker_region_counts.items(), key=lambda x: -x[1])[:10]
+    total_likers = len(all_likers)
 
     author_counts: dict[str, int] = {}
     for c in all_comments:
@@ -2088,6 +2173,8 @@ def comment_project_detail(request: Request, pid: int):
         "top_commenters": top_commenters,
         "provider_stats": provider_stats,
         "providers": providers,
+        "total_likers": total_likers,
+        "liker_region_stats": liker_region_stats,
     })
 
 
@@ -2317,6 +2404,48 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 db_bf.commit()
 
             db_bf.close()
+        except Exception:
+            pass
+
+        # Лайкеры — только Instagram, только если есть Apify токен
+        task["status"] = "collecting_likers"
+        try:
+            from app.models import StoredLiker as _SL
+            ig_active = [s for s in active_sources if (s.platform or _detect_platform(s.url)) == "Instagram"]
+            if ig_active and apify_token:
+                async def collect_likers(lk_client: httpx.AsyncClient, source):
+                    likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
+                    _save_likers_to_db(source.id, likers, "Instagram")
+                    db_lk = SessionLocal()
+                    src_lk = db_lk.query(CommentSource).filter(CommentSource.id == source.id).first()
+                    if src_lk:
+                        src_lk.likers_count = db_lk.query(_SL).filter(_SL.source_id == source.id).count()
+                        db_lk.commit()
+                    db_lk.close()
+
+                async with httpx.AsyncClient(timeout=140) as lk_client:
+                    sem_lk = asyncio.Semaphore(3)
+                    async def _lk_guarded(s):
+                        async with sem_lk:
+                            await collect_likers(lk_client, s)
+                    await asyncio.gather(*[_lk_guarded(s) for s in ig_active[:30]])
+
+                # Apify profile lookup для лайкеров без региона
+                db_geo2 = SessionLocal()
+                lk_src_ids = [s.id for s in ig_active]
+                lk_no_region = (db_geo2.query(_SL)
+                    .filter(_SL.source_id.in_(lk_src_ids))
+                    .filter((_SL.user_region == None) | (_SL.user_region == "")).all())
+                if lk_no_region and apify_token:
+                    lk_usernames = list({l.username.lstrip("@") for l in lk_no_region if l.username})
+                    async with httpx.AsyncClient(timeout=140) as geo2_client:
+                        lk_apify_regions = await _fetch_ig_regions_apify(geo2_client, lk_usernames, apify_token)
+                    for l in lk_no_region:
+                        r = lk_apify_regions.get((l.username or "").lstrip("@").lower(), "")
+                        if r:
+                            l.user_region = r
+                    db_geo2.commit()
+                db_geo2.close()
         except Exception:
             pass
 

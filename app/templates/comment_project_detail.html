@@ -6,7 +6,7 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-sm-4">
+  <div class="col-sm-3">
     <div class="card h-100">
       <div class="card-body text-center">
         <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ sources|length }}</div>
@@ -14,7 +14,7 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-4">
+  <div class="col-sm-3">
     <div class="card h-100">
       <div class="card-body text-center">
         <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ total_comments }}</div>
@@ -22,7 +22,15 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-4">
+  <div class="col-sm-3">
+    <div class="card h-100">
+      <div class="card-body text-center">
+        <div style="font-size:2rem;font-weight:700;color:#6366f1">{{ total_likers }}</div>
+        <div class="text-muted">лайкеров</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-3">
     <div class="card h-100">
       <div class="card-body text-center d-flex flex-column align-items-center justify-content-center gap-2">
         <div id="runControls">
@@ -50,7 +58,8 @@
   const pid = {{ project.id }};
   const STATUS_LABELS = {
     queued: "В очереди...", collecting: "Сбор комментариев",
-    geo_lookup: "Определяем GEO...", done: "Готово!", cancelled: "Отменено"
+    geo_lookup: "Определяем GEO...", collecting_likers: "Сбор лайков...",
+    done: "Готово!", cancelled: "Отменено"
   };
   let wasRunning = false;
   let stopped = false;
@@ -140,11 +149,12 @@
 {% set has_geo = geo_sources|length > 0 %}
 {% set has_lang = lang_stats|length > 0 %}
 {% set has_region = region_stats|length > 0 %}
+{% set has_liker_region = liker_region_stats|length > 0 %}
 
-{% if has_geo or has_lang or has_region %}
+{% if has_geo or has_lang or has_region or has_liker_region %}
 <div class="row g-3 mb-4">
   {% if has_lang %}
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body">
         <div class="fw-semibold mb-3">Язык комментариев</div>
@@ -154,11 +164,23 @@
   </div>
   {% endif %}
   {% if has_region %}
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body">
         <div class="fw-semibold mb-3">Регион комментаторов</div>
-        {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "7rem") }}{% endfor %}
+        <div class="text-muted mb-2" style="font-size:.75rem">Профиль + язык как прокси</div>
+        {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "8rem") }}{% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if has_liker_region %}
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="fw-semibold mb-3">Регион лайкеров</div>
+        <div class="text-muted mb-2" style="font-size:.75rem">{{ total_likers }} уникальных лайков · Instagram</div>
+        {% for region, count in liker_region_stats %}{{ stat_bar(region, count, total_likers, "#6366f1", "8rem") }}{% endfor %}
       </div>
     </div>
   </div>
@@ -169,7 +191,7 @@
     {% if s.post_location in loc_counts %}{% set _ = loc_counts.update({s.post_location: loc_counts[s.post_location] + 1}) %}
     {% else %}{% set _ = loc_counts.update({s.post_location: 1}) %}{% endif %}
   {% endfor %}
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body">
         <div class="fw-semibold mb-3">📍 Геолокация постов</div>
