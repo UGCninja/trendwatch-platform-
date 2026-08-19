@@ -172,8 +172,10 @@
         {% for lang_label, lang_iso, count in lang_stats %}{{ stat_bar(lang_label, count, total_comments, "var(--bs-primary)", "13rem", "language", lang_iso) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
-          <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            <b>Язык</b> — langdetect анализирует текст комментария (точно). <b>Страна</b> — выведена из языка (Filipino → Philippines). Приблизительно: один язык могут писать из разных стран. English исключён — международный язык.
+          <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.6">
+            <b>Язык</b> — мы смотрим на текст самого комментария и определяем на каком языке он написан. Это точные данные.<br><br>
+            <b>Страна</b> — мы не знаем откуда человек. Мы просто предполагаем: если кто-то пишет на тагальском — скорее всего с Филиппин, на албанском — из Албании. Это грубая оценка, не факт.<br><br>
+            English не показываем в странах — на английском пишут со всего мира, привязать к одной стране нельзя.
           </div>
         </div>
       </div>
