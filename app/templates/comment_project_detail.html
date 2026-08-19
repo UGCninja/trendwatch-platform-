@@ -25,14 +25,55 @@
   <div class="col-sm-4">
     <div class="card h-100">
       <div class="card-body text-center d-flex flex-column align-items-center justify-content-center gap-2">
-        <form method="post" action="/comments/projects/{{ project.id }}/run">
-          <button class="btn btn-primary px-4">▶ Обновить</button>
-        </form>
+        <div id="runControls">
+          <form method="post" action="/comments/projects/{{ project.id }}/run">
+            <button class="btn btn-primary px-4" id="runBtn">▶ Обновить</button>
+          </form>
+        </div>
+        <div id="taskProgress" class="d-none w-100">
+          <div class="text-muted mb-1" style="font-size:.82rem" id="taskStatusText">Запуск...</div>
+          <div class="progress mb-2" style="height:6px">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="taskBar" style="width:0%"></div>
+          </div>
+          <form method="post" action="/comments/projects/{{ project.id }}/cancel">
+            <button type="submit" class="btn btn-outline-danger btn-sm">✕ Отменить</button>
+          </form>
+        </div>
         <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Скачать CSV</a>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  const pid = {{ project.id }};
+  const STATUS_LABELS = {
+    queued: "В очереди...", collecting: "Сбор комментариев",
+    geo_lookup: "Определяем GEO...", done: "Готово!", cancelled: "Отменено", idle: null
+  };
+  function poll() {
+    fetch(`/api/comments/projects/${pid}/task-status`)
+      .then(r => r.json())
+      .then(data => {
+        const running = data.status && !["done","cancelled","idle","error"].includes(data.status);
+        document.getElementById('runControls').classList.toggle('d-none', running);
+        document.getElementById('taskProgress').classList.toggle('d-none', !running);
+        if (running) {
+          const pct = data.total > 0 ? Math.round(data.done / data.total * 100) : 0;
+          const skip = data.skipped_x ? ` (Twitter: пропущено ${data.skipped_x})` : '';
+          document.getElementById('taskStatusText').textContent =
+            (STATUS_LABELS[data.status] || data.status) + ` — ${data.done}/${data.total}${skip}`;
+          document.getElementById('taskBar').style.width = pct + '%';
+          setTimeout(poll, 2000);
+        } else if (data.status === 'done') {
+          location.reload();
+        }
+      }).catch(() => setTimeout(poll, 5000));
+  }
+  poll();
+})();
+</script>
 
 {% if provider_stats %}
 <div class="card mb-4">

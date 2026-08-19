@@ -2322,7 +2322,34 @@ async def comment_project_run(request: Request, pid: int):
         args=[task_id, pid, SCRAPECREATORS_API_KEY, APIFY_TOKEN],
         daemon=True,
     ).start()
-    return RedirectResponse(f"/comments/task/{task_id}?project={pid}", status_code=302)
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.post("/comments/projects/{pid}/cancel")
+async def comment_project_cancel(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    for task in _comments_tasks.values():
+        if task.get("project_id") == pid and task.get("status") not in ("done", "cancelled", "error"):
+            task["status"] = "cancelled"
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.get("/api/comments/projects/{pid}/task-status")
+def comment_project_task_status(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    for tid, task in sorted(_comments_tasks.items(), key=lambda x: -x[1].get("ts", 0)):
+        if task.get("project_id") == pid:
+            return JSONResponse({
+                "task_id": tid,
+                "status": task.get("status"),
+                "done": task.get("done", 0),
+                "total": task.get("total", 0),
+                "skipped_x": task.get("skipped_x", 0),
+                "comments_count": task.get("comments_count", 0),
+            })
+    return JSONResponse({"status": "idle"})
 
 
 @app.get("/comments/projects/{pid}/download")
