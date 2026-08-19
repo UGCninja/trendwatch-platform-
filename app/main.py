@@ -2137,20 +2137,21 @@ def comment_project_detail(request: Request, pid: int):
     ).all() if sources else []
 
     lang_counts: dict[str, int] = {}
-    region_counts: dict[str, int] = {}
+    region_counts: dict[str, int] = {}       # только реальный user_region из профиля
+    lang_region_counts: dict[str, int] = {}  # приблизительно: язык → страна
     for c in all_comments:
         if c.language:
             lang_counts[c.language] = lang_counts.get(c.language, 0) + 1
         if c.user_region:
             region_counts[c.user_region] = region_counts.get(c.user_region, 0) + 1
-        elif c.language:
-            # lang→country fallback для комментов без реального regional lookup
+        if c.language:
             approx = _LANG_TO_COUNTRY.get(c.language)
             if approx:
-                region_counts[approx] = region_counts.get(approx, 0) + 1
+                lang_region_counts[approx] = lang_region_counts.get(approx, 0) + 1
 
     lang_stats = [((_LANG_NAMES.get(k) or k), v) for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])[:10]]
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
+    lang_region_stats_comments = sorted(lang_region_counts.items(), key=lambda x: -x[1])[:10]
     total = len(all_comments)
 
     # Лайкеры
@@ -2204,6 +2205,7 @@ def comment_project_detail(request: Request, pid: int):
         "providers": providers,
         "total_likers": total_likers,
         "liker_region_stats": liker_region_stats,
+        "lang_region_stats_comments": lang_region_stats_comments,
     })
 
 

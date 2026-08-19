@@ -157,60 +157,94 @@
 {% set has_geo = geo_sources|length > 0 %}
 {% set has_lang = lang_stats|length > 0 %}
 {% set has_region = region_stats|length > 0 %}
+{% set has_lang_region = lang_region_stats_comments|length > 0 %}
 {% set has_liker_region = liker_region_stats|length > 0 %}
 
-{% if has_geo or has_lang or has_region or has_liker_region %}
+{% if has_lang or has_region or has_lang_region or has_liker_region or has_geo %}
 <div class="row g-3 mb-4">
+
   {% if has_lang %}
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-3">Язык комментариев</div>
+        <div class="fw-semibold mb-1">Язык комментариев</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Точное определение</div>
         {% for lang, count in lang_stats %}{{ stat_bar(lang, count, total_comments, "var(--bs-primary)", "9rem", "language", lang) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Библиотека <b>langdetect</b> анализирует текст каждого комментария и определяет язык автоматически. Короткие комментарии (эмодзи, числа) могут определяться некорректно.
+            Библиотека <b>langdetect</b> анализирует текст каждого комментария. Короткие комментарии (эмодзи, числа) могут определяться некорректно.
           </div>
         </div>
       </div>
     </div>
   </div>
   {% endif %}
+
+  {% if has_lang_region %}
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-1">Страна по языку</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Приблизительно · {{ total_comments }} комментариев</div>
+        {% for region, count in lang_region_stats_comments %}{{ stat_bar(region, count, total_comments, "#f59e0b", "9rem", "region", region) }}{% endfor %}
+        <div class="mt-auto pt-3">
+          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
+          <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
+            Язык комментария → вероятная страна (Filipino → Philippines и т.д.). <b>Приблизительно</b> — один язык могут использовать жители разных стран. Английский намеренно исключён так как это международный язык.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if has_region %}
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-3">Регион комментаторов</div>
+        <div class="fw-semibold mb-1">Регион из профиля</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Точное · из аккаунта автора</div>
         {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "9rem", "region", region) }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            <b>Источник 1 — профиль (точный):</b> для TikTok Apify возвращает authorRegion прямо в комментарии. Для Instagram — Apify profile scraper ищет поле "About this account" (заполнено только у крупных бизнес-аккаунтов).<br><br>
-            <b>Источник 2 — язык как прокси (~):</b> если регион из профиля не найден, страна определяется по языку комментария (Filipino → Philippines, Albanian → Albania и т.д.). Это приблизительно — один язык могут писать жители разных стран.
+            TikTok: <b>authorRegion</b> возвращается прямо в данных комментария (Apify). Instagram: поле "About this account" из профиля — заполнено только у крупных бизнес-аккаунтов.
           </div>
         </div>
       </div>
     </div>
   </div>
+  {% else %}
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="fw-semibold mb-1">Регион из профиля</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Точное · из аккаунта автора</div>
+        <div class="text-muted" style="font-size:.82rem">Нет данных. Появится после сбора — только TikTok (authorRegion) и крупные бизнес-аккаунты Instagram.</div>
+      </div>
+    </div>
+  </div>
   {% endif %}
+
   {% if has_liker_region %}
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-3">Регион лайкеров</div>
-        <div class="text-muted mb-2" style="font-size:.75rem">{{ total_likers }} уникальных · Instagram</div>
+        <div class="fw-semibold mb-1">Регион лайкеров</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">{{ total_likers }} уникальных · Instagram</div>
         {% for region, count in liker_region_stats %}{{ stat_bar(region, count, total_likers, "#6366f1", "9rem") }}{% endfor %}
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Собирается список пользователей поставивших лайк (только Instagram, через Apify). Регион ищется в двух местах: флаги в bio профиля (🇺🇸, 🇵🇭 и др.) и поле "About this account" для бизнес-аккаунтов. TikTok и YouTube не предоставляют список лайкнувших через API.
+            Список пользователей поставивших лайк (только Instagram, Apify). Регион: флаги в bio и поле "About this account". TikTok и YouTube не раскрывают список лайкнувших.
           </div>
         </div>
       </div>
     </div>
   </div>
   {% endif %}
+
   {% if has_geo %}
   {% set loc_counts = {} %}
   {% for s in geo_sources %}
@@ -220,19 +254,20 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-3">📍 Геолокация постов</div>
+        <div class="fw-semibold mb-1">📍 Геолокация постов</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">{{ geo_sources|length }} из {{ sources|length }} постов</div>
         {% for loc, cnt in loc_counts.items() %}{{ stat_bar(loc, cnt, geo_sources|length, "#1a73e8", "9rem") }}{% endfor %}
-        <div class="text-muted mt-2" style="font-size:.8rem">{{ geo_sources|length }} из {{ sources|length }} постов имеют геотег</div>
         <div class="mt-auto pt-3">
           <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Геотег самого поста (не автора). Для Instagram — instagrapi читает метаданные поста если блогер указал локацию при публикации. Доступно только у постов с явным геотегом.
+            Геотег самого поста (не автора). Instagram: читается из метаданных поста если блогер указал локацию при публикации.
           </div>
         </div>
       </div>
     </div>
   </div>
   {% endif %}
+
 </div>
 {% endif %}
 
