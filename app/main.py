@@ -1919,31 +1919,18 @@ async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: st
             return []
         out = []
         for c in items:
-            # Поля из реального ответа актора: replyId, replyText, replyUrl, timestamp
-            text = c.get("replyText") or c.get("text") or c.get("fullText") or ""
-            comment_id = str(c.get("replyId") or c.get("id") or c.get("tweetId") or "")
-            # Author: извлекаем из replyUrl (x.com/username/status/...)
-            author = ""
-            reply_url = c.get("replyUrl") or ""
-            if reply_url:
-                import re as _re2
-                m = _re2.search(r'x\.com/([^/]+)/status', reply_url)
-                if m:
-                    author = m.group(1)
-            if not author:
-                author = (c.get("username") or c.get("authorUsername") or
-                          (c.get("author") or {}).get("userName") or "")
-            raw_date = c.get("timestamp") or c.get("createdAt") or c.get("created_at") or ""
-            date = ""
+            text       = c.get("replyText") or c.get("text") or ""
+            comment_id = str(c.get("replyId") or c.get("id") or "")
+            author_obj = c.get("author") or {}
+            author     = author_obj.get("screenName") or author_obj.get("userName") or c.get("username") or ""
+            ts         = c.get("timestamp") or 0
+            date       = ""
             try:
-                if raw_date:
-                    if isinstance(raw_date, (int, float)):
-                        date = _dt.utcfromtimestamp(raw_date / 1000 if raw_date > 1e10 else raw_date).strftime("%d.%m.%Y")
-                    else:
-                        date = _dt.fromisoformat(str(raw_date).replace("Z", "+00:00")).strftime("%d.%m.%Y")
+                if ts:
+                    date = _dt.utcfromtimestamp(ts / 1000 if ts > 1e10 else ts).strftime("%d.%m.%Y")
             except Exception:
-                date = str(raw_date)[:10] if raw_date else ""
-            likes = int(c.get("likeCount") or c.get("likes") or c.get("favorite_count") or 0)
+                pass
+            likes = int(c.get("favouriteCount") or c.get("likeCount") or c.get("favorite_count") or 0)
             if not comment_id or not text:
                 continue
             out.append({
