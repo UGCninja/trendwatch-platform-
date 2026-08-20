@@ -2618,9 +2618,17 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
 
         task = _comments_tasks[task_id]
         # X/Twitter собираем через Apify если токен есть, иначе пропускаем
-        active_sources = sources if apify_token else [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
+        all_sources = sources if apify_token else [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
+
+        # Пропускаем посты обновлённые менее 12 часов назад
+        cutoff = datetime.utcnow() - timedelta(hours=12)
+        active_sources = [s for s in all_sources if not s.last_fetched_at or s.last_fetched_at < cutoff]
+        skipped_fresh = len(all_sources) - len(active_sources)
+
         task["total"] = len(active_sources)
         task["status"] = "collecting"
+        if skipped_fresh:
+            task["skipped_fresh"] = skipped_fresh
 
         sem = asyncio.Semaphore(5)  # 5 постов параллельно
 

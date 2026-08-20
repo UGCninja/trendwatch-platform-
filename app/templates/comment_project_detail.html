@@ -77,7 +77,7 @@
         if (running) {
           wasRunning = true;
           const pct = data.total > 0 ? Math.round(data.done / data.total * 100) : 0;
-          const skip = data.skipped_x ? ` · Twitter пропущено: ${data.skipped_x}` : '';
+          const skip = data.skipped_fresh ? ` · пропущено (свежие): ${data.skipped_fresh}` : '';
           document.getElementById('taskStatusText').textContent =
             (STATUS_LABELS[data.status] || data.status) + ` — ${data.done}/${data.total}${skip}`;
           document.getElementById('taskBar').style.width = pct + '%';
