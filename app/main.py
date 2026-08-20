@@ -2162,15 +2162,26 @@ def comment_project_detail(request: Request, pid: int):
 
     # Лайкеры
     from app.models import StoredLiker as _StoredLiker
+    source_ids = [s.id for s in sources]
     all_likers = db.query(_StoredLiker).filter(
-        _StoredLiker.source_id.in_([s.id for s in sources])
+        _StoredLiker.source_id.in_(source_ids)
     ).all() if sources else []
     liker_region_counts: dict[str, int] = {}
+    liker_per_source: dict[int, int] = {}
+    username_sources: dict[str, set] = {}
     for lk in all_likers:
         if lk.user_region:
             liker_region_counts[lk.user_region] = liker_region_counts.get(lk.user_region, 0) + 1
+        liker_per_source[lk.source_id] = liker_per_source.get(lk.source_id, 0) + 1
+        if lk.username:
+            username_sources.setdefault(lk.username, set()).add(lk.source_id)
     liker_region_stats = sorted(liker_region_counts.items(), key=lambda x: -x[1])[:10]
-    total_likers = len(all_likers)
+    total_likers = len(set(lk.username for lk in all_likers if lk.username))
+    # Повторяющиеся лайкеры (лайкнули 2+ постов в проекте)
+    repeated_likers = sorted(
+        [(u, len(srcs)) for u, srcs in username_sources.items() if len(srcs) > 1],
+        key=lambda x: -x[1]
+    )[:30]
 
     author_counts: dict[str, int] = {}
     for c in all_comments:
@@ -2212,6 +2223,8 @@ def comment_project_detail(request: Request, pid: int):
         "total_likers": total_likers,
         "liker_region_stats": liker_region_stats,
         "lang_region_stats_comments": lang_region_stats_comments,
+        "repeated_likers": repeated_likers,
+        "liker_per_source": liker_per_source,
     })
 
 
@@ -2376,6 +2389,18 @@ async def recalc_languages(request: Request, pid: int):
     db.commit()
     db.close()
     return JSONResponse({"updated": updated, "total": len(comments)})
+
+
+@app.get("/comments/projects/{pid}/sources/{sid}/likers")
+async def comment_source_likers(request: Request, pid: int, sid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    from app.models import StoredLiker
+    db = SessionLocal()
+    likers = db.query(StoredLiker).filter(StoredLiker.source_id == sid).order_by(StoredLiker.fetched_at.desc()).all()
+    db.close()
+    return JSONResponse([{"username": l.username, "user_region": l.user_region or ""} for l in likers])
 
 
 @app.get("/comments/projects/{pid}/sources/{sid}/comments")

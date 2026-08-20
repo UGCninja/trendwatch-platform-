@@ -154,6 +154,31 @@
 </div>
 {% endif %}
 
+{% if repeated_likers %}
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('repeatedLikersBody').classList.toggle('d-none');this.querySelector('.rl-arrow').textContent=document.getElementById('repeatedLikersBody').classList.contains('d-none')?'▾':'▴'">
+      <div>
+        <span class="fw-semibold">Повторяющиеся лайкеры</span>
+        <span class="text-muted ms-2" style="font-size:.8rem">лайкнули 2+ постов в проекте · {{ repeated_likers|length }} аккаунтов</span>
+      </div>
+      <span class="rl-arrow text-muted">▾</span>
+    </div>
+    <div id="repeatedLikersBody" class="d-none mt-3">
+      <div class="text-muted mb-2" style="font-size:.78rem">Если один аккаунт лайкает много постов — может быть реальным фанатом или признаком накрутки</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">
+        {% for username, post_count in repeated_likers %}
+        <div style="background:#f5f3ff;border-radius:6px;padding:6px 10px;font-size:.82rem;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#6366f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ username }}</span>
+          <span class="badge" style="background:#6366f1;color:#fff;margin-left:6px">{{ post_count }} постов</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% set geo_sources = sources | selectattr("post_location") | list %}
 {% set has_geo = geo_sources|length > 0 %}
 {% set has_lang = lang_stats|length > 0 %}
@@ -304,7 +329,15 @@
               {{ s.comments_count }} комм. ▾
             </button>
             {% else %}
-            <span>0 комм.</span>
+            <span style="font-size:.85rem">0 комм.</span>
+            {% endif %}
+            {% set lk_cnt = liker_per_source.get(s.id, 0) %}
+            {% if lk_cnt > 0 %}
+            <button class="btn btn-link btn-sm p-0 toggle-likers" data-sid="{{ s.id }}" style="font-size:.85rem;text-decoration:none;color:#6366f1">
+              {{ lk_cnt }} лайк. ▾
+            </button>
+            {% elif s.platform == 'Instagram' %}
+            <span style="font-size:.85rem;color:#bbb">0 лайк.</span>
             {% endif %}
             {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
             {% if s.post_location %}<span title="Геотег поста">📍 {{ s.post_location }}</span>{% endif %}
@@ -315,6 +348,7 @@
           </div>
         </div>
         <div class="comments-panel d-none" id="comments-{{ s.id }}" style="background:#f9f9f9;border-bottom:1px solid #eee;padding:8px 12px;font-size:.82rem"></div>
+        <div class="likers-panel d-none" id="likers-{{ s.id }}" style="background:#f5f3ff;border-bottom:1px solid #eee;padding:8px 12px;font-size:.82rem"></div>
       </div>
       {% endfor %}
     </div>
@@ -430,6 +464,37 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
 </style>
 <script>
 const GEO_PID = {{ project.id }};
+
+// Лайкеры на посте
+document.querySelectorAll('.toggle-likers').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const sid = this.dataset.sid;
+    const panel = document.getElementById('likers-' + sid);
+    if (!panel.classList.contains('d-none')) {
+      panel.classList.add('d-none');
+      this.textContent = this.textContent.replace('▴', '▾');
+      return;
+    }
+    if (panel.dataset.loaded) {
+      panel.classList.remove('d-none');
+      this.textContent = this.textContent.replace('▾', '▴');
+      return;
+    }
+    panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+    panel.classList.remove('d-none');
+    const resp = await fetch(`/comments/projects/${GEO_PID}/sources/${sid}/likers`);
+    const data = await resp.json();
+    if (!data.length) {
+      panel.innerHTML = '<span class="text-muted">Нет лайкеров</span>';
+    } else {
+      panel.innerHTML = data.map(l =>
+        `<span style="display:inline-block;margin:2px 4px;background:#ede9fe;color:#6366f1;border-radius:4px;padding:2px 7px;font-size:.78rem">${l.username}${l.user_region ? ' · '+l.user_region : ''}</span>`
+      ).join('');
+    }
+    panel.dataset.loaded = '1';
+    this.textContent = this.textContent.replace('▾', '▴');
+  });
+});
 
 async function recalcLangs(btn) {
   btn.disabled = true;
