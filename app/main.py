@@ -2792,10 +2792,13 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             ig_active = [s for s in all_sources
                          if (s.platform or _detect_platform(s.url)) == "Instagram"
                          and (s.likers_count or 0) == 0]
+            task["likers_ig_count"] = len(ig_active)
+            task["likers_saved"] = 0
             if ig_active and apify_token:
                 async def collect_likers(lk_client: httpx.AsyncClient, source):
                     likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
-                    _save_likers_to_db(source.id, likers, "Instagram")
+                    saved = _save_likers_to_db(source.id, likers, "Instagram")
+                    task["likers_saved"] = task.get("likers_saved", 0) + saved
                     db_lk = SessionLocal()
                     src_lk = db_lk.query(CommentSource).filter(CommentSource.id == source.id).first()
                     if src_lk:
@@ -2879,8 +2882,10 @@ def comment_project_task_status(request: Request, pid: int):
                 "status": task.get("status"),
                 "done": task.get("done", 0),
                 "total": task.get("total", 0),
-                "skipped_x": task.get("skipped_x", 0),
+                "skipped_fresh": task.get("skipped_fresh", 0),
                 "comments_count": task.get("comments_count", 0),
+                "likers_ig_count": task.get("likers_ig_count"),
+                "likers_saved": task.get("likers_saved"),
             })
     return JSONResponse({"status": "idle"})
 
