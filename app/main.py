@@ -1271,18 +1271,42 @@ def _fetch_apify_balance_sync():
     try:
         import requests as _requests
         r = _requests.get(
-            f"https://api.apify.com/v2/users/me",
+            "https://api.apify.com/v2/users/me",
             params={"token": APIFY_TOKEN},
             timeout=10,
         )
-        data = r.json()
-        balance = data.get("data", {}).get("plan", {}).get("monthlyUsage", {})
-        # Apify returns usage in USD cents
-        usage_usd = data.get("data", {}).get("monthlyUsage", 0) or 0
-        limit_usd = data.get("data", {}).get("plan", {}).get("monthlyUsageCreditsUsd", 0) or 0
-        _apify_balance = {"usage": round(usage_usd, 2), "limit": round(limit_usd, 2)}
+        d = r.json().get("data", {})
+        plan = d.get("plan", {})
+        # Пробуем разные поля где может быть текущий расход
+        usage_usd = (
+            d.get("usageUsd") or
+            d.get("monthlyUsageUsd") or
+            plan.get("usageCycleUsageUsd") or
+            plan.get("currentPeriodUsageUsd") or
+            plan.get("totalUsageUsd") or 0
+        )
+        limit_usd = (
+            plan.get("customMonthlyUsageLimitUsd") or
+            plan.get("monthlyUsageLimitUsd") or
+            plan.get("maxMonthlyUsageUsd") or
+            plan.get("monthlyUsageCreditsUsd") or 0
+        )
+        _apify_balance = {"usage": round(float(usage_usd), 2), "limit": round(float(limit_usd), 2)}
     except Exception:
         pass
+
+
+@app.get("/api/apify-raw")
+async def apify_raw(request: Request):
+    """Debug: raw Apify /users/me response to find correct field names."""
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://api.apify.com/v2/users/me", params={"token": APIFY_TOKEN})
+            return JSONResponse(r.json())
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
 
 
 @app.get("/api/ig-status")
