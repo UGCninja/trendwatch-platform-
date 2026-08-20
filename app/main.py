@@ -1957,8 +1957,18 @@ async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: st
         items = r.json()
         if not isinstance(items, list):
             return []
+        # Извлекаем ID исходного поста из URL для фильтрации
+        import re as _re_x
+        post_id_match = _re_x.search(r'/status/(\d+)', url)
+        post_id = post_id_match.group(1) if post_id_match else ""
+
         out = []
         for c in items:
+            # Фильтр: только прямые ответы на этот пост
+            in_reply_to = str(c.get("inReplyTo") or c.get("inReplyToId") or "")
+            if post_id and in_reply_to and in_reply_to != post_id:
+                continue
+
             text       = c.get("replyText") or c.get("text") or ""
             comment_id = str(c.get("replyId") or c.get("id") or "")
             author_obj = c.get("author") or {}
