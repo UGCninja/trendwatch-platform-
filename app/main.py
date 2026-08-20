@@ -514,6 +514,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                         pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
                 except Exception:
                     pass
+                author_meta = detail.get("author", {})
                 return {
                     "status":    "Active",
                     "api_views": st.get("play_count", ""),
@@ -522,6 +523,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "comments":  st.get("comment_count", ""),
                     "shares":    st.get("share_count", ""),
                     "saves":     st.get("collect_count", ""),
+                    "author":    author_meta.get("unique_id", ""),
+                    "followers": author_meta.get("follower_count", ""),
                 }
             return {"status": "Non-Active"}
 
@@ -545,6 +548,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                         pub_date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y")
                 except Exception:
                     pass
+                owner = media.get("owner", {})
                 return {
                     "status":    "Active",
                     "api_views": media.get("video_play_count", media.get("video_view_count", "")),
@@ -553,6 +557,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "comments":  media.get("edge_media_preview_comment", {}).get("count", ""),
                     "shares":    "",
                     "saves":     "",
+                    "author":    owner.get("username", ""),
+                    "followers": owner.get("edge_followed_by", {}).get("count", ""),
                 }
             return {"status": "Not Updated"}
 
@@ -584,6 +590,22 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                         pub_date = _dt.strptime(raw[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
                 except Exception:
                     pass
+                snippet = item.get("snippet", {})
+                channel_id = snippet.get("channelId", "")
+                channel_title = snippet.get("channelTitle", "")
+                channel_followers = ""
+                if channel_id:
+                    try:
+                        rc = await client.get(
+                            "https://www.googleapis.com/youtube/v3/channels",
+                            params={"part": "statistics", "id": channel_id, "key": yt_key},
+                            timeout=10,
+                        )
+                        if rc.status_code == 200:
+                            ch = (rc.json().get("items") or [{}])[0]
+                            channel_followers = ch.get("statistics", {}).get("subscriberCount", "")
+                    except Exception:
+                        pass
                 return {
                     "status":    "Active",
                     "api_views": st.get("viewCount", ""),
@@ -592,6 +614,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "comments":  st.get("commentCount", ""),
                     "shares":    "",
                     "saves":     "",
+                    "author":    channel_title,
+                    "followers": channel_followers,
                 }
             return {"status": "Non-Active"}
 
@@ -2486,17 +2510,21 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 async def fetch_and_save_metrics(source):
                     try:
                         m = await _fetch_metrics(mc, source.url, sc_key)
-                        views   = int(m.get("api_views") or 0)
-                        likes   = int(m.get("likes") or 0)
+                        views          = int(m.get("api_views") or 0)
+                        likes          = int(m.get("likes") or 0)
                         comments_total = int(m.get("comments") or 0)
-                        er = round((likes + comments_total) / views * 100, 2) if views > 0 else None
+                        er             = round((likes + comments_total) / views * 100, 2) if views > 0 else None
+                        author         = str(m.get("author") or "")
+                        followers      = int(m.get("followers") or 0)
                         db_m = SessionLocal()
                         src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
                         if src_m:
-                            if views:      src_m.post_views = views
-                            if likes:      src_m.post_likes = likes
+                            if views:          src_m.post_views = views
+                            if likes:          src_m.post_likes = likes
                             if comments_total: src_m.post_comments_total = comments_total
-                            if er is not None:  src_m.post_er = er
+                            if er is not None: src_m.post_er = er
+                            if author:         src_m.post_author = author
+                            if followers:      src_m.post_followers = followers
                             db_m.commit()
                         db_m.close()
                     except Exception:

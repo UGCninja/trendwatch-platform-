@@ -104,6 +104,8 @@ class CommentSource(Base):
     post_likes      = Column(Integer, nullable=True)
     post_comments_total = Column(Integer, nullable=True)
     post_er         = Column(Float, nullable=True)
+    post_author     = Column(String, nullable=True)
+    post_followers  = Column(Integer, nullable=True)
     post_location   = Column(String, nullable=True)
     post_location_lat = Column(Float, nullable=True)
     post_location_lng = Column(Float, nullable=True)

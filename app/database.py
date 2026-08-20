@@ -51,6 +51,8 @@ def init_db():
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_likes INTEGER")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_comments_total INTEGER")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_er FLOAT")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN post_author VARCHAR")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN post_followers INTEGER")
     _run_migration("CREATE TABLE IF NOT EXISTS stored_likers (id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, platform VARCHAR, username VARCHAR, user_region VARCHAR, fetched_at TIMESTAMP, UNIQUE(source_id, username))")
 
     from app.models import Vertical
