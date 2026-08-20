@@ -1348,6 +1348,31 @@ async def api_test_ig_comments(request: Request, url: str):
     return JSONResponse(results)
 
 
+@app.get("/api/test-ig-likers")
+async def api_test_ig_likers(request: Request, url: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    results = {"url": url, "apify_token_set": bool(APIFY_TOKEN)}
+    async with httpx.AsyncClient(timeout=140) as client:
+        for actor in ["apify~instagram-post-likers-scraper", "jaroslavhejlek~instagram-post-likers"]:
+            try:
+                r = await client.post(
+                    f"https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items",
+                    params={"token": APIFY_TOKEN, "timeout": 60},
+                    json={"directUrls": [url], "resultsLimit": 5},
+                    timeout=70,
+                )
+                body = r.json()
+                results[actor] = {
+                    "status": r.status_code,
+                    "count": len(body) if isinstance(body, list) else 0,
+                    "sample": body[:2] if isinstance(body, list) else body,
+                }
+            except Exception as e:
+                results[actor] = {"error": str(e)}
+    return JSONResponse(results)
+
+
 @app.get("/api/balance")
 def api_balance(request: Request):
     if not check_auth(request):
