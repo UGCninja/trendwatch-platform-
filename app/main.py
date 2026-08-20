@@ -462,7 +462,7 @@ def _parse_contractor_csv(text: str) -> list[dict]:
     return rows
 
 
-async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> dict:
+async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str, fetch_followers: bool = True) -> dict:
     """Returns metrics + status (Active / Non-Active) + api_views."""
     platform = _detect_platform(url)
     try:
@@ -551,9 +551,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 owner = media.get("owner", {})
                 ig_username = owner.get("username", "")
                 ig_followers = owner.get("edge_followed_by", {}).get("count", "")
-                # Если followers не пришли из данных поста — запрашиваем профиль
-                # (вызывается только если source.post_followers пустой — логика в save)
-                if ig_username and not ig_followers:
+                # Профиль запрашиваем только если нужно (fetch_followers=True)
+                if ig_username and not ig_followers and fetch_followers:
                     try:
                         rp = await client.get(
                             "https://api.scrapecreators.com/v1/instagram/user",
@@ -2610,7 +2609,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             async with httpx.AsyncClient(timeout=20) as mc:
                 async def fetch_and_save_metrics(source):
                     try:
-                        m = await _fetch_metrics(mc, source.url, sc_key)
+                        m = await _fetch_metrics(mc, source.url, sc_key,
+                                                  fetch_followers=not bool(source.post_followers))
                         views          = int(m.get("api_views") or 0)
                         likes          = int(m.get("likes") or 0)
                         comments_total = int(m.get("comments") or 0)
@@ -2636,14 +2636,14 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db_m.close()
                     except Exception:
                         pass
-                sem_m = asyncio.Semaphore(8)
+                sem_m = asyncio.Semaphore(10)
                 async def _m_guarded(s):
                     async with sem_m:
                         await fetch_and_save_metrics(s)
-                # Метрики для ВСЕХ постов включая Twitter/X (не только active_sources)
+                # Метрики для ВСЕХ постов включая Twitter/X
                 await asyncio.wait_for(
                     asyncio.gather(*[_m_guarded(s) for s in sources], return_exceptions=True),
-                    timeout=300  # максимум 5 минут на все метрики
+                    timeout=180  # 3 минуты максимум
                 )
         except Exception:
             pass
