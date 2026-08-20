@@ -2896,7 +2896,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
 
 
 @app.post("/comments/projects/{pid}/run")
-async def comment_project_run(request: Request, pid: int):
+async def comment_project_run(request: Request, pid: int, back: str = "project"):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     _cleanup_old_tasks()
@@ -2907,7 +2907,27 @@ async def comment_project_run(request: Request, pid: int):
         args=[task_id, pid, SCRAPECREATORS_API_KEY, APIFY_TOKEN],
         daemon=True,
     ).start()
-    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+    redirect_to = "/comments/projects" if back == "list" else f"/comments/projects/{pid}"
+    return RedirectResponse(redirect_to, status_code=302)
+
+
+@app.post("/comments/projects/{pid}/delete")
+async def comment_project_delete(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    from app.models import StoredLiker
+    db = SessionLocal()
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+    src_ids = [s.id for s in sources]
+    if src_ids:
+        db.query(StoredLiker).filter(StoredLiker.source_id.in_(src_ids)).delete(synchronize_session=False)
+        db.query(_StoredComment).filter(_StoredComment.source_id.in_(src_ids)).delete(synchronize_session=False)
+        db.query(CommentSource).filter(CommentSource.project_id == pid).delete(synchronize_session=False)
+    db.query(CommentProject).filter(CommentProject.id == pid).delete(synchronize_session=False)
+    db.commit()
+    db.close()
+    return RedirectResponse("/comments/projects", status_code=302)
 
 
 @app.post("/comments/projects/{pid}/cancel")

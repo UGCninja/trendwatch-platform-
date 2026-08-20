@@ -2,10 +2,8 @@
 {% block content %}
 <div class="page-header d-flex align-items-center justify-content-between">
   <h1 class="page-title">Comment Projects</h1>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">+ Новый проект</button>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">+ New Project</button>
 </div>
-
-{% macro fmt_date(dt) %}{% if dt %}{{ (dt.strftime('%d.%m.%Y %H:%M')) }}{% else %}—{% endif %}{% endmacro %}
 
 {% if projects %}
 <div class="card">
@@ -13,77 +11,84 @@
     <table style="width:100%;border-collapse:collapse;font-size:.85rem">
       <thead>
         <tr style="border-bottom:2px solid #e5e7eb">
-          <th style="padding:10px 16px;text-align:left;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Название</th>
-          <th style="padding:10px 12px;text-align:center;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Загружено</th>
-          <th style="padding:10px 12px;text-align:right;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Постов</th>
-          <th style="padding:10px 12px;text-align:right;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Комментариев</th>
-          <th style="padding:10px 12px;text-align:right;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Лайкеров</th>
-          <th style="padding:10px 12px;text-align:center;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Последнее обновление</th>
-          <th style="padding:10px 12px;text-align:right;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">✦ SC</th>
-          <th style="padding:10px 12px;text-align:right;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">⬡ Apify $</th>
-          <th style="padding:10px 16px;text-align:center;font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Статус</th>
+          {% for col in ["Name","Upload Date","Total Posts","Total Comments","Last Updated","Status","✦ SC","⬡ Apify $",""] %}
+          <th style="padding:10px {% if loop.first %}16px{% else %}12px{% endif %};text-align:{% if loop.index <= 2 or loop.last %}left{% elif loop.index >= 6 and not loop.last %}center{% else %}right{% endif %};font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">{{ col }}</th>
+          {% endfor %}
         </tr>
       </thead>
       <tbody>
         {% for row in projects %}
-        <tr style="border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s"
-            onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''"
-            onclick="location.href='/comments/projects/{{ row.project.id }}'">
+        {% set is_running = row.task_status != "idle" %}
+        <tr style="border-bottom:1px solid #f0f0f0;transition:background .15s"
+            onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''">
 
-          <!-- Название -->
-          <td style="padding:12px 16px;font-weight:600;color:#111">{{ row.project.name }}</td>
-
-          <!-- Загружено (GMT+3) -->
-          <td style="padding:12px;text-align:center;color:#777;white-space:nowrap">
-            {% if row.project.created_at %}
-              {{ (row.project.created_at.strftime('%d.%m.%Y')) }}
-            {% else %}—{% endif %}
+          <!-- Name -->
+          <td style="padding:12px 16px">
+            <a href="/comments/projects/{{ row.project.id }}" class="text-decoration-none fw-semibold" style="color:#111">{{ row.project.name }}</a>
           </td>
 
-          <!-- Постов -->
+          <!-- Upload Date -->
+          <td style="padding:12px;color:#777;white-space:nowrap">
+            {% if row.project.created_at %}{{ row.project.created_at.strftime('%d.%m.%Y') }}{% else %}—{% endif %}
+          </td>
+
+          <!-- Total Posts -->
           <td style="padding:12px;text-align:right;color:#555">{{ row.sources_count }}</td>
 
-          <!-- Комментариев -->
+          <!-- Total Comments -->
           <td style="padding:12px;text-align:right;color:#555">{{ row.comments_count }}</td>
 
-          <!-- Лайкеров -->
-          <td style="padding:12px;text-align:right;color:#6366f1;font-weight:{% if row.total_likers > 0 %}600{% else %}400{% endif %}">
-            {% if row.total_likers > 0 %}{{ row.total_likers }}{% else %}<span style="color:#ccc">—</span>{% endif %}
-          </td>
-
-          <!-- Последнее обновление GMT+3 -->
-          <td style="padding:12px;text-align:center;color:#777;white-space:nowrap">
+          <!-- Last Updated GMT+3 -->
+          <td style="padding:12px;text-align:right;color:#777;white-space:nowrap">
             {% if row.last_fetched %}
               {% set h = row.last_fetched.hour + 3 %}
-              {% set day_add = 1 if h >= 24 else 0 %}
               {% set h = h - 24 if h >= 24 else h %}
               {{ row.last_fetched.strftime('%d.%m.%Y') }} {{ '%02d'|format(h) }}:{{ row.last_fetched.strftime('%M') }}
-            {% else %}<span style="color:#ccc">Не запускался</span>{% endif %}
+            {% else %}<span style="color:#ccc">—</span>{% endif %}
+          </td>
+
+          <!-- Status -->
+          <td style="padding:12px;text-align:center">
+            {% if is_running %}
+            <span class="badge" style="background:#fef3c7;color:#d97706;font-size:.75rem">⟳ Updating</span>
+            {% elif row.last_fetched %}
+            <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">● Active</span>
+            {% else %}
+            <span class="badge" style="background:#f1f5f9;color:#94a3b8;font-size:.75rem">○ New</span>
+            {% endif %}
           </td>
 
           <!-- SC spend -->
           <td style="padding:12px;text-align:right;white-space:nowrap">
-            {% if row.last_sc_spend is not none and row.last_sc_spend > 0 %}
+            {% if row.last_sc_spend and row.last_sc_spend > 0 %}
               <span style="color:#6366f1;font-weight:600">{{ row.last_sc_spend }}</span>
             {% else %}<span style="color:#ccc">—</span>{% endif %}
           </td>
 
           <!-- Apify spend -->
           <td style="padding:12px;text-align:right;white-space:nowrap">
-            {% if row.last_apify_spend is not none and row.last_apify_spend > 0 %}
+            {% if row.last_apify_spend and row.last_apify_spend > 0 %}
               <span style="color:#0ea5e9;font-weight:600">${{ '%.3f'|format(row.last_apify_spend) }}</span>
             {% else %}<span style="color:#ccc">—</span>{% endif %}
           </td>
 
-          <!-- Статус -->
-          <td style="padding:12px 16px;text-align:center">
-            {% if row.task_status != "idle" %}
-            <span class="badge" style="background:#fef3c7;color:#d97706;font-size:.75rem">⟳ Обновляется</span>
-            {% elif row.last_fetched %}
-            <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">● Активна</span>
-            {% else %}
-            <span class="badge" style="background:#f1f5f9;color:#94a3b8;font-size:.75rem">○ Новая</span>
-            {% endif %}
+          <!-- Actions -->
+          <td style="padding:12px 16px;white-space:nowrap">
+            <div class="d-flex align-items-center gap-2">
+              {% if not is_running %}
+              <form method="post" action="/comments/projects/{{ row.project.id }}/run?back=list" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.75rem;padding:3px 10px">▶ Run</button>
+              </form>
+              {% else %}
+              <form method="post" action="/comments/projects/{{ row.project.id }}/cancel" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-outline-warning" style="font-size:.75rem;padding:3px 10px">✕ Stop</button>
+              </form>
+              {% endif %}
+              <form method="post" action="/comments/projects/{{ row.project.id }}/delete"
+                    onsubmit="return confirm('Delete project «{{ row.project.name }}» and all its data?')" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.75rem;padding:3px 8px">✕</button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -94,7 +99,7 @@
 {% else %}
 <div class="card">
   <div class="card-body text-center py-5 text-muted">
-    Нет проектов. Создай первый проект чтобы начать собирать комментарии.
+    No projects yet. Create the first project to start collecting comments.
   </div>
 </div>
 {% endif %}
@@ -104,16 +109,16 @@
     <div class="modal-content">
       <form method="post" action="/comments/projects">
         <div class="modal-header">
-          <h5 class="modal-title">Новый проект</h5>
+          <h5 class="modal-title">New Project</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label fw-semibold">Название проекта</label>
-          <input type="text" name="name" class="form-control" placeholder="Например: Bestplay Q3 2026" required autofocus>
+          <label class="form-label fw-semibold">Project Name</label>
+          <input type="text" name="name" class="form-control" placeholder="E.g.: Bestplay Q3 2026" required autofocus>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary">Создать</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
         </div>
       </form>
     </div>
