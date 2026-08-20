@@ -2564,8 +2564,9 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 async def _m_guarded(s):
                     async with sem_m:
                         await fetch_and_save_metrics(s)
+                # Метрики для ВСЕХ постов включая Twitter/X (не только active_sources)
                 await asyncio.wait_for(
-                    asyncio.gather(*[_m_guarded(s) for s in active_sources], return_exceptions=True),
+                    asyncio.gather(*[_m_guarded(s) for s in sources], return_exceptions=True),
                     timeout=300  # максимум 5 минут на все метрики
                 )
         except Exception:
