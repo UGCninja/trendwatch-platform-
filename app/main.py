@@ -2289,14 +2289,30 @@ def comment_projects_list(request: Request):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     from app.database import SessionLocal
+    from sqlalchemy import func as _f
+    from app.models import StoredLiker as _SLi
     db = SessionLocal()
     projects = db.query(CommentProject).order_by(CommentProject.created_at.desc()).all()
     result = []
     for p in projects:
         sources = db.query(CommentSource).filter(CommentSource.project_id == p.id).all()
         total_comments = sum(s.comments_count for s in sources)
+        total_likers = sum(s.likers_count or 0 for s in sources)
         last_fetched = max((s.last_fetched_at for s in sources if s.last_fetched_at), default=None)
-        result.append({"project": p, "sources_count": len(sources), "comments_count": total_comments, "last_fetched": last_fetched})
+        # Статус задачи
+        task_status = "idle"
+        for task in _comments_tasks.values():
+            if task.get("project_id") == p.id and task.get("status") not in ("done", "cancelled", "error", "idle"):
+                task_status = task.get("status", "idle")
+                break
+        result.append({
+            "project": p,
+            "sources_count": len(sources),
+            "comments_count": total_comments,
+            "total_likers": total_likers,
+            "last_fetched": last_fetched,
+            "task_status": task_status,
+        })
     db.close()
     return templates.TemplateResponse(request=request, name="comment_projects.html",
                                       context={"active_page": "comments", "projects": result})

@@ -8,17 +8,57 @@
 {% if projects %}
 <div class="card">
   <div class="card-body p-0">
+    <!-- Заголовок таблицы -->
+    <div style="display:grid;grid-template-columns:2fr 1fr 80px 100px 80px 1fr 110px;gap:8px;padding:10px 20px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em">
+      <div>Название</div>
+      <div>Загружено</div>
+      <div style="text-align:right">Постов</div>
+      <div style="text-align:right">Комментариев</div>
+      <div style="text-align:right">Лайкеров</div>
+      <div>Последнее обновление</div>
+      <div>Статус</div>
+    </div>
+
     {% for row in projects %}
     <a href="/comments/projects/{{ row.project.id }}" class="text-decoration-none text-reset">
-      <div class="d-flex align-items-center justify-content-between px-4 py-3" style="border-bottom:1px solid #f0f0f0;transition:background .15s" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''">
-        <div>
-          <div class="fw-semibold">{{ row.project.name }}</div>
-          <div class="text-muted" style="font-size:.85rem">
-            {{ row.sources_count }} постов &nbsp;·&nbsp; {{ row.comments_count }} комментариев
-            {% if row.last_fetched %}&nbsp;·&nbsp; последний сбор {{ row.last_fetched.strftime('%d.%m.%Y %H:%M') }}{% endif %}
-          </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 80px 100px 80px 1fr 110px;gap:8px;padding:12px 20px;border-bottom:1px solid #f0f0f0;align-items:center;transition:background .15s"
+           onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''">
+
+        <!-- Название -->
+        <div class="fw-semibold" style="font-size:.9rem">{{ row.project.name }}</div>
+
+        <!-- Загружено -->
+        <div class="text-muted" style="font-size:.82rem">
+          {% if row.project.created_at %}{{ row.project.created_at.strftime('%d.%m.%Y') }}{% else %}—{% endif %}
         </div>
-        <span class="text-muted">›</span>
+
+        <!-- Постов -->
+        <div style="text-align:right;font-size:.85rem;color:#555">{{ row.sources_count }}</div>
+
+        <!-- Комментариев -->
+        <div style="text-align:right;font-size:.85rem;color:#555">{{ row.comments_count }}</div>
+
+        <!-- Лайкеров -->
+        <div style="text-align:right;font-size:.85rem;color:#6366f1">
+          {% if row.total_likers > 0 %}{{ row.total_likers }}{% else %}<span class="text-muted">—</span>{% endif %}
+        </div>
+
+        <!-- Последнее обновление -->
+        <div class="text-muted" style="font-size:.82rem">
+          {% if row.last_fetched %}{{ row.last_fetched.strftime('%d.%m.%Y %H:%M') }}{% else %}Не запускалась{% endif %}
+        </div>
+
+        <!-- Статус -->
+        <div>
+          {% if row.task_status != "idle" %}
+          <span class="badge" style="background:#fef3c7;color:#d97706;font-size:.75rem">⟳ Обновляется</span>
+          {% elif row.last_fetched %}
+          <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">● Активна</span>
+          {% else %}
+          <span class="badge" style="background:#f1f5f9;color:#94a3b8;font-size:.75rem">○ Новая</span>
+          {% endif %}
+        </div>
+
       </div>
     </a>
     {% endfor %}
