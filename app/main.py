@@ -551,7 +551,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 owner = media.get("owner", {})
                 ig_username = owner.get("username", "")
                 ig_followers = owner.get("edge_followed_by", {}).get("count", "")
-                # Если followers не пришли из поста — запрашиваем профиль
+                # Если followers не пришли из данных поста — запрашиваем профиль
+                # (вызывается только если source.post_followers пустой — логика в save)
                 if ig_username and not ig_followers:
                     try:
                         rp = await client.get(
@@ -2548,7 +2549,9 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                             if comments_total: src_m.post_comments_total = comments_total
                             if er is not None: src_m.post_er = er
                             if author:         src_m.post_author = author
-                            if followers:      src_m.post_followers = followers
+                            # Подписчики собираем только один раз
+                            if followers and not src_m.post_followers:
+                                src_m.post_followers = followers
                             db_m.commit()
                         db_m.close()
                     except Exception:
