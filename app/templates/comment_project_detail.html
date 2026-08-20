@@ -59,7 +59,7 @@
   const pid = {{ project.id }};
   const STATUS_LABELS = {
     queued: "В очереди...", collecting: "Сбор комментариев",
-    geo_lookup: "Определяем GEO...", collecting_likers: "Сбор лайков...",
+    fetching_metrics: "Получаем метрики постов...", geo_lookup: "Определяем GEO...", collecting_likers: "Сбор лайков...",
     done: "Готово!", cancelled: "Отменено"
   };
   let wasRunning = false;
@@ -339,6 +339,12 @@
             {% elif s.platform == 'Instagram' %}
             <span style="font-size:.85rem;color:#bbb">0 лайк.</span>
             {% endif %}
+            {% if s.post_er is not none and s.post_er is not none %}
+            <span title="ER = (likes + comments) / views × 100" style="font-size:.82rem;font-weight:600;{% if s.post_er >= 5 %}color:#16a34a{% elif s.post_er >= 2 %}color:#d97706{% else %}color:#dc2626{% endif %}">
+              ER {{ '%.1f'|format(s.post_er) }}%
+            </span>
+            {% endif %}
+            {% if s.post_views %}<span class="text-muted" style="font-size:.82rem">{{ '{:,}'.format(s.post_views).replace(',', ' ') }} views</span>{% endif %}
             {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
             {% if s.post_location %}<span title="Геотег поста">📍 {{ s.post_location }}</span>{% endif %}
             <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">

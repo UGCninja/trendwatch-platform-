@@ -2479,6 +2479,36 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         async with httpx.AsyncClient(timeout=140) as client:
             await asyncio.gather(*[process_source(client, s) for s in active_sources])
 
+        # Метрики постов (views, likes, comments) → ER
+        task["status"] = "fetching_metrics"
+        try:
+            async with httpx.AsyncClient(timeout=20) as mc:
+                async def fetch_and_save_metrics(source):
+                    try:
+                        m = await _fetch_metrics(mc, source.url, sc_key)
+                        views   = int(m.get("api_views") or 0)
+                        likes   = int(m.get("likes") or 0)
+                        comments_total = int(m.get("comments") or 0)
+                        er = round((likes + comments_total) / views * 100, 2) if views > 0 else None
+                        db_m = SessionLocal()
+                        src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
+                        if src_m:
+                            if views:      src_m.post_views = views
+                            if likes:      src_m.post_likes = likes
+                            if comments_total: src_m.post_comments_total = comments_total
+                            if er is not None:  src_m.post_er = er
+                            db_m.commit()
+                        db_m.close()
+                    except Exception:
+                        pass
+                sem_m = asyncio.Semaphore(5)
+                async def _m_guarded(s):
+                    async with sem_m:
+                        await fetch_and_save_metrics(s)
+                await asyncio.gather(*[_m_guarded(s) for s in active_sources])
+        except Exception:
+            pass
+
         # GEO батчем в конце — один вызов на всех авторов
         task["status"] = "geo_lookup"
         try:
