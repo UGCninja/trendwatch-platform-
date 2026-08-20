@@ -206,13 +206,16 @@ async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_tok
             return []
         out = []
         for item in items:
-            username = (item.get("username") or item.get("userName") or
-                        item.get("ownerUsername") or "").lower()
+            username = (item.get("username") or item.get("userName") or "").lower()
             if not username:
                 continue
-            bio = item.get("biography") or item.get("bio") or ""
-            region = _parse_bio_for_country(bio)
-            out.append({"username": "@" + username, "user_region": region})
+            out.append({
+                "username":    "@" + username,
+                "user_region": "",
+                "full_name":   item.get("full_name") or "",
+                "is_verified": bool(item.get("is_verified")),
+                "is_private":  bool(item.get("is_private")),
+            })
         return out
     except Exception:
         return []
@@ -240,6 +243,9 @@ def _save_likers_to_db(source_id: int, likers: list[dict], platform: str) -> int
                 platform=platform,
                 username=username,
                 user_region=lk.get("user_region", ""),
+                full_name=lk.get("full_name", ""),
+                is_verified=lk.get("is_verified", False),
+                is_private=lk.get("is_private", False),
             ))
             new_count += 1
         db.commit()
@@ -2562,7 +2568,13 @@ async def comment_source_likers(request: Request, pid: int, sid: int):
     db = SessionLocal()
     likers = db.query(StoredLiker).filter(StoredLiker.source_id == sid).order_by(StoredLiker.fetched_at.desc()).all()
     db.close()
-    return JSONResponse([{"username": l.username, "user_region": l.user_region or ""} for l in likers])
+    return JSONResponse([{
+        "username":    l.username,
+        "full_name":   l.full_name or "",
+        "is_verified": l.is_verified,
+        "is_private":  l.is_private,
+        "user_region": l.user_region or "",
+    } for l in likers])
 
 
 @app.get("/comments/projects/{pid}/sources/{sid}/comments")

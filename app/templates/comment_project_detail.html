@@ -555,7 +555,9 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
       panel.innerHTML = '<span class="text-muted">Нет лайкеров</span>';
     } else {
       panel.innerHTML = data.map(l =>
-        `<span style="display:inline-block;margin:2px 4px;background:#ede9fe;color:#6366f1;border-radius:4px;padding:2px 7px;font-size:.78rem">${l.username}${l.user_region ? ' · '+l.user_region : ''}</span>`
+        `<span style="display:inline-block;margin:2px 4px;background:#ede9fe;color:#6366f1;border-radius:4px;padding:2px 7px;font-size:.78rem">
+          ${l.is_verified ? '✓ ' : ''}${l.username}${l.full_name ? ' ('+l.full_name+')' : ''}${l.is_private ? ' 🔒' : ''}${l.user_region ? ' · '+l.user_region : ''}
+        </span>`
       ).join('');
     }
     panel.dataset.loaded = '1';

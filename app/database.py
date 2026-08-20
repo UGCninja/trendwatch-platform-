@@ -54,6 +54,9 @@ def init_db():
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_author VARCHAR")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_followers INTEGER")
     _run_migration("CREATE TABLE IF NOT EXISTS stored_likers (id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, platform VARCHAR, username VARCHAR, user_region VARCHAR, fetched_at TIMESTAMP, UNIQUE(source_id, username))")
+    _run_migration("ALTER TABLE stored_likers ADD COLUMN full_name VARCHAR")
+    _run_migration("ALTER TABLE stored_likers ADD COLUMN is_verified BOOLEAN DEFAULT 0")
+    _run_migration("ALTER TABLE stored_likers ADD COLUMN is_private BOOLEAN DEFAULT 0")
 
     from app.models import Vertical
     db = SessionLocal()
