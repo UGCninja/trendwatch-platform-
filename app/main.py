@@ -1380,14 +1380,13 @@ async def api_test_x_comments(request: Request, url: str):
     async with httpx.AsyncClient(timeout=140) as client:
         # Пробуем разные форматы входных данных
         for input_fmt in [
+            {"postUrl": url, "maxReplies": 5},
             {"startUrls": [{"url": url}], "maxReplies": 5},
-            {"startUrls": [url], "maxReplies": 5},
             {"tweetUrls": [url], "maxReplies": 5},
-            {"urls": [url], "maxReplies": 5},
         ]:
             try:
                 r = await client.post(
-                    "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scr/run-sync-get-dataset-items",
+                    "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scraper/run-sync-get-dataset-items",
                     params={"token": APIFY_TOKEN, "timeout": 60},
                     json=input_fmt,
                     timeout=70,
@@ -1903,40 +1902,48 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
 
 
 async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: str) -> list[dict]:
-    """Fetch replies to an X/Twitter post via Apify scraper_one~x-post-replies-scr."""
+    """Fetch replies to an X/Twitter post via Apify scraper_one~x-post-replies-scraper."""
     if not apify_token:
         return []
     try:
         r = await client.post(
-            "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scr/run-sync-get-dataset-items",
+            "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scraper/run-sync-get-dataset-items",
             params={"token": apify_token, "timeout": 120},
-            json={"startUrls": [{"url": url}], "maxReplies": 200},
+            json={"postUrl": url, "maxReplies": 200},
             timeout=130,
         )
         if r.status_code not in (200, 201):
             return []
         items = r.json()
+        if not isinstance(items, list):
+            return []
         out = []
         for c in items:
-            # Пробуем разные варианты полей — акторы X отличаются по схеме
-            author = (
-                c.get("author", {}).get("userName") or
-                c.get("username") or
-                c.get("user", {}).get("screen_name") or ""
-            )
-            text = c.get("text") or c.get("fullText") or c.get("full_text") or ""
-            likes = int(c.get("likeCount") or c.get("favorite_count") or c.get("likes") or 0)
-            raw_date = c.get("createdAt") or c.get("created_at") or ""
+            # Поля из реального ответа актора: replyId, replyText, replyUrl, timestamp
+            text = c.get("replyText") or c.get("text") or c.get("fullText") or ""
+            comment_id = str(c.get("replyId") or c.get("id") or c.get("tweetId") or "")
+            # Author: извлекаем из replyUrl (x.com/username/status/...)
+            author = ""
+            reply_url = c.get("replyUrl") or ""
+            if reply_url:
+                import re as _re2
+                m = _re2.search(r'x\.com/([^/]+)/status', reply_url)
+                if m:
+                    author = m.group(1)
+            if not author:
+                author = (c.get("username") or c.get("authorUsername") or
+                          (c.get("author") or {}).get("userName") or "")
+            raw_date = c.get("timestamp") or c.get("createdAt") or c.get("created_at") or ""
             date = ""
             try:
                 if raw_date:
-                    date = _dt.fromisoformat(raw_date.replace("Z", "+00:00")).strftime("%d.%m.%Y")
+                    if isinstance(raw_date, (int, float)):
+                        date = _dt.utcfromtimestamp(raw_date / 1000 if raw_date > 1e10 else raw_date).strftime("%d.%m.%Y")
+                    else:
+                        date = _dt.fromisoformat(str(raw_date).replace("Z", "+00:00")).strftime("%d.%m.%Y")
             except Exception:
-                try:
-                    date = _dt.strptime(raw_date, "%a %b %d %H:%M:%S +0000 %Y").strftime("%d.%m.%Y")
-                except Exception:
-                    date = str(raw_date)[:10]
-            comment_id = str(c.get("id") or c.get("tweetId") or c.get("tweet_id") or "")
+                date = str(raw_date)[:10] if raw_date else ""
+            likes = int(c.get("likeCount") or c.get("likes") or c.get("favorite_count") or 0)
             if not comment_id or not text:
                 continue
             out.append({
