@@ -196,7 +196,7 @@ async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_tok
         r = await client.post(
             "https://api.apify.com/v2/acts/datadoping~instagram-likes-scraper/run-sync-get-dataset-items",
             params={"token": apify_token, "timeout": 120},
-            json={"posts": [url], "maxLikes": 500},
+            json={"posts": [url], "max_count": 500},
             timeout=130,
         )
         if r.status_code not in (200, 201):
@@ -1357,8 +1357,8 @@ async def api_test_ig_likers(request: Request, url: str):
     results = {"url": url, "apify_token_set": bool(APIFY_TOKEN)}
     async with httpx.AsyncClient(timeout=140) as client:
         for input_fmt in [
-            {"posts": [url], "maxLikes": 5},
-            {"posts": [{"url": url}], "maxLikes": 5},
+            {"posts": [url], "max_count": 5},
+            {"posts": [{"url": url}], "max_count": 5},
         ]:
             try:
                 r = await client.post(
