@@ -2529,11 +2529,14 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db_m.close()
                     except Exception:
                         pass
-                sem_m = asyncio.Semaphore(5)
+                sem_m = asyncio.Semaphore(8)
                 async def _m_guarded(s):
                     async with sem_m:
                         await fetch_and_save_metrics(s)
-                await asyncio.gather(*[_m_guarded(s) for s in active_sources])
+                await asyncio.wait_for(
+                    asyncio.gather(*[_m_guarded(s) for s in active_sources], return_exceptions=True),
+                    timeout=300  # максимум 5 минут на все метрики
+                )
         except Exception:
             pass
 
@@ -2562,14 +2565,11 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 .filter((_SC2.user_region == None) | (_SC2.user_region == "")).all())
             if ig_no_region:
                 ig_authors = list({c.author.lstrip("@") for c in ig_no_region if c.author})
-                loop = asyncio.get_event_loop()
                 async with httpx.AsyncClient(timeout=140) as geo_client:
                     apify_regions = await _fetch_ig_regions_apify(geo_client, ig_authors, apify_token) if apify_token else {}
-                remaining = [u for u in ig_authors if not apify_regions.get(u.lower())]
-                ig_regions = await loop.run_in_executor(None, _fetch_ig_commenter_regions_sync, remaining) if remaining else {}
-                all_regions = {**ig_regions, **apify_regions}
+                # instagrapi fallback пропускаем — не работает на Railway (висит на логине)
                 for c in ig_no_region:
-                    r = all_regions.get((c.author or "").lstrip("@").lower(), "")
+                    r = apify_regions.get((c.author or "").lstrip("@").lower(), "")
                     if r: c.user_region = r
                 db_bf.commit()
 
