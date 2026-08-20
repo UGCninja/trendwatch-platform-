@@ -189,22 +189,25 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
 
 
 async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_token: str) -> list[dict]:
-    """Fetch users who liked an Instagram post via Apify. Returns list of {username, user_region}."""
+    """Fetch users who liked an Instagram post via datadoping~instagram-likes-scraper."""
     if not apify_token:
         return []
     try:
         r = await client.post(
-            "https://api.apify.com/v2/acts/apify~instagram-post-likers-scraper/run-sync-get-dataset-items",
+            "https://api.apify.com/v2/acts/datadoping~instagram-likes-scraper/run-sync-get-dataset-items",
             params={"token": apify_token, "timeout": 120},
-            json={"directUrls": [url], "resultsLimit": 500},
+            json={"postUrl": url, "maxLikes": 500},
             timeout=130,
         )
         if r.status_code not in (200, 201):
             return []
         items = r.json()
+        if not isinstance(items, list):
+            return []
         out = []
         for item in items:
-            username = (item.get("username") or item.get("ownerUsername") or "").lower()
+            username = (item.get("username") or item.get("userName") or
+                        item.get("ownerUsername") or "").lower()
             if not username:
                 continue
             bio = item.get("biography") or item.get("bio") or ""
@@ -1353,22 +1356,29 @@ async def api_test_ig_likers(request: Request, url: str):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     results = {"url": url, "apify_token_set": bool(APIFY_TOKEN)}
     async with httpx.AsyncClient(timeout=140) as client:
-        for actor in ["apify~instagram-post-likers-scraper", "jaroslavhejlek~instagram-post-likers"]:
+        for input_fmt in [
+            {"postUrl": url, "maxLikes": 5},
+            {"directUrls": [url], "maxLikes": 5},
+            {"url": url, "maxLikes": 5},
+        ]:
             try:
                 r = await client.post(
-                    f"https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items",
+                    "https://api.apify.com/v2/acts/datadoping~instagram-likes-scraper/run-sync-get-dataset-items",
                     params={"token": APIFY_TOKEN, "timeout": 60},
-                    json={"directUrls": [url], "resultsLimit": 5},
+                    json=input_fmt,
                     timeout=70,
                 )
                 body = r.json()
-                results[actor] = {
+                results[str(input_fmt)] = {
                     "status": r.status_code,
                     "count": len(body) if isinstance(body, list) else 0,
-                    "sample": body[:2] if isinstance(body, list) else body,
+                    "sample": body[:1] if isinstance(body, list) else body,
                 }
+                if r.status_code in (200, 201) and isinstance(body, list) and body:
+                    results["working_format"] = input_fmt
+                    break
             except Exception as e:
-                results[actor] = {"error": str(e)}
+                results[str(input_fmt)] = {"error": str(e)}
     return JSONResponse(results)
 
 
