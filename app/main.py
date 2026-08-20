@@ -1356,6 +1356,31 @@ async def api_test_ig_comments(request: Request, url: str):
     return JSONResponse(results)
 
 
+@app.get("/api/likers-debug")
+async def likers_debug(request: Request):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    from app.models import StoredLiker
+    from sqlalchemy import text as _text
+    db = SessionLocal()
+    try:
+        total = db.query(StoredLiker).count()
+        cols = [r[0] for r in db.execute(_text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='stored_likers' ORDER BY ordinal_position"
+        )).fetchall()]
+        sample = db.query(StoredLiker).limit(3).all()
+        db.close()
+        return JSONResponse({
+            "total_likers_in_db": total,
+            "columns": cols,
+            "sample": [{"username": l.username, "source_id": l.source_id} for l in sample],
+        })
+    except Exception as e:
+        db.close()
+        return JSONResponse({"error": str(e)})
+
+
 @app.get("/api/test-ig-likers")
 async def api_test_ig_likers(request: Request, url: str):
     if not check_auth(request):
@@ -2783,7 +2808,10 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     async def _lk_guarded(s):
                         async with sem_lk:
                             await collect_likers(lk_client, s)
-                    await asyncio.gather(*[_lk_guarded(s) for s in ig_active[:30]])
+                    await asyncio.wait_for(
+                        asyncio.gather(*[_lk_guarded(s) for s in ig_active[:50]], return_exceptions=True),
+                        timeout=300  # 5 минут максимум на лайкеров
+                    )
 
                 # Apify profile lookup для лайкеров без региона
                 db_geo2 = SessionLocal()
