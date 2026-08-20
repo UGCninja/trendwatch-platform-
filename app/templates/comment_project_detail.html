@@ -137,22 +137,42 @@
 </div>
 {% endmacro %}
 
+<div class="row g-3 mb-4">
 {% if top_commenters %}
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topCommentersBody').classList.toggle('d-none');this.querySelector('.tc-arrow').textContent=document.getElementById('topCommentersBody').classList.contains('d-none')?'▾':'▴'">
-      <div class="fw-semibold">Топ комментаторов</div>
-      <span class="tc-arrow text-muted">▾</span>
-    </div>
-    <div id="topCommentersBody" class="d-none mt-3">
-      {% set tc_max = top_commenters[0][1] %}
-      {% for author, cnt in top_commenters %}
-      {{ stat_bar(author, cnt, total_comments, "#6366f1", "10rem") }}
-      {% endfor %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topCommentersBody').classList.toggle('d-none');this.querySelector('.tc-arrow').textContent=document.getElementById('topCommentersBody').classList.contains('d-none')?'▾':'▴'">
+          <div class="fw-semibold">Топ комментаторов <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_comments }} комм.</span></div>
+          <span class="tc-arrow text-muted">▾</span>
+        </div>
+        <div id="topCommentersBody" class="d-none mt-3">
+          {% for author, cnt in top_commenters %}
+          {{ stat_bar(author, cnt, total_comments, "#6366f1", "10rem") }}
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
-</div>
 {% endif %}
+{% if top_likers %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topLikersBody').classList.toggle('d-none');this.querySelector('.tl-arrow').textContent=document.getElementById('topLikersBody').classList.contains('d-none')?'▾':'▴'">
+          <div class="fw-semibold">Топ лайкеров <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_likers }} уникальных</span></div>
+          <span class="tl-arrow text-muted">▾</span>
+        </div>
+        <div id="topLikersBody" class="d-none mt-3">
+          {% for username, cnt in top_likers %}
+          {{ stat_bar(username, cnt, sources|length, "#6366f1", "10rem") }}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+</div>
 
 {% if repeated_likers %}
 <div class="card mb-4">
@@ -308,52 +328,80 @@
       </div>
     </div>
     {% if sources %}
-    <div style="font-size:.88rem" id="sourcesList">
+    <div id="sourcesList">
+      <!-- Заголовок таблицы -->
+      <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 80px 70px 60px 70px 80px 90px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
+        <div>Платформа</div>
+        <div>Статус</div>
+        <div>Ссылка</div>
+        <div>Подрядчик</div>
+        <div style="text-align:right">Комм.</div>
+        <div style="text-align:right">Лайки</div>
+        <div style="text-align:right">Подп.</div>
+        <div style="text-align:right">ER%</div>
+        <div style="text-align:right">Просмотры</div>
+        <div style="text-align:right">Обновлён</div>
+        <div></div>
+      </div>
       {% for s in sources %}
+      {% set lk_cnt = liker_per_source.get(s.id, 0) %}
       <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}" data-provider="{{ s.provider or '' }}">
-        <div class="d-flex align-items-center justify-content-between py-2" style="border-bottom:1px solid #f0f0f0">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary">{{ s.platform }}</span>
+        <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 80px 70px 60px 70px 80px 90px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem">
+          <!-- Платформа -->
+          <div><span class="badge bg-secondary" style="font-size:.72rem">{{ s.platform }}</span></div>
+          <!-- Статус -->
+          <div>
             {% if s.status == 'deleted' %}
-            <span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.75rem">deleted</span>
+            <span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.7rem">deleted</span>
             {% else %}
-            <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.75rem">active</span>
+            <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.7rem">active</span>
             {% endif %}
-            <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.85rem">{{ s.url[:55] }}{% if s.url|length > 55 %}…{% endif %}</a>
-            {% if s.provider %}<span class="badge ms-1" style="background:#f0f0f0;color:#555;font-size:.75rem">{{ s.provider }}</span>{% endif %}
-            {% if s.creator %}<span class="text-muted ms-1" style="font-size:.8rem">{{ s.creator }}</span>{% endif %}
           </div>
-          <div class="d-flex align-items-center gap-3 text-muted">
+          <!-- Ссылка + Креатор -->
+          <div style="min-width:0">
+            <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.82rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+            {% if s.creator %}<span class="text-muted" style="font-size:.75rem">{{ s.creator }}</span>{% endif %}
+          </div>
+          <!-- Подрядчик -->
+          <div>{% if s.provider %}<span class="badge" style="background:#f0f0f0;color:#555;font-size:.72rem">{{ s.provider }}</span>{% endif %}</div>
+          <!-- Комментарии -->
+          <div style="text-align:right">
             {% if s.comments_count > 0 %}
-            <button class="btn btn-link btn-sm p-0 text-primary toggle-comments" data-sid="{{ s.id }}" style="font-size:.85rem;text-decoration:none">
-              {{ s.comments_count }} комм. ▾
-            </button>
-            {% else %}
-            <span style="font-size:.85rem">0 комм.</span>
-            {% endif %}
-            {% set lk_cnt = liker_per_source.get(s.id, 0) %}
+            <button class="btn btn-link btn-sm p-0 text-primary toggle-comments" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none">{{ s.comments_count }} ▾</button>
+            {% else %}<span class="text-muted">0</span>{% endif %}
+          </div>
+          <!-- Лайки -->
+          <div style="text-align:right">
             {% if lk_cnt > 0 %}
-            <button class="btn btn-link btn-sm p-0 toggle-likers" data-sid="{{ s.id }}" style="font-size:.85rem;text-decoration:none;color:#6366f1">
-              {{ lk_cnt }} лайк. ▾
-            </button>
-            {% elif s.platform == 'Instagram' %}
-            <span style="font-size:.85rem;color:#bbb">0 лайк.</span>
-            {% endif %}
+            <button class="btn btn-link btn-sm p-0 toggle-likers" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none;color:#6366f1">{{ lk_cnt }} ▾</button>
+            {% else %}<span class="text-muted">0</span>{% endif %}
+          </div>
+          <!-- Подписчики -->
+          <div style="text-align:right;color:#555">
             {% if s.post_followers %}
-            <span class="text-muted" style="font-size:.82rem" title="Подписчики аккаунта">
-              {% if s.post_author %}@{{ s.post_author }} · {% endif %}
               {% set f = s.post_followers %}
-              {% if f >= 1000000 %}{{ '%.1f'|format(f/1000000) }}M{% elif f >= 1000 %}{{ '%.0f'|format(f/1000) }}K{% else %}{{ f }}{% endif %} подп.
-            </span>
-            {% endif %}
+              {% if f >= 1000000 %}{{ '%.1f'|format(f/1000000) }}M
+              {% elif f >= 1000 %}{{ '%.0f'|format(f/1000) }}K
+              {% else %}{{ f }}{% endif %}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+          <!-- ER% -->
+          <div style="text-align:right">
             {% if s.post_er is not none %}
-            <span title="ER = (likes + comments) / views × 100" style="font-size:.82rem;font-weight:600;{% if s.post_er >= 5 %}color:#16a34a{% elif s.post_er >= 2 %}color:#d97706{% else %}color:#dc2626{% endif %}">
-              ER {{ '%.1f'|format(s.post_er) }}%
-            </span>
-            {% endif %}
-            {% if s.post_views %}<span class="text-muted" style="font-size:.82rem">{{ '{:,}'.format(s.post_views).replace(',', ' ') }} views</span>{% endif %}
-            {% if s.last_fetched_at %}<span>{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}</span>{% endif %}
-            {% if s.post_location %}<span title="Геотег поста">📍 {{ s.post_location }}</span>{% endif %}
+            <span style="font-weight:600;{% if s.post_er >= 5 %}color:#16a34a{% elif s.post_er >= 2 %}color:#d97706{% else %}color:#dc2626{% endif %}" title="ER = (likes + comments) / views × 100">{{ '%.1f'|format(s.post_er) }}%</span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+          <!-- Просмотры -->
+          <div style="text-align:right;color:#888">
+            {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+          <!-- Дата -->
+          <div style="text-align:right;color:#aaa;font-size:.75rem">
+            {% if s.last_fetched_at %}{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}{% endif %}
+          </div>
+          <!-- Удалить -->
+          <div>
             <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
               <input type="hidden" name="source_id" value="{{ s.id }}">
               <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>

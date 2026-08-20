@@ -549,6 +549,27 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                 except Exception:
                     pass
                 owner = media.get("owner", {})
+                ig_username = owner.get("username", "")
+                ig_followers = owner.get("edge_followed_by", {}).get("count", "")
+                # Если followers не пришли из поста — запрашиваем профиль
+                if ig_username and not ig_followers:
+                    try:
+                        rp = await client.get(
+                            "https://api.scrapecreators.com/v1/instagram/user",
+                            params={"username": ig_username},
+                            headers={"x-api-key": api_key},
+                            timeout=12,
+                        )
+                        if rp.status_code == 200:
+                            pd = rp.json()
+                            u = (pd.get("data") or {}).get("user") or {}
+                            ig_followers = (
+                                u.get("edge_followed_by", {}).get("count", "")
+                                or u.get("follower_count", "")
+                                or u.get("followers", "")
+                            )
+                    except Exception:
+                        pass
                 return {
                     "status":    "Active",
                     "api_views": media.get("video_play_count", media.get("video_view_count", "")),
@@ -557,8 +578,8 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str) -> d
                     "comments":  media.get("edge_media_preview_comment", {}).get("count", ""),
                     "shares":    "",
                     "saves":     "",
-                    "author":    owner.get("username", ""),
-                    "followers": owner.get("edge_followed_by", {}).get("count", ""),
+                    "author":    ig_username,
+                    "followers": ig_followers,
                 }
             return {"status": "Not Updated"}
 
@@ -2201,11 +2222,13 @@ def comment_project_detail(request: Request, pid: int):
             username_sources.setdefault(lk.username, set()).add(lk.source_id)
     liker_region_stats = sorted(liker_region_counts.items(), key=lambda x: -x[1])[:10]
     total_likers = len(set(lk.username for lk in all_likers if lk.username))
-    # Повторяющиеся лайкеры (лайкнули 2+ постов в проекте)
-    repeated_likers = sorted(
-        [(u, len(srcs)) for u, srcs in username_sources.items() if len(srcs) > 1],
+    # Топ лайкеров (все, сортировка по кол-ву постов)
+    top_likers = sorted(
+        [(u, len(srcs)) for u, srcs in username_sources.items()],
         key=lambda x: -x[1]
     )[:30]
+    # Повторяющиеся лайкеры (лайкнули 2+ постов в проекте)
+    repeated_likers = [(u, c) for u, c in top_likers if c > 1]
 
     author_counts: dict[str, int] = {}
     for c in all_comments:
@@ -2247,6 +2270,7 @@ def comment_project_detail(request: Request, pid: int):
         "total_likers": total_likers,
         "liker_region_stats": liker_region_stats,
         "lang_region_stats_comments": lang_region_stats_comments,
+        "top_likers": top_likers,
         "repeated_likers": repeated_likers,
         "liker_per_source": liker_per_source,
     })
