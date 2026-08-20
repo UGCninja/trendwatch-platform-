@@ -1380,7 +1380,7 @@ async def api_test_x_comments(request: Request, url: str):
     async with httpx.AsyncClient(timeout=140) as client:
         # Пробуем разные форматы входных данных
         for input_fmt in [
-            {"postUrl": url, "maxReplies": 5},
+            {"postUrls": [url], "maxReplies": 5},
             {"startUrls": [{"url": url}], "maxReplies": 5},
             {"tweetUrls": [url], "maxReplies": 5},
         ]:
@@ -1909,7 +1909,7 @@ async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: st
         r = await client.post(
             "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scraper/run-sync-get-dataset-items",
             params={"token": apify_token, "timeout": 120},
-            json={"postUrl": url, "maxReplies": 200},
+            json={"postUrls": [url], "maxReplies": 200},
             timeout=130,
         )
         if r.status_code not in (200, 201):
