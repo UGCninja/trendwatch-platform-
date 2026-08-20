@@ -1372,6 +1372,40 @@ async def api_test_ig_likers(request: Request, url: str):
     return JSONResponse(results)
 
 
+@app.get("/api/test-x-comments")
+async def api_test_x_comments(request: Request, url: str):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    results = {"url": url, "apify_token_set": bool(APIFY_TOKEN)}
+    async with httpx.AsyncClient(timeout=140) as client:
+        # Пробуем разные форматы входных данных
+        for input_fmt in [
+            {"startUrls": [{"url": url}], "maxReplies": 5},
+            {"startUrls": [url], "maxReplies": 5},
+            {"tweetUrls": [url], "maxReplies": 5},
+            {"urls": [url], "maxReplies": 5},
+        ]:
+            try:
+                r = await client.post(
+                    "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scr/run-sync-get-dataset-items",
+                    params={"token": APIFY_TOKEN, "timeout": 60},
+                    json=input_fmt,
+                    timeout=70,
+                )
+                body = r.json()
+                results[str(input_fmt)] = {
+                    "status": r.status_code,
+                    "count": len(body) if isinstance(body, list) else 0,
+                    "sample": body[:1] if isinstance(body, list) else body,
+                }
+                if r.status_code in (200, 201) and isinstance(body, list) and body:
+                    results["working_format"] = input_fmt
+                    break
+            except Exception as e:
+                results[str(input_fmt)] = {"error": str(e)}
+    return JSONResponse(results)
+
+
 @app.get("/api/balance")
 def api_balance(request: Request):
     if not check_auth(request):
