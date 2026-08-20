@@ -330,13 +330,14 @@
     {% if sources %}
     <div id="sourcesList">
       <!-- Заголовок таблицы -->
-      <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 80px 70px 60px 70px 80px 90px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
+      <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 90px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
         <div>Платформа</div>
         <div>Статус</div>
         <div>Ссылка</div>
         <div>Подрядчик</div>
         <div style="text-align:right">Комм.</div>
         <div style="text-align:right">Лайки</div>
+        <div style="text-align:right">Лайкеры</div>
         <div style="text-align:right">Подп.</div>
         <div style="text-align:right">ER%</div>
         <div style="text-align:right">Просмотры</div>
@@ -346,7 +347,7 @@
       {% for s in sources %}
       {% set lk_cnt = liker_per_source.get(s.id, 0) %}
       <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}" data-provider="{{ s.provider or '' }}">
-        <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 80px 70px 60px 70px 80px 90px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem">
+        <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 90px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem">
           <!-- Платформа -->
           <div><span class="badge bg-secondary" style="font-size:.72rem">{{ s.platform }}</span></div>
           <!-- Статус -->
@@ -370,7 +371,12 @@
             <button class="btn btn-link btn-sm p-0 text-primary toggle-comments" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none">{{ s.comments_count }} ▾</button>
             {% else %}<span class="text-muted">0</span>{% endif %}
           </div>
-          <!-- Лайки -->
+          <!-- Лайки поста (из метрик платформы) -->
+          <div style="text-align:right;color:#555">
+            {% if s.post_likes %}{{ '{:,}'.format(s.post_likes).replace(',', ' ') }}
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+          <!-- Лайкеры (собранные нами аккаунты) -->
           <div style="text-align:right">
             {% if lk_cnt > 0 %}
             <button class="btn btn-link btn-sm p-0 toggle-likers" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none;color:#6366f1">{{ lk_cnt }} ▾</button>

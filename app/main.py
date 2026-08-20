@@ -2544,14 +2544,18 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db_m = SessionLocal()
                         src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
                         if src_m:
-                            if views:          src_m.post_views = views
-                            if likes:          src_m.post_likes = likes
-                            if comments_total: src_m.post_comments_total = comments_total
-                            if er is not None: src_m.post_er = er
-                            if author:         src_m.post_author = author
-                            # Подписчики собираем только один раз
-                            if followers and not src_m.post_followers:
-                                src_m.post_followers = followers
+                            # Пост удалён — ставим статус deleted
+                            if m.get("status") == "Non-Active":
+                                src_m.status = "deleted"
+                            else:
+                                if views:          src_m.post_views = views
+                                if likes:          src_m.post_likes = likes
+                                if comments_total: src_m.post_comments_total = comments_total
+                                if er is not None: src_m.post_er = er
+                                if author:         src_m.post_author = author
+                                # Подписчики собираем только один раз
+                                if followers and not src_m.post_followers:
+                                    src_m.post_followers = followers
                             db_m.commit()
                         db_m.close()
                     except Exception:
