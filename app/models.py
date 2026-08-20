@@ -102,6 +102,7 @@ class CommentSource(Base):
     last_fetched_at = Column(DateTime, nullable=True)
     comments_count  = Column(Integer, default=0)
     likers_count    = Column(Integer, default=0)
+    post_date       = Column(String, nullable=True)   # дата публикации поста
     post_views      = Column(Integer, nullable=True)
     post_likes      = Column(Integer, nullable=True)
     post_comments_total = Column(Integer, nullable=True)

@@ -47,6 +47,7 @@ def init_db():
     _run_migration("ALTER TABLE comment_sources ADD COLUMN provider VARCHAR")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN creator VARCHAR")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN likers_count INTEGER DEFAULT 0")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN post_date VARCHAR")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_views INTEGER")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_likes INTEGER")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN post_comments_total INTEGER")

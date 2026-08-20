@@ -11,7 +11,7 @@
     <table style="width:100%;border-collapse:collapse;font-size:.85rem">
       <thead>
         <tr style="border-bottom:2px solid #e5e7eb">
-          {% for col in ["Name","Upload Date","Total Posts","Total Comments","Last Updated","Status","✦ SC","⬡ Apify $",""] %}
+          {% for col in ["Name","Upload Date","Total Posts","Total Comments","Total Likers","Last Updated","Status","✦ SC","⬡ Apify $",""] %}
           <th style="padding:10px {% if loop.first %}16px{% else %}12px{% endif %};text-align:{% if loop.index <= 2 or loop.last %}left{% elif loop.index >= 6 and not loop.last %}center{% else %}right{% endif %};font-size:.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">{{ col }}</th>
           {% endfor %}
         </tr>
@@ -37,6 +37,11 @@
 
           <!-- Total Comments -->
           <td style="padding:12px;text-align:right;color:#555">{{ row.comments_count }}</td>
+
+          <!-- Total Likers -->
+          <td style="padding:12px;text-align:right;color:#6366f1;font-weight:{% if row.total_likers > 0 %}600{% else %}400{% endif %}">
+            {% if row.total_likers > 0 %}{{ row.total_likers }}{% else %}<span style="color:#ccc">—</span>{% endif %}
+          </td>
 
           <!-- Last Updated GMT+3 -->
           <td style="padding:12px;text-align:right;color:#777;white-space:nowrap">

@@ -165,7 +165,18 @@
         </div>
         <div id="topLikersBody" class="d-none mt-3">
           {% for username, cnt in top_likers %}
-          {{ stat_bar(username, cnt, sources|length, "#6366f1", "10rem") }}
+          {% set pct = (cnt / sources|length * 100)|round(1) if sources|length else 0 %}
+          {% set handle = username.lstrip('@') %}
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div style="width:10rem;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              <a href="https://www.instagram.com/{{ handle }}/" target="_blank" style="color:#6366f1;text-decoration:none">{{ username }}</a>
+            </div>
+            <div class="flex-grow-1 bg-light rounded" style="height:8px;overflow:hidden">
+              <div style="width:{{ pct }}%;height:100%;background:#6366f1;border-radius:4px"></div>
+            </div>
+            <div style="width:2.5rem;text-align:right;font-size:.85rem;color:#666">{{ cnt }}</div>
+            <div style="width:3.5rem;text-align:right;font-size:.85rem;color:#999">{{ pct }}%</div>
+          </div>
           {% endfor %}
         </div>
       </div>
@@ -173,31 +184,6 @@
   </div>
 {% endif %}
 </div>
-
-{% if repeated_likers %}
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('repeatedLikersBody').classList.toggle('d-none');this.querySelector('.rl-arrow').textContent=document.getElementById('repeatedLikersBody').classList.contains('d-none')?'▾':'▴'">
-      <div>
-        <span class="fw-semibold">Повторяющиеся лайкеры</span>
-        <span class="text-muted ms-2" style="font-size:.8rem">лайкнули 2+ постов в проекте · {{ repeated_likers|length }} аккаунтов</span>
-      </div>
-      <span class="rl-arrow text-muted">▾</span>
-    </div>
-    <div id="repeatedLikersBody" class="d-none mt-3">
-      <div class="text-muted mb-2" style="font-size:.78rem">Если один аккаунт лайкает много постов — может быть реальным фанатом или признаком накрутки</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">
-        {% for username, post_count in repeated_likers %}
-        <div style="background:#f5f3ff;border-radius:6px;padding:6px 10px;font-size:.82rem;display:flex;justify-content:space-between;align-items:center">
-          <span style="color:#6366f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ username }}</span>
-          <span class="badge" style="background:#6366f1;color:#fff;margin-left:6px">{{ post_count }} постов</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
 
 {% set geo_sources = sources | selectattr("post_location") | list %}
 {% set has_geo = geo_sources|length > 0 %}
@@ -330,24 +316,24 @@
     {% if sources %}
     <div id="sourcesList">
       <!-- Заголовок таблицы -->
-      <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 90px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
+      <div id="postsHeader" style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 80px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
         <div>Платформа</div>
         <div>Статус</div>
         <div>Ссылка</div>
         <div>Подрядчик</div>
-        <div style="text-align:right">Комм.</div>
-        <div style="text-align:right">Лайки</div>
-        <div style="text-align:right">Лайкеры</div>
-        <div style="text-align:right">Подп.</div>
-        <div style="text-align:right">ER%</div>
-        <div style="text-align:right">Просмотры</div>
-        <div style="text-align:right">Обновлён</div>
+        <div class="sort-col" data-col="4" style="text-align:right;cursor:pointer" title="Сортировать">Комм. <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="5" style="text-align:right;cursor:pointer" title="Сортировать">Лайки <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="6" style="text-align:right;cursor:pointer" title="Сортировать">Лайкеры <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="7" style="text-align:right;cursor:pointer" title="Сортировать">Подп. <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="8" style="text-align:right;cursor:pointer" title="Сортировать">ER% <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="9" style="text-align:right;cursor:pointer" title="Сортировать">Просмотры <span class="sort-arrow"></span></div>
+        <div style="text-align:right">Опубликован</div>
         <div></div>
       </div>
       {% for s in sources %}
       {% set lk_cnt = liker_per_source.get(s.id, 0) %}
       <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}" data-provider="{{ s.provider or '' }}">
-        <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 90px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem">
+        <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 80px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem" data-er="{{ s.post_er or 0 }}" data-views="{{ s.post_views or 0 }}" data-likes="{{ s.post_likes or 0 }}" data-lk="{{ lk_cnt }}" data-followers="{{ s.post_followers or 0 }}" data-comments="{{ s.comments_count }}">
           <!-- Платформа -->
           <div><span class="badge bg-secondary" style="font-size:.72rem">{{ s.platform }}</span></div>
           <!-- Статус -->
@@ -402,9 +388,9 @@
             {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}
             {% else %}<span class="text-muted">—</span>{% endif %}
           </div>
-          <!-- Дата -->
-          <div style="text-align:right;color:#aaa;font-size:.75rem">
-            {% if s.last_fetched_at %}{{ s.last_fetched_at.strftime('%d.%m %H:%M') }}{% endif %}
+          <!-- Дата публикации -->
+          <div style="text-align:right;color:#888;font-size:.75rem" title="Дата публикации поста">
+            {% if s.post_date %}{{ s.post_date }}{% else %}<span class="text-muted">—</span>{% endif %}
           </div>
           <!-- Удалить -->
           <div>
@@ -531,6 +517,30 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
 </style>
 <script>
 const GEO_PID = {{ project.id }};
+
+// Сортировка таблицы постов
+(function() {
+  const dataKeys = ['comments','likes','lk','followers','er','views'];
+  let sortCol = -1, sortAsc = false;
+  document.querySelectorAll('.sort-col').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.col) - 4;
+      if (sortCol === col) sortAsc = !sortAsc;
+      else { sortCol = col; sortAsc = false; }
+      document.querySelectorAll('.sort-arrow').forEach(a => a.textContent = '');
+      th.querySelector('.sort-arrow').textContent = sortAsc ? ' ▲' : ' ▼';
+      const list = document.getElementById('sourcesList');
+      const rows = [...list.querySelectorAll('.source-row')];
+      rows.sort((a, b) => {
+        const key = dataKeys[col];
+        const va = parseFloat(a.querySelector('[data-er]')?.dataset[key] || 0);
+        const vb = parseFloat(b.querySelector('[data-er]')?.dataset[key] || 0);
+        return sortAsc ? va - vb : vb - va;
+      });
+      rows.forEach(r => list.appendChild(r));
+    });
+  });
+})();
 
 // Лайкеры на посте
 document.querySelectorAll('.toggle-likers').forEach(btn => {

@@ -2771,6 +2771,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         er             = round((likes + comments_total) / views * 100, 2) if views > 0 else None
                         author         = str(m.get("author") or "")
                         followers      = int(m.get("followers") or 0)
+                        post_date      = str(m.get("api_date") or "")
                         db_m = SessionLocal()
                         src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
                         if src_m:
@@ -2783,6 +2784,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                                 if comments_total: src_m.post_comments_total = comments_total
                                 if er is not None: src_m.post_er = er
                                 if author:         src_m.post_author = author
+                                if post_date and not src_m.post_date: src_m.post_date = post_date
                                 # Подписчики собираем только один раз
                                 if followers and not src_m.post_followers:
                                     src_m.post_followers = followers
