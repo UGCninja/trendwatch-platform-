@@ -2297,69 +2297,86 @@ def comment_project_detail(request: Request, pid: int):
         return RedirectResponse("/comments/projects", status_code=302)
     sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
 
-    # GEO stats
-    all_comments = db.query(_StoredComment).filter(
-        _StoredComment.source_id.in_([s.id for s in sources])
-    ).all() if sources else []
+    from sqlalchemy import func as _func
+    from app.models import StoredLiker as _StoredLiker
 
-    lang_counts: dict[str, int] = {}
-    region_counts: dict[str, int] = {}       # только реальный user_region из профиля
-    lang_region_counts: dict[str, int] = {}  # приблизительно: язык → страна
-    for c in all_comments:
-        if c.language:
-            lang_counts[c.language] = lang_counts.get(c.language, 0) + 1
-        if c.user_region:
-            region_counts[c.user_region] = region_counts.get(c.user_region, 0) + 1
-        if c.language:
-            approx = _LANG_TO_COUNTRY.get(c.language)
-            if approx:
-                lang_region_counts[approx] = lang_region_counts.get(approx, 0) + 1
+    # Все stats через SQL агрегацию — не грузим данные в RAM
+    # Язык комментариев
+    lang_rows = (db.query(_StoredComment.language, _func.count(_StoredComment.id))
+        .join(CommentSource, _StoredComment.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid, _StoredComment.language != None, _StoredComment.language != "")
+        .group_by(_StoredComment.language).all())
+    lang_counts = {lang: cnt for lang, cnt in lang_rows}
+
+    # Регион из профиля
+    region_rows = (db.query(_StoredComment.user_region, _func.count(_StoredComment.id))
+        .join(CommentSource, _StoredComment.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid, _StoredComment.user_region != None, _StoredComment.user_region != "")
+        .group_by(_StoredComment.user_region).all())
+    region_counts = {r: cnt for r, cnt in region_rows}
+
+    # Язык → страна (из уже посчитанных lang_counts, без загрузки данных)
+    lang_region_counts: dict[str, int] = {}
+    for lang, cnt in lang_counts.items():
+        approx = _LANG_TO_COUNTRY.get(lang)
+        if approx:
+            lang_region_counts[approx] = lang_region_counts.get(approx, 0) + cnt
+
+    # Итого комментариев
+    total = db.query(_func.count(_StoredComment.id)).join(
+        CommentSource, _StoredComment.source_id == CommentSource.id
+    ).filter(CommentSource.project_id == pid).scalar() or 0
+
+    # Топ комментаторов
+    author_rows = (db.query(_StoredComment.author, _func.count(_StoredComment.id).label("cnt"))
+        .join(CommentSource, _StoredComment.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid, _StoredComment.author != None, _StoredComment.author != "")
+        .group_by(_StoredComment.author)
+        .order_by(_func.count(_StoredComment.id).desc())
+        .limit(30).all())
+    top_commenters = [(author, cnt) for author, cnt in author_rows]
+
+    # Статистика по подрядчикам
+    src_comment_rows = (db.query(_StoredComment.source_id, _func.count(_StoredComment.id))
+        .join(CommentSource, _StoredComment.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid)
+        .group_by(_StoredComment.source_id).all())
+    source_comments = {src_id: cnt for src_id, cnt in src_comment_rows}
 
     def _lang_label(code: str) -> str:
         name = _LANG_NAMES.get(code) or code
         country = _LANG_TO_COUNTRY.get(code)
         return f"{name} · {country}" if country else name
-    # 3-tuple: (display_label, iso_code, count) — iso_code нужен для фильтра комментов
     lang_stats = [(_lang_label(k), k, v) for k, v in sorted(lang_counts.items(), key=lambda x: -x[1])[:10]]
     region_stats = sorted(region_counts.items(), key=lambda x: -x[1])[:10]
     lang_region_stats_comments = sorted(lang_region_counts.items(), key=lambda x: -x[1])[:10]
-    total = len(all_comments)
 
-    # Лайкеры
-    from app.models import StoredLiker as _StoredLiker
-    source_ids = [s.id for s in sources]
-    all_likers = db.query(_StoredLiker).filter(
-        _StoredLiker.source_id.in_(source_ids)
-    ).all() if sources else []
-    liker_region_counts: dict[str, int] = {}
-    liker_per_source: dict[int, int] = {}
-    username_sources: dict[str, set] = {}
-    for lk in all_likers:
-        if lk.user_region:
-            liker_region_counts[lk.user_region] = liker_region_counts.get(lk.user_region, 0) + 1
-        liker_per_source[lk.source_id] = liker_per_source.get(lk.source_id, 0) + 1
-        if lk.username:
-            username_sources.setdefault(lk.username, set()).add(lk.source_id)
-    liker_region_stats = sorted(liker_region_counts.items(), key=lambda x: -x[1])[:10]
-    total_likers = len(set(lk.username for lk in all_likers if lk.username))
-    # Топ лайкеров (все, сортировка по кол-ву постов)
-    top_likers = sorted(
-        [(u, len(srcs)) for u, srcs in username_sources.items()],
-        key=lambda x: -x[1]
-    )[:30]
-    # Повторяющиеся лайкеры (лайкнули 2+ постов в проекте)
+    # Лайкеры — тоже через SQL
+    liker_per_source_rows = (db.query(_StoredLiker.source_id, _func.count(_StoredLiker.id))
+        .join(CommentSource, _StoredLiker.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid)
+        .group_by(_StoredLiker.source_id).all())
+    liker_per_source = {src_id: cnt for src_id, cnt in liker_per_source_rows}
+
+    total_likers = db.query(_func.count(_func.distinct(_StoredLiker.username))).join(
+        CommentSource, _StoredLiker.source_id == CommentSource.id
+    ).filter(CommentSource.project_id == pid).scalar() or 0
+
+    top_likers_rows = (db.query(_StoredLiker.username, _func.count(_func.distinct(_StoredLiker.source_id)).label("posts"))
+        .join(CommentSource, _StoredLiker.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid, _StoredLiker.username != None, _StoredLiker.username != "")
+        .group_by(_StoredLiker.username)
+        .order_by(_func.count(_func.distinct(_StoredLiker.source_id)).desc())
+        .limit(30).all())
+    top_likers = [(u, c) for u, c in top_likers_rows]
     repeated_likers = [(u, c) for u, c in top_likers if c > 1]
 
-    author_counts: dict[str, int] = {}
-    for c in all_comments:
-        if c.author:
-            author_counts[c.author] = author_counts.get(c.author, 0) + 1
-    top_commenters = sorted(author_counts.items(), key=lambda x: -x[1])[:30]
-
-    # Статистика по подрядчикам
-    source_comments = {}
-    for c in all_comments:
-        source_comments[c.source_id] = source_comments.get(c.source_id, 0) + 1
+    liker_region_rows = (db.query(_StoredLiker.user_region, _func.count(_StoredLiker.id))
+        .join(CommentSource, _StoredLiker.source_id == CommentSource.id)
+        .filter(CommentSource.project_id == pid, _StoredLiker.user_region != None, _StoredLiker.user_region != "")
+        .group_by(_StoredLiker.user_region).all())
+    liker_region_counts = {r: cnt for r, cnt in liker_region_rows}
+    liker_region_stats = sorted(liker_region_counts.items(), key=lambda x: -x[1])[:10]
 
     provider_stats = {}
     for s in sources:
