@@ -2794,17 +2794,16 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         except Exception:
             pass
 
-        # Лайкеры — только Instagram, только если есть Apify токен
+        # Лайкеры — автоцикл пока все Instagram посты не покрыты
         task["status"] = "collecting_likers"
-        try:
-            from app.models import StoredLiker as _SL
-            # Лайкеры: берём все Instagram посты без лайков (игнорируем 12ч правило)
-            ig_active = [s for s in all_sources
-                         if (s.platform or _detect_platform(s.url)) == "Instagram"
-                         and (s.likers_count or 0) == 0]
-            task["likers_ig_count"] = len(ig_active)
-            task["likers_saved"] = 0
-            if ig_active and apify_token:
+        task["likers_saved"] = 0
+        if apify_token:
+            try:
+                from app.models import StoredLiker as _SL
+                BATCH = 30
+                MAX_TOTAL_SECONDS = 7200  # 2 часа максимум
+                lk_start = time.time()
+
                 async def collect_likers(lk_client: httpx.AsyncClient, source):
                     likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
                     saved = _save_likers_to_db(source.id, likers, "Instagram")
@@ -2816,34 +2815,35 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db_lk.commit()
                     db_lk.close()
 
-                async with httpx.AsyncClient(timeout=140) as lk_client:
-                    sem_lk = asyncio.Semaphore(3)
-                    async def _lk_guarded(s):
-                        async with sem_lk:
-                            await collect_likers(lk_client, s)
-                    await asyncio.wait_for(
-                        asyncio.gather(*[_lk_guarded(s) for s in ig_active[:50]], return_exceptions=True),
-                        timeout=300  # 5 минут максимум на лайкеров
-                    )
+                sem_lk = asyncio.Semaphore(5)
+                async def _lk_guarded(lk_client, s):
+                    async with sem_lk:
+                        await collect_likers(lk_client, s)
 
-                # Apify profile lookup для лайкеров без региона
-                db_geo2 = SessionLocal()
-                lk_src_ids = [s.id for s in ig_active]
-                lk_no_region = (db_geo2.query(_SL)
-                    .filter(_SL.source_id.in_(lk_src_ids))
-                    .filter((_SL.user_region == None) | (_SL.user_region == "")).all())
-                if lk_no_region and apify_token:
-                    lk_usernames = list({l.username.lstrip("@") for l in lk_no_region if l.username})
-                    async with httpx.AsyncClient(timeout=140) as geo2_client:
-                        lk_apify_regions = await _fetch_ig_regions_apify(geo2_client, lk_usernames, apify_token)
-                    for l in lk_no_region:
-                        r = lk_apify_regions.get((l.username or "").lstrip("@").lower(), "")
-                        if r:
-                            l.user_region = r
-                    db_geo2.commit()
-                db_geo2.close()
-        except Exception:
-            pass
+                async with httpx.AsyncClient(timeout=140) as lk_client:
+                    while time.time() - lk_start < MAX_TOTAL_SECONDS:
+                        if task.get("status") == "cancelled":
+                            break
+                        # Перечитываем из БД — берём только ещё не обработанные
+                        db_remaining = SessionLocal()
+                        remaining = (db_remaining.query(CommentSource)
+                            .filter(CommentSource.project_id == pid,
+                                    CommentSource.platform == "Instagram",
+                                    (CommentSource.likers_count == None) | (CommentSource.likers_count == 0))
+                            .limit(BATCH).all())
+                        db_remaining.close()
+                        if not remaining:
+                            break
+                        task["likers_ig_count"] = len(remaining)
+                        try:
+                            await asyncio.wait_for(
+                                asyncio.gather(*[_lk_guarded(lk_client, s) for s in remaining], return_exceptions=True),
+                                timeout=300
+                            )
+                        except asyncio.TimeoutError:
+                            pass
+            except Exception:
+                pass
 
         # Total comments
         db3 = SessionLocal()
