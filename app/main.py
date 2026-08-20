@@ -1844,6 +1844,58 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
     return []
 
 
+async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: str) -> list[dict]:
+    """Fetch replies to an X/Twitter post via Apify scraper_one~x-post-replies-scr."""
+    if not apify_token:
+        return []
+    try:
+        r = await client.post(
+            "https://api.apify.com/v2/acts/scraper_one~x-post-replies-scr/run-sync-get-dataset-items",
+            params={"token": apify_token, "timeout": 120},
+            json={"startUrls": [{"url": url}], "maxReplies": 200},
+            timeout=130,
+        )
+        if r.status_code not in (200, 201):
+            return []
+        items = r.json()
+        out = []
+        for c in items:
+            # Пробуем разные варианты полей — акторы X отличаются по схеме
+            author = (
+                c.get("author", {}).get("userName") or
+                c.get("username") or
+                c.get("user", {}).get("screen_name") or ""
+            )
+            text = c.get("text") or c.get("fullText") or c.get("full_text") or ""
+            likes = int(c.get("likeCount") or c.get("favorite_count") or c.get("likes") or 0)
+            raw_date = c.get("createdAt") or c.get("created_at") or ""
+            date = ""
+            try:
+                if raw_date:
+                    date = _dt.fromisoformat(raw_date.replace("Z", "+00:00")).strftime("%d.%m.%Y")
+            except Exception:
+                try:
+                    date = _dt.strptime(raw_date, "%a %b %d %H:%M:%S +0000 %Y").strftime("%d.%m.%Y")
+                except Exception:
+                    date = str(raw_date)[:10]
+            comment_id = str(c.get("id") or c.get("tweetId") or c.get("tweet_id") or "")
+            if not comment_id or not text:
+                continue
+            out.append({
+                "comment_id": comment_id,
+                "post_url":   url,
+                "platform":   "X",
+                "author":     "@" + author if author and not author.startswith("@") else author,
+                "comment":    text,
+                "likes":      likes,
+                "date":       date,
+                "is_reply":   True,
+            })
+        return out
+    except Exception:
+        return []
+
+
 async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: str) -> list[dict]:
     r = await client.get(
         "https://api.scrapecreators.com/v1/youtube/video/comments",
@@ -2475,13 +2527,10 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         db.close()
 
         task = _comments_tasks[task_id]
-        # Пропускаем Twitter/X — комментарии не собираем
-        active_sources = [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
-        skipped_x = len(sources) - len(active_sources)
+        # X/Twitter собираем через Apify если токен есть, иначе пропускаем
+        active_sources = sources if apify_token else [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
         task["total"] = len(active_sources)
         task["status"] = "collecting"
-        if skipped_x:
-            task["skipped_x"] = skipped_x
 
         sem = asyncio.Semaphore(5)  # 5 постов параллельно
 
@@ -2497,6 +2546,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         comments = await _fetch_comments_instagram(client, source.url, sc_key, apify_token)
                     elif platform == "YouTube":
                         comments = await _fetch_comments_youtube(client, source.url, sc_key)
+                    elif platform in ("X", "Twitter"):
+                        comments = await _fetch_comments_x(client, source.url, apify_token)
                     else:
                         comments = []
 
