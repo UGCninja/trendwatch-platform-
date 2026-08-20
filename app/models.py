@@ -83,11 +83,13 @@ class Run(Base):
 class CommentProject(Base):
     __tablename__ = "comment_projects"
 
-    id         = Column(Integer, primary_key=True)
-    name       = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    schedule   = Column(String, default="manual")   # manual / daily / weekly
+    id            = Column(Integer, primary_key=True)
+    name          = Column(String, nullable=False, unique=True)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+    schedule      = Column(String, default="manual")
     schedule_time = Column(String, default="10:00")
+    last_sc_spend    = Column(Integer, nullable=True)   # SC кредиты потраченные за последний запуск
+    last_apify_spend = Column(Float, nullable=True)     # Apify $ потраченные за последний запуск
 
 
 class CommentSource(Base):

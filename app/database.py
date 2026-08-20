@@ -57,6 +57,8 @@ def init_db():
     _run_migration("ALTER TABLE stored_likers ADD COLUMN full_name VARCHAR")
     _run_migration("ALTER TABLE stored_likers ADD COLUMN is_verified BOOLEAN DEFAULT FALSE")
     _run_migration("ALTER TABLE stored_likers ADD COLUMN is_private BOOLEAN DEFAULT FALSE")
+    _run_migration("ALTER TABLE comment_projects ADD COLUMN last_sc_spend INTEGER")
+    _run_migration("ALTER TABLE comment_projects ADD COLUMN last_apify_spend FLOAT")
 
     from app.models import Vertical
     db = SessionLocal()

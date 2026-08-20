@@ -2312,6 +2312,8 @@ def comment_projects_list(request: Request):
             "total_likers": total_likers,
             "last_fetched": last_fetched,
             "task_status": task_status,
+            "last_sc_spend": p.last_sc_spend,
+            "last_apify_spend": p.last_apify_spend,
         })
     db.close()
     return templates.TemplateResponse(request=request, name="comment_projects.html",
@@ -2668,6 +2670,9 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         db.close()
 
         task = _comments_tasks[task_id]
+        # Фиксируем балансы до запуска
+        sc_before = _sc_credits or 0
+        apify_before = (_apify_balance or {}).get("usage", 0.0)
         # X/Twitter собираем через Apify если токен есть, иначе пропускаем
         all_sources = sources if apify_token else [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
 
@@ -2867,6 +2872,24 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         total = sum(s.comments_count for s in srcs)
         db3.close()
         task["comments_count"] = total
+
+        # Сохраняем расход по сервисам
+        try:
+            _fetch_apify_balance_sync()  # обновляем баланс Apify
+            sc_after    = _sc_credits or 0
+            apify_after = (_apify_balance or {}).get("usage", 0.0)
+            sc_spend    = max(0, sc_before - sc_after)
+            apify_spend = round(max(0.0, apify_after - apify_before), 4)
+            db_spend = SessionLocal()
+            proj = db_spend.query(CommentProject).filter(CommentProject.id == pid).first()
+            if proj:
+                proj.last_sc_spend    = sc_spend
+                proj.last_apify_spend = apify_spend
+                db_spend.commit()
+            db_spend.close()
+        except Exception:
+            pass
+
         task["status"] = "done"
 
     asyncio.run(_inner())
