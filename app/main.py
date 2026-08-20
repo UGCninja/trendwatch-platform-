@@ -2763,7 +2763,10 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         task["status"] = "collecting_likers"
         try:
             from app.models import StoredLiker as _SL
-            ig_active = [s for s in active_sources if (s.platform or _detect_platform(s.url)) == "Instagram"]
+            # Лайкеры: берём все Instagram посты без лайков (игнорируем 12ч правило)
+            ig_active = [s for s in all_sources
+                         if (s.platform or _detect_platform(s.url)) == "Instagram"
+                         and (s.likers_count or 0) == 0]
             if ig_active and apify_token:
                 async def collect_likers(lk_client: httpx.AsyncClient, source):
                     likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
