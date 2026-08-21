@@ -2801,42 +2801,9 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         except Exception:
             pass
 
-        # GEO батчем в конце — один вызов на всех авторов
-        task["status"] = "geo_lookup"
-        try:
-            from app.models import StoredComment as _SC2
-            db_bf = SessionLocal()
-            source_ids = [s.id for s in db_bf.query(CommentSource).filter(CommentSource.project_id == pid).all()]
-
-            # TikTok: fallback для тех у кого нет authorRegion
-            tk_no_region = (db_bf.query(_SC2)
-                .filter(_SC2.source_id.in_(source_ids), _SC2.platform == "TikTok")
-                .filter((_SC2.user_region == None) | (_SC2.user_region == "")).all())
-            if tk_no_region and apify_token:
-                tk_authors = list({c.author.lstrip("@") for c in tk_no_region if c.author})
-                tk_regions = await _fetch_tiktok_regions_apify(tk_authors)
-                for c in tk_no_region:
-                    r = tk_regions.get((c.author or "").lstrip("@").lower(), "")
-                    if r: c.user_region = r
-                db_bf.commit()
-
-            # Instagram: Apify profile scraper (About country) + instagrapi bio fallback
-            ig_no_region = (db_bf.query(_SC2)
-                .filter(_SC2.source_id.in_(source_ids), _SC2.platform == "Instagram")
-                .filter((_SC2.user_region == None) | (_SC2.user_region == "")).all())
-            if ig_no_region:
-                ig_authors = list({c.author.lstrip("@") for c in ig_no_region if c.author})
-                async with httpx.AsyncClient(timeout=140) as geo_client:
-                    apify_regions = await _fetch_ig_regions_apify(geo_client, ig_authors, apify_token) if apify_token else {}
-                # instagrapi fallback пропускаем — не работает на Railway (висит на логине)
-                for c in ig_no_region:
-                    r = apify_regions.get((c.author or "").lstrip("@").lower(), "")
-                    if r: c.user_region = r
-                db_bf.commit()
-
-            db_bf.close()
-        except Exception:
-            pass
+        # GEO: только authorRegion из TikTok (приходит бесплатно с комментами)
+        # Apify profile lookup для TikTok и Instagram отключён — нестабильно и дорого
+        # Регион определяется через langdetect по тексту комментария (бесплатно)
 
         # Лайкеры — автоцикл пока все Instagram посты не покрыты
         task["status"] = "collecting_likers"

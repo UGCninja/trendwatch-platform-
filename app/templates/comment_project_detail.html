@@ -220,24 +220,8 @@
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
         <div class="fw-semibold mb-1">Регион из профиля</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">Точное · из аккаунта автора</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">TikTok authorRegion · только точные данные</div>
         {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "9rem", "region", region) }}{% endfor %}
-        <div class="mt-auto pt-3">
-          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
-          <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            TikTok: <b>authorRegion</b> возвращается прямо в данных комментария (Apify). Instagram: поле "About this account" из профиля — заполнено только у крупных бизнес-аккаунтов.
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <div class="col-md-3">
-    <div class="card h-100">
-      <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Регион из профиля</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">Точное · из аккаунта автора</div>
-        <div class="text-muted" style="font-size:.82rem">Нет данных. Появится после сбора — только TikTok (authorRegion) и крупные бизнес-аккаунты Instagram.</div>
       </div>
     </div>
   </div>
