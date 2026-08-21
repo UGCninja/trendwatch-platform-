@@ -115,6 +115,7 @@ class CommentSource(Base):
     status          = Column(String, default="active")   # active / deleted
     provider        = Column(String, nullable=True)      # подрядчик из CSV
     creator         = Column(String, nullable=True)      # креатор из CSV
+    metrics_updated_at = Column(DateTime, nullable=True)
     __table_args__  = (UniqueConstraint("project_id", "url"),)
 
 

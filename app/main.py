@@ -1894,41 +1894,7 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
 
 
 async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
-    # 1. Apify — самый надёжный, не требует логина в Instagram
-    if apify_token:
-        try:
-            r = await client.post(
-                "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
-                params={"token": apify_token, "timeout": 120},
-                json={"directUrls": [url], "resultsLimit": 200},
-                timeout=130,
-            )
-            if r.status_code in (200, 201):
-                items = r.json()
-                if items:
-                    out = []
-                    for c in items:
-                        ts = c.get("timestamp") or c.get("created_at") or ""
-                        try:
-                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
-                        except Exception:
-                            date = str(ts)[:10] if ts else ""
-                        out.append({
-                            "comment_id": str(c.get("id") or c.get("commentId") or ""),
-                            "post_url":   url,
-                            "platform":   "Instagram",
-                            "author":     "@" + (c.get("ownerUsername") or c.get("username") or ""),
-                            "comment":    c.get("text") or c.get("comment") or "",
-                            "likes":      c.get("likesCount") or c.get("likes") or 0,
-                            "date":       date,
-                            "is_reply":   bool(c.get("repliedToId") or c.get("is_reply")),
-                        })
-                    if out:
-                        return out
-        except Exception:
-            pass
-
-    # 2. ScrapeCreators fallback
+    # 1. ScrapeCreators — primary (фиксированная подписка, не тратит Apify)
     try:
         r = await client.get(
             "https://api.scrapecreators.com/v2/instagram/post/comments",
@@ -1961,6 +1927,40 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
     except Exception as e:
         if "media not found" in str(e):
             raise
+
+    # 2. Apify fallback — если SC вернул пустой результат
+    if apify_token:
+        try:
+            r = await client.post(
+                "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
+                params={"token": apify_token, "timeout": 120},
+                json={"directUrls": [url], "resultsLimit": 200},
+                timeout=130,
+            )
+            if r.status_code in (200, 201):
+                items = r.json()
+                if items:
+                    out = []
+                    for c in items:
+                        ts = c.get("timestamp") or c.get("created_at") or ""
+                        try:
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                        except Exception:
+                            date = str(ts)[:10] if ts else ""
+                        out.append({
+                            "comment_id": str(c.get("id") or c.get("commentId") or ""),
+                            "post_url":   url,
+                            "platform":   "Instagram",
+                            "author":     "@" + (c.get("ownerUsername") or c.get("username") or ""),
+                            "comment":    c.get("text") or c.get("comment") or "",
+                            "likes":      c.get("likesCount") or c.get("likes") or 0,
+                            "date":       date,
+                            "is_reply":   bool(c.get("repliedToId") or c.get("is_reply")),
+                        })
+                    if out:
+                        return out
+        except Exception:
+            pass
 
     return []
 
@@ -2760,6 +2760,9 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             async with httpx.AsyncClient(timeout=20) as mc:
                 async def fetch_and_save_metrics(source):
                     try:
+                        # Кэш 7 дней: пропускаем если метрики обновлялись менее 7 дней назад
+                        if source.metrics_updated_at and (datetime.utcnow() - source.metrics_updated_at).days < 7:
+                            return
                         m = await _fetch_metrics(mc, source.url, sc_key,
                                                   fetch_followers=not bool(source.post_followers))
                         views          = int(m.get("api_views") or 0)
@@ -2785,6 +2788,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                                 # Подписчики собираем только один раз
                                 if followers and not src_m.post_followers:
                                     src_m.post_followers = followers
+                                src_m.metrics_updated_at = datetime.utcnow()
                             db_m.commit()
                         db_m.close()
                     except Exception:
@@ -2805,15 +2809,12 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         # Apify profile lookup для TikTok и Instagram отключён — нестабильно и дорого
         # Регион определяется через langdetect по тексту комментария (бесплатно)
 
-        # Лайкеры — автоцикл пока все Instagram посты не покрыты
+        # Лайкеры — однократный сбор только для новых постов (likers_count = 0)
         task["status"] = "collecting_likers"
         task["likers_saved"] = 0
         if apify_token:
             try:
                 from app.models import StoredLiker as _SL
-                BATCH = 30
-                MAX_TOTAL_SECONDS = 7200  # 2 часа максимум
-                lk_start = time.time()
 
                 async def collect_likers(lk_client: httpx.AsyncClient, source):
                     likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
@@ -2831,24 +2832,19 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                     async with sem_lk:
                         await collect_likers(lk_client, s)
 
-                async with httpx.AsyncClient(timeout=140) as lk_client:
-                    while time.time() - lk_start < MAX_TOTAL_SECONDS:
-                        if task.get("status") == "cancelled":
-                            break
-                        # Перечитываем из БД — берём только ещё не обработанные
-                        db_remaining = SessionLocal()
-                        remaining = (db_remaining.query(CommentSource)
-                            .filter(CommentSource.project_id == pid,
-                                    CommentSource.platform == "Instagram",
-                                    (CommentSource.likers_count == None) | (CommentSource.likers_count == 0))
-                            .limit(BATCH).all())
-                        db_remaining.close()
-                        if not remaining:
-                            break
-                        task["likers_ig_count"] = len(remaining)
+                db_lk0 = SessionLocal()
+                pending = (db_lk0.query(CommentSource)
+                    .filter(CommentSource.project_id == pid,
+                            CommentSource.platform == "Instagram",
+                            (CommentSource.likers_count == None) | (CommentSource.likers_count == 0))
+                    .all())
+                db_lk0.close()
+                if pending:
+                    task["likers_ig_count"] = len(pending)
+                    async with httpx.AsyncClient(timeout=140) as lk_client:
                         try:
                             await asyncio.wait_for(
-                                asyncio.gather(*[_lk_guarded(lk_client, s) for s in remaining], return_exceptions=True),
+                                asyncio.gather(*[_lk_guarded(lk_client, s) for s in pending], return_exceptions=True),
                                 timeout=300
                             )
                         except asyncio.TimeoutError:
@@ -2883,6 +2879,64 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         task["status"] = "done"
 
     asyncio.run(_inner())
+
+
+def _run_collect_likers_task(task_id: str, pid: int, apify_token: str):
+    task = _comments_tasks[task_id]
+    task["status"] = "collecting_likers"
+    task["likers_saved"] = 0
+    try:
+        from app.models import StoredLiker as _SL
+
+        async def _run():
+            async def collect_likers(lk_client, source):
+                likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
+                saved = _save_likers_to_db(source.id, likers, "Instagram")
+                task["likers_saved"] = task.get("likers_saved", 0) + saved
+                db_lk = SessionLocal()
+                src_lk = db_lk.query(CommentSource).filter(CommentSource.id == source.id).first()
+                if src_lk:
+                    src_lk.likers_count = db_lk.query(_SL).filter(_SL.source_id == source.id).count()
+                    db_lk.commit()
+                db_lk.close()
+
+            sem_lk = asyncio.Semaphore(5)
+            async def _lk_guarded(lk_client, s):
+                async with sem_lk:
+                    await collect_likers(lk_client, s)
+
+            db_all = SessionLocal()
+            sources = (db_all.query(CommentSource)
+                .filter(CommentSource.project_id == pid,
+                        CommentSource.platform == "Instagram")
+                .all())
+            db_all.close()
+            task["likers_ig_count"] = len(sources)
+            if sources:
+                async with httpx.AsyncClient(timeout=140) as lk_client:
+                    await asyncio.gather(*[_lk_guarded(lk_client, s) for s in sources], return_exceptions=True)
+
+        asyncio.run(_run())
+        task["status"] = "done"
+    except Exception as e:
+        task["status"] = "error"
+        task["error"] = str(e)
+
+
+@app.post("/comments/projects/{pid}/collect-likers")
+async def comment_project_collect_likers(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not APIFY_TOKEN:
+        return JSONResponse({"error": "no apify token"}, status_code=400)
+    task_id = str(uuid.uuid4())
+    _comments_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time(), "project_id": pid}
+    threading.Thread(
+        target=_run_collect_likers_task,
+        args=[task_id, pid, APIFY_TOKEN],
+        daemon=True,
+    ).start()
+    return JSONResponse({"ok": True, "task_id": task_id})
 
 
 @app.post("/comments/projects/{pid}/run")

@@ -49,6 +49,7 @@
         </div>
         <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Скачать CSV</a>
         <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Пересчитать языки</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Собрать лайкеры</button>
       </div>
     </div>
   </div>
@@ -558,6 +559,25 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
     this.textContent = this.textContent.replace('▾', '▴');
   });
 });
+
+async function collectLikers(btn) {
+  btn.disabled = true;
+  btn.textContent = '♥ Сбор...';
+  try {
+    const r = await fetch(`/comments/projects/${GEO_PID}/collect-likers`, {method:'POST'});
+    const d = await r.json();
+    if (d.ok) {
+      btn.textContent = '✓ Запущено';
+      setTimeout(() => { btn.textContent = '♥ Собрать лайкеры'; btn.disabled = false; }, 3000);
+    } else {
+      btn.textContent = '✕ ' + (d.error || 'Ошибка');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = '✕ Ошибка';
+    btn.disabled = false;
+  }
+}
 
 async function recalcLangs(btn) {
   btn.disabled = true;
