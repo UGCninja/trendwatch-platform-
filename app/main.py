@@ -2405,13 +2405,13 @@ def comment_project_detail(request: Request, pid: int):
     ).filter(CommentSource.project_id == pid).scalar() or 0
 
     # Топ комментаторов
-    author_rows = (db.query(_StoredComment.author, _func.count(_StoredComment.id).label("cnt"))
+    author_rows = (db.query(_StoredComment.author, _func.count(_StoredComment.id).label("cnt"), _func.max(_StoredComment.platform).label("platform"))
         .join(CommentSource, _StoredComment.source_id == CommentSource.id)
         .filter(CommentSource.project_id == pid, _StoredComment.author != None, _StoredComment.author != "")
         .group_by(_StoredComment.author)
         .order_by(_func.count(_StoredComment.id).desc())
         .limit(30).all())
-    top_commenters = [(author, cnt) for author, cnt in author_rows]
+    top_commenters = [(author, cnt, platform) for author, cnt, platform in author_rows]
 
     # Статистика по подрядчикам
     src_comment_rows = (db.query(_StoredComment.source_id, _func.count(_StoredComment.id))
