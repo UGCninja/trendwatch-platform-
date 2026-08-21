@@ -2619,11 +2619,8 @@ async def comments_by_filter(request: Request, pid: int, type: str = "", value: 
     if type == "language":
         q = q.filter(_StoredComment.language == value)
     elif type == "region":
-        lang_codes = [k for k, v in _LANG_TO_COUNTRY.items() if v == value]
-        conds = [_StoredComment.user_region == value]
-        if lang_codes:
-            conds.append(_StoredComment.language.in_(lang_codes))
-        q = q.filter(or_(*conds))
+        # Только реальный user_region из профиля — без примеси языкового определения
+        q = q.filter(_StoredComment.user_region == value)
     comments = q.order_by(_StoredComment.fetched_at.desc()).limit(100).all()
     db.close()
     return JSONResponse([{
