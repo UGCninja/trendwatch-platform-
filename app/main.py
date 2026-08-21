@@ -2263,6 +2263,28 @@ def comments_task_page(request: Request, task_id: str):
                                       context={"active_page": "comments", "task_id": task_id})
 
 
+@app.get("/api/comments/projects/{pid}/diag")
+def comment_project_diag(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db = SessionLocal()
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+    db.close()
+    by_platform = {}
+    for s in sources:
+        p = s.platform or "unknown"
+        if p not in by_platform:
+            by_platform[p] = {"total": 0, "no_comments": 0, "no_views": 0, "no_likes": 0, "deleted": 0, "sample_urls": []}
+        by_platform[p]["total"] += 1
+        if not s.comments_count:       by_platform[p]["no_comments"] += 1
+        if s.post_views  is None:      by_platform[p]["no_views"]    += 1
+        if s.post_likes  is None:      by_platform[p]["no_likes"]    += 1
+        if s.status == "deleted":      by_platform[p]["deleted"]     += 1
+        if len(by_platform[p]["sample_urls"]) < 3 and not s.comments_count:
+            by_platform[p]["sample_urls"].append(s.url)
+    return JSONResponse({"pid": pid, "total": len(sources), "by_platform": by_platform})
+
+
 @app.get("/api/comments/status/{task_id}")
 def comments_task_status(request: Request, task_id: str):
     if not check_auth(request):
