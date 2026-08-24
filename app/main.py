@@ -1901,7 +1901,47 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
 
 async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
     url = _normalize_ig_url(url)
-    # 1. ScrapeCreators — primary (фиксированная подписка, не тратит Apify)
+    # 1. Apify — primary (надёжнее для Instagram)
+    if apify_token:
+        try:
+            r = await client.post(
+                "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
+                params={"token": apify_token, "timeout": 120},
+                json={"directUrls": [url], "resultsLimit": 200},
+                timeout=130,
+            )
+            if r.status_code in (200, 201):
+                items = r.json()
+                # Фильтруем error-ответы Apify (no_items, empty/private)
+                real_items = [c for c in items if not c.get("error")] if isinstance(items, list) else []
+                if not real_items and isinstance(items, list) and items:
+                    # Apify вернул только ошибки — пост недоступен
+                    raise Exception("no_items: unavailable")
+                if real_items:
+                    out = []
+                    for c in real_items:
+                        ts = c.get("timestamp") or c.get("created_at") or ""
+                        try:
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                        except Exception:
+                            date = str(ts)[:10] if ts else ""
+                        out.append({
+                            "comment_id": str(c.get("id") or c.get("commentId") or ""),
+                            "post_url":   url,
+                            "platform":   "Instagram",
+                            "author":     "@" + (c.get("ownerUsername") or c.get("username") or ""),
+                            "comment":    c.get("text") or c.get("comment") or "",
+                            "likes":      c.get("likesCount") or c.get("likes") or 0,
+                            "date":       date,
+                            "is_reply":   bool(c.get("repliedToId") or c.get("is_reply")),
+                        })
+                    if out:
+                        return out
+        except Exception as apify_err:
+            if "no_items" in str(apify_err):
+                raise Exception("no_items: unavailable")
+
+    # 2. ScrapeCreators fallback
     try:
         r = await client.get(
             "https://api.scrapecreators.com/v2/instagram/post/comments",
@@ -1934,40 +1974,6 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
     except Exception as e:
         if "media not found" in str(e):
             raise
-
-    # 2. Apify fallback — если SC вернул пустой результат
-    if apify_token:
-        try:
-            r = await client.post(
-                "https://api.apify.com/v2/acts/apify~instagram-comment-scraper/run-sync-get-dataset-items",
-                params={"token": apify_token, "timeout": 120},
-                json={"directUrls": [url], "resultsLimit": 200},
-                timeout=130,
-            )
-            if r.status_code in (200, 201):
-                items = r.json()
-                if items:
-                    out = []
-                    for c in items:
-                        ts = c.get("timestamp") or c.get("created_at") or ""
-                        try:
-                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
-                        except Exception:
-                            date = str(ts)[:10] if ts else ""
-                        out.append({
-                            "comment_id": str(c.get("id") or c.get("commentId") or ""),
-                            "post_url":   url,
-                            "platform":   "Instagram",
-                            "author":     "@" + (c.get("ownerUsername") or c.get("username") or ""),
-                            "comment":    c.get("text") or c.get("comment") or "",
-                            "likes":      c.get("likesCount") or c.get("likes") or 0,
-                            "date":       date,
-                            "is_reply":   bool(c.get("repliedToId") or c.get("is_reply")),
-                        })
-                    if out:
-                        return out
-        except Exception:
-            pass
 
     return []
 
@@ -2281,12 +2287,13 @@ def comment_project_diag(request: Request, pid: int):
     for s in sources:
         p = s.platform or "unknown"
         if p not in by_platform:
-            by_platform[p] = {"total": 0, "no_comments": 0, "no_views": 0, "no_likes": 0, "deleted": 0, "sample_urls": []}
+            by_platform[p] = {"total": 0, "no_comments": 0, "no_views": 0, "no_likes": 0, "deleted": 0, "unavailable": 0, "sample_urls": []}
         by_platform[p]["total"] += 1
-        if not s.comments_count:       by_platform[p]["no_comments"] += 1
-        if s.post_views  is None:      by_platform[p]["no_views"]    += 1
-        if s.post_likes  is None:      by_platform[p]["no_likes"]    += 1
-        if s.status == "deleted":      by_platform[p]["deleted"]     += 1
+        if not s.comments_count:         by_platform[p]["no_comments"]  += 1
+        if s.post_views  is None:        by_platform[p]["no_views"]     += 1
+        if s.post_likes  is None:        by_platform[p]["no_likes"]     += 1
+        if s.status == "deleted":        by_platform[p]["deleted"]      += 1
+        if s.status == "unavailable":    by_platform[p]["unavailable"]  += 1
         if len(by_platform[p]["sample_urls"]) < 3 and not s.comments_count:
             by_platform[p]["sample_urls"].append(s.url)
     return JSONResponse({"pid": pid, "total": len(sources), "by_platform": by_platform})
@@ -2891,6 +2898,22 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                             pass
             except Exception:
                 pass
+
+        # Sweep: маркируем active-посты без метрик как unavailable
+        try:
+            db_sw = SessionLocal()
+            unchecked = db_sw.query(CommentSource).filter(
+                CommentSource.project_id == pid,
+                CommentSource.status == "active",
+                CommentSource.last_fetched_at != None,
+                CommentSource.post_views == None,
+            ).all()
+            for s in unchecked:
+                s.status = "unavailable"
+            db_sw.commit()
+            db_sw.close()
+        except Exception:
+            pass
 
         # Total comments
         db3 = SessionLocal()
