@@ -2488,11 +2488,13 @@ def comment_project_detail(request: Request, pid: int):
     for s in sources:
         p = s.provider or "—"
         if p not in provider_stats:
-            provider_stats[p] = {"posts": 0, "comments": 0, "active": 0, "deleted": 0}
+            provider_stats[p] = {"posts": 0, "comments": 0, "active": 0, "deleted": 0, "unavailable": 0}
         provider_stats[p]["posts"] += 1
         provider_stats[p]["comments"] += source_comments.get(s.id, 0)
         if s.status == "deleted":
             provider_stats[p]["deleted"] += 1
+        elif s.status == "unavailable":
+            provider_stats[p]["unavailable"] += 1
         else:
             provider_stats[p]["active"] += 1
     provider_stats = sorted(provider_stats.items(), key=lambda x: -x[1]["comments"])
@@ -2768,11 +2770,17 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 except Exception as fetch_err:
                     err_str = str(fetch_err).lower()
                     if any(x in err_str for x in ["not found", "404", "deleted", "media not found", "no media", "media_not_found"]):
+                        new_status = "deleted"
+                    elif any(x in err_str for x in ["no_items", "empty or private", "unavailable", "blocked", "500"]):
+                        new_status = "unavailable"
+                    else:
+                        new_status = None
+                    if new_status:
                         try:
                             db_err = SessionLocal()
                             src_err = db_err.query(CommentSource).filter(CommentSource.id == source.id).first()
-                            if src_err:
-                                src_err.status = "deleted"
+                            if src_err and src_err.status == "active":
+                                src_err.status = new_status
                                 db_err.commit()
                             db_err.close()
                         except Exception:
@@ -2804,9 +2812,12 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         db_m = SessionLocal()
                         src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
                         if src_m:
-                            # Пост удалён — ставим статус deleted
                             if m.get("status") == "Non-Active":
                                 src_m.status = "deleted"
+                            elif m.get("status") == "Not Updated":
+                                # Пост существует но скрапер не может получить данные
+                                if src_m.status == "active":
+                                    src_m.status = "unavailable"
                             else:
                                 if views:          src_m.post_views = views
                                 if likes:          src_m.post_likes = likes
