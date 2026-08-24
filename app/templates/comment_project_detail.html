@@ -49,6 +49,7 @@
         </div>
         <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Комментарии CSV</a>
         <a href="/comments/projects/{{ project.id }}/download-likers" class="btn btn-outline-secondary btn-sm">⬇ Лайкеры CSV</a>
+        <button class="btn btn-outline-success btn-sm" onclick="exportSheets(this)">↗ Google Sheets</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Пересчитать языки</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Собрать лайкеры</button>
       </div>
@@ -586,6 +587,26 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
     this.textContent = this.textContent.replace('▾', '▴');
   });
 });
+
+async function exportSheets(btn) {
+  btn.disabled = true;
+  btn.textContent = '↗ Создаю...';
+  try {
+    const r = await fetch(`/comments/projects/${GEO_PID}/export-sheets`, {method:'POST'});
+    const d = await r.json();
+    if (d.url) {
+      btn.textContent = '✓ Открыть';
+      btn.onclick = () => window.open(d.url, '_blank');
+      btn.disabled = false;
+    } else {
+      btn.textContent = '✕ ' + (d.error || 'Ошибка');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = '✕ Ошибка';
+    btn.disabled = false;
+  }
+}
 
 async function collectLikers(btn) {
   btn.disabled = true;

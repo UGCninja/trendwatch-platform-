@@ -28,6 +28,8 @@ INSTAGRAM_SESSION_JSON  = os.getenv("INSTAGRAM_SESSION_JSON", "")
 APIFY_TOKEN             = os.getenv("APIFY_TOKEN", "")
 INSTAGRAM_USERNAME      = os.getenv("INSTAGRAM_USERNAME", "")
 INSTAGRAM_PASSWORD      = os.getenv("INSTAGRAM_PASSWORD", "")
+GOOGLE_SA_JSON          = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+REPORT_SHARE_EMAIL      = "yd@ugc.ninja"
 
 # ── Instagram client (instagrapi) ─────────────────────────────────────────────
 _ig_client = None
@@ -3085,6 +3087,93 @@ def comment_project_task_status(request: Request, pid: int):
                 "likers_saved": task.get("likers_saved"),
             })
     return JSONResponse({"status": "idle"})
+
+
+@app.post("/comments/projects/{pid}/export-sheets")
+async def comment_project_export_sheets(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not GOOGLE_SA_JSON:
+        return JSONResponse({"error": "GOOGLE_SERVICE_ACCOUNT_JSON not configured"}, status_code=500)
+    try:
+        import json as _json
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        sa_info = _json.loads(GOOGLE_SA_JSON)
+        creds = Credentials.from_service_account_info(sa_info, scopes=[
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ])
+        gc = gspread.authorize(creds)
+
+        db = SessionLocal()
+        from app.models import StoredLiker
+        project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+        sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+        src_map = {s.id: s for s in sources}
+        src_ids = [s.id for s in sources]
+        comments = db.query(_StoredComment).filter(_StoredComment.source_id.in_(src_ids)).order_by(_StoredComment.source_id).all() if src_ids else []
+        likers   = db.query(StoredLiker).filter(StoredLiker.source_id.in_(src_ids)).order_by(StoredLiker.source_id).all() if src_ids else []
+        db.close()
+
+        title = f"{project.name} — TrendWatch Report" if project else f"TrendWatch Report #{pid}"
+        sh = gc.create(title)
+        sh.share(REPORT_SHARE_EMAIL, perm_type="user", role="writer", notify=False)
+
+        # ── Лист 1: Posts ──────────────────────────────────────────────────
+        ws_posts = sh.sheet1
+        ws_posts.update_title("Posts")
+        posts_header = ["post_url", "platform", "provider", "creator", "post_date", "status",
+                        "views", "likes", "comments_total", "er%", "followers", "likers_count"]
+        posts_rows = [posts_header]
+        for s in sources:
+            posts_rows.append([
+                s.url, s.platform or "", s.provider or "", s.creator or "",
+                s.post_date or "", s.status or "active",
+                s.post_views or "", s.post_likes or "",
+                s.post_comments_total or "", s.post_er or "",
+                s.post_followers or "", s.likers_count or 0,
+            ])
+        ws_posts.update(posts_rows, "A1")
+
+        # ── Лист 2: Comments ───────────────────────────────────────────────
+        ws_comments = sh.add_worksheet(title="Comments", rows=max(len(comments)+1, 2), cols=14)
+        comments_header = ["post_url", "platform", "provider", "creator", "post_date",
+                           "author", "comment", "comment_likes", "comment_date",
+                           "is_reply", "language", "region"]
+        comments_rows = [comments_header]
+        for c in comments:
+            src = src_map.get(c.source_id)
+            comments_rows.append([
+                src.url if src else "", src.platform if src else "",
+                src.provider if src else "", src.creator if src else "",
+                src.post_date if src else "",
+                c.author or "", c.text or "", c.likes or 0,
+                c.date or "", c.is_reply, c.language or "", c.user_region or "",
+            ])
+        ws_comments.update(comments_rows, "A1")
+
+        # ── Лист 3: Likers ─────────────────────────────────────────────────
+        ws_likers = sh.add_worksheet(title="Likers", rows=max(len(likers)+1, 2), cols=10)
+        likers_header = ["post_url", "platform", "provider", "creator", "post_date",
+                         "username", "full_name", "is_verified", "is_private", "region"]
+        likers_rows = [likers_header]
+        for l in likers:
+            src = src_map.get(l.source_id)
+            likers_rows.append([
+                src.url if src else "", src.platform if src else "",
+                src.provider if src else "", src.creator if src else "",
+                src.post_date if src else "",
+                l.username or "", l.full_name or "",
+                l.is_verified, l.is_private, l.user_region or "",
+            ])
+        ws_likers.update(likers_rows, "A1")
+
+        return JSONResponse({"url": f"https://docs.google.com/spreadsheets/d/{sh.id}"})
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/comments/projects/{pid}/download-likers")
