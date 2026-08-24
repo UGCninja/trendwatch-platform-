@@ -2278,6 +2278,22 @@ def comments_task_page(request: Request, task_id: str):
                                       context={"active_page": "comments", "task_id": task_id})
 
 
+@app.post("/api/comments/projects/{pid}/reset-unavailable")
+def comment_project_reset_unavailable(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    db = SessionLocal()
+    rows = db.query(CommentSource).filter(
+        CommentSource.project_id == pid,
+        CommentSource.status == "unavailable",
+    ).all()
+    for s in rows:
+        s.status = "active"
+    db.commit()
+    db.close()
+    return JSONResponse({"reset": len(rows)})
+
+
 @app.get("/api/comments/projects/{pid}/diag")
 def comment_project_diag(request: Request, pid: int):
     if not check_auth(request):
@@ -2867,11 +2883,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                 async def _m_guarded(s):
                     async with sem_m:
                         await fetch_and_save_metrics(s)
-                # Метрики для ВСЕХ постов включая Twitter/X
-                await asyncio.wait_for(
-                    asyncio.gather(*[_m_guarded(s) for s in sources], return_exceptions=True),
-                    timeout=180  # 3 минуты максимум
-                )
+                # Метрики для ВСЕХ постов включая Twitter/X (без жёсткого таймаута)
+                await asyncio.gather(*[_m_guarded(s) for s in sources], return_exceptions=True)
         except Exception:
             pass
 
@@ -2922,21 +2935,6 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             except Exception:
                 pass
 
-        # Sweep: маркируем active-посты без метрик как unavailable
-        try:
-            db_sw = SessionLocal()
-            unchecked = db_sw.query(CommentSource).filter(
-                CommentSource.project_id == pid,
-                CommentSource.status == "active",
-                CommentSource.last_fetched_at != None,
-                CommentSource.post_views == None,
-            ).all()
-            for s in unchecked:
-                s.status = "unavailable"
-            db_sw.commit()
-            db_sw.close()
-        except Exception:
-            pass
 
         # Total comments
         db3 = SessionLocal()
