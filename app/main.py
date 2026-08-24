@@ -190,6 +190,7 @@ def _fetch_ig_commenter_regions_sync(usernames: list) -> dict:
 
 async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_token: str) -> list[dict]:
     """Fetch users who liked an Instagram post via datadoping~instagram-likes-scraper."""
+    url = _normalize_ig_url(url)
     if not apify_token:
         return []
     try:
@@ -359,6 +360,11 @@ SOCIAL_URL_MARKERS = ["x.com", "twitter.com", "tiktok.com", "instagram.com", "yo
 def _extract_ig_shortcode(url: str):
     m = _re.search(r'/(?:reels?|p|tv)/([A-Za-z0-9_-]+)', url)
     return m.group(1) if m else None
+
+
+def _normalize_ig_url(url: str) -> str:
+    """Normalize /reels/ → /reel/ so SC and Apify handle it correctly."""
+    return _re.sub(r'/reels/', '/reel/', url)
 
 
 # Rate limiter for direct Instagram API — max 3 requests per second to avoid detection
@@ -539,7 +545,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str, fetc
 
         elif platform == "Instagram":
             # ScrapeCreators v1 — returns video_play_count, likes, comments
-            clean_url = url.split("?")[0].rstrip("/") + "/"
+            clean_url = _normalize_ig_url(url).split("?")[0].rstrip("/") + "/"
             r = await client.get(
                 "https://api.scrapecreators.com/v1/instagram/post",
                 params={"url": clean_url}, headers={"x-api-key": api_key}, timeout=15,
@@ -1894,6 +1900,7 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
 
 
 async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
+    url = _normalize_ig_url(url)
     # 1. ScrapeCreators — primary (фиксированная подписка, не тратит Apify)
     try:
         r = await client.get(
