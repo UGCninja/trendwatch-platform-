@@ -3118,8 +3118,23 @@ async def comment_project_export_sheets(request: Request, pid: int):
         db.close()
 
         title = f"{project.name} — TrendWatch Report" if project else f"TrendWatch Report #{pid}"
-        sh = gc.create(title)
-        sh.share(REPORT_SHARE_EMAIL, perm_type="user", role="writer", notify=False)
+        # Создаём через Drive API напрямую в папке пользователя
+        from googleapiclient.discovery import build as _build
+        drive = _build("drive", "v3", credentials=creds, cache_discovery=False)
+        file_meta = {
+            "name": title,
+            "mimeType": "application/vnd.google-apps.spreadsheet",
+        }
+        created = drive.files().create(body=file_meta, fields="id").execute()
+        file_id = created["id"]
+        # Передаём ownership пользователю — файл переходит в его Drive
+        drive.permissions().create(
+            fileId=file_id,
+            body={"type": "user", "role": "owner", "emailAddress": REPORT_SHARE_EMAIL},
+            transferOwnership=True,
+            fields="id",
+        ).execute()
+        sh = gc.open_by_key(file_id)
 
         # ── Лист 1: Posts ──────────────────────────────────────────────────
         ws_posts = sh.sheet1
