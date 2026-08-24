@@ -2628,6 +2628,27 @@ async def comment_project_upload_sources(request: Request, pid: int, file: Uploa
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
+@app.post("/comments/projects/{pid}/delete-source-by-url")
+async def comment_project_delete_source_by_url(request: Request, pid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    body = await request.json()
+    urls = body.get("urls", [])
+    if not urls:
+        return JSONResponse({"error": "no urls"}, status_code=400)
+    db = SessionLocal()
+    deleted = 0
+    for url in urls:
+        src = db.query(CommentSource).filter(CommentSource.project_id == pid, CommentSource.url == url).first()
+        if src:
+            db.query(_StoredComment).filter(_StoredComment.source_id == src.id).delete()
+            db.query(CommentSource).filter(CommentSource.id == src.id).delete()
+            deleted += 1
+    db.commit()
+    db.close()
+    return JSONResponse({"deleted": deleted, "total": len(urls)})
+
+
 @app.post("/comments/projects/{pid}/delete-source")
 async def comment_project_delete_source(request: Request, pid: int, source_id: int = Form(...)):
     if not check_auth(request):
