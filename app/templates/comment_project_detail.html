@@ -47,7 +47,8 @@
             <button type="submit" class="btn btn-outline-danger btn-sm">✕ Отменить</button>
           </form>
         </div>
-        <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Скачать CSV</a>
+        <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Комментарии CSV</a>
+        <a href="/comments/projects/{{ project.id }}/download-likers" class="btn btn-outline-secondary btn-sm">⬇ Лайкеры CSV</a>
         <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Пересчитать языки</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Собрать лайкеры</button>
       </div>

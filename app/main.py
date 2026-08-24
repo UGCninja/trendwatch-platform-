@@ -3087,6 +3087,45 @@ def comment_project_task_status(request: Request, pid: int):
     return JSONResponse({"status": "idle"})
 
 
+@app.get("/comments/projects/{pid}/download-likers")
+def comment_project_download_likers(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    from app.models import StoredLiker
+    db = SessionLocal()
+    project = db.query(CommentProject).filter(CommentProject.id == pid).first()
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+    src_map = {s.id: s for s in sources}
+    likers = db.query(StoredLiker).filter(
+        StoredLiker.source_id.in_([s.id for s in sources])
+    ).order_by(StoredLiker.source_id).all() if sources else []
+    db.close()
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["post_url", "platform", "username", "full_name", "is_verified", "is_private", "user_region", "fetched_at"])
+    for l in likers:
+        src = src_map.get(l.source_id)
+        writer.writerow([
+            src.url if src else "",
+            src.platform if src else "",
+            l.username,
+            l.full_name or "",
+            l.is_verified,
+            l.is_private,
+            l.user_region or "",
+            l.fetched_at.strftime("%d.%m.%Y") if l.fetched_at else "",
+        ])
+
+    fname = f"{project.name}_likers.csv" if project else "likers.csv"
+    return StreamingResponse(
+        io.BytesIO(out.getvalue().encode("utf-8-sig")),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_urlquote(fname.encode('utf-8'))}"},
+    )
+
+
 @app.get("/comments/projects/{pid}/download")
 def comment_project_download(request: Request, pid: int):
     if not check_auth(request):
