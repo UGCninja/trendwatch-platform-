@@ -2775,7 +2775,7 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         all_sources = sources if apify_token else [s for s in sources if (s.platform or _detect_platform(s.url)) not in ("X", "Twitter")]
 
         # Пропускаем посты обновлённые менее 12 часов назад
-        cutoff = datetime.utcnow() - timedelta(hours=12)
+        cutoff = datetime.utcnow() - timedelta(hours=36)
         active_sources = [s for s in all_sources if not s.last_fetched_at or s.last_fetched_at < cutoff]
         skipped_fresh = len(all_sources) - len(active_sources)
 
