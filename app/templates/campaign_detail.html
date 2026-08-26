@@ -165,7 +165,7 @@ function toggleConfig() {
                 <th style="width:32px;padding:10px 8px">
                     <input type="checkbox" id="selectAll" style="cursor:pointer;accent-color:var(--accent)">
                 </th>
-                <th style="width:70px"></th>
+                <th style="width:100px"></th>
                 <th>Platform</th>
                 <th>Account</th>
                 <th class="text-right sortable" data-col="3" style="cursor:pointer">Views ↕</th>
@@ -190,10 +190,10 @@ function toggleConfig() {
                 <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
                        class="row-checkbox" style="cursor:pointer;accent-color:var(--accent)">
             </td>
-            <td style="padding:4px 6px;width:70px;vertical-align:middle">
+            <td style="padding:4px 6px;width:100px;vertical-align:middle">
                 {% if post.url %}
                 <div class="thumb-cell" data-url="{{ post.url }}" data-platform="{{ post.platform }}"
-                     style="width:62px;height:110px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                     style="width:90px;height:160px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">
                     {% if post.thumbnail_url %}
                     <img class="thumb-img" src="{{ post.thumbnail_url }}"
                          style="width:100%;height:100%;object-fit:cover"
