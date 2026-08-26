@@ -165,6 +165,7 @@ function toggleConfig() {
                 <th style="width:32px;padding:10px 8px">
                     <input type="checkbox" id="selectAll" style="cursor:pointer;accent-color:var(--accent)">
                 </th>
+                <th style="width:70px"></th>
                 <th>Platform</th>
                 <th>Account</th>
                 <th class="text-right sortable" data-col="3" style="cursor:pointer">Views ↕</th>
@@ -188,6 +189,17 @@ function toggleConfig() {
             <td style="padding:8px">
                 <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
                        class="row-checkbox" style="cursor:pointer;accent-color:var(--accent)">
+            </td>
+            <td style="padding:4px 6px;width:70px;vertical-align:middle">
+                {% if post.url %}
+                <div class="thumb-cell" data-url="{{ post.url }}" data-platform="{{ post.platform }}"
+                     style="width:62px;height:110px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <img class="thumb-img" style="width:100%;height:100%;object-fit:cover;display:none" loading="lazy">
+                    <span class="thumb-icon" style="font-size:18px;opacity:.3">
+                        {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
+                    </span>
+                </div>
+                {% endif %}
             </td>
             <td>
                 {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
@@ -446,6 +458,55 @@ document.querySelectorAll('.sortable').forEach(th => {
         th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
     });
 });
+
+// ── Inline thumbnail lazy load ───────────────────────────────────────────
+(function() {
+    const CACHE_KEY = 'tw_thumb_v1';
+    let thumbCache = {};
+    try { thumbCache = JSON.parse(sessionStorage.getItem(CACHE_KEY) || '{}'); } catch(e) {}
+
+    function saveCache() {
+        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(thumbCache)); } catch(e) {}
+    }
+
+    function applyThumb(cell, thumbUrl) {
+        if (!thumbUrl) return;
+        const img  = cell.querySelector('.thumb-img');
+        const icon = cell.querySelector('.thumb-icon');
+        img.src = thumbUrl;
+        img.onload = () => { img.style.display = 'block'; if(icon) icon.style.display = 'none'; };
+        img.onerror = () => {};
+    }
+
+    async function loadThumb(cell) {
+        const url      = cell.dataset.url;
+        const platform = cell.dataset.platform;
+        if (!url) return;
+
+        if (thumbCache[url]) { applyThumb(cell, thumbCache[url]); return; }
+
+        try {
+            const r = await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${encodeURIComponent(platform)}`);
+            const d = await r.json();
+            if (d.thumbnail) {
+                thumbCache[url] = d.thumbnail;
+                saveCache();
+                applyThumb(cell, d.thumbnail);
+            }
+        } catch(e) {}
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                observer.unobserve(entry.target);
+                loadThumb(entry.target);
+            }
+        });
+    }, { rootMargin: '200px' });
+
+    document.querySelectorAll('.thumb-cell').forEach(cell => observer.observe(cell));
+})();
 
 // ── Video preview ────────────────────────────────────────────────────────
 const previewCard = document.createElement('div');
