@@ -194,10 +194,19 @@ function toggleConfig() {
                 {% if post.url %}
                 <div class="thumb-cell" data-url="{{ post.url }}" data-platform="{{ post.platform }}"
                      style="width:62px;height:110px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    {% if post.thumbnail_url %}
+                    <img class="thumb-img" src="{{ post.thumbnail_url }}"
+                         style="width:100%;height:100%;object-fit:cover"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <span class="thumb-icon" style="font-size:18px;opacity:.3;display:none">
+                        {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
+                    </span>
+                    {% else %}
                     <img class="thumb-img" style="width:100%;height:100%;object-fit:cover;display:none" loading="lazy">
                     <span class="thumb-icon" style="font-size:18px;opacity:.3">
                         {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
                     </span>
+                    {% endif %}
                 </div>
                 {% endif %}
             </td>

@@ -48,19 +48,22 @@ def normalize_tiktok(v: dict, source_label: str) -> dict:
         author = v.get("author", {}).get("unique_id") or source_label
         url = f"https://www.tiktok.com/@{author}/video/{aweme_id}"
     caption = (v.get("desc") or "")[:300]
+    video_obj = v.get("video", {})
+    thumb = (video_obj.get("origin_cover") or video_obj.get("cover") or {}).get("url_list", [None])[0]
     return {
-        "post_id":   aweme_id,
-        "platform":  "TikTok",
-        "account":   source_label,
-        "caption":   caption,
-        "url":       url,
-        "views":     views,
-        "likes":     likes,
-        "comments":  comments,
-        "shares":    shares,
-        "er":        calc_er(likes, comments, shares, views),
-        "published": parse_unix(v.get("create_time", 0)),
-        "language":  detect_language(caption),
+        "post_id":       aweme_id,
+        "platform":      "TikTok",
+        "account":       source_label,
+        "caption":       caption,
+        "url":           url,
+        "views":         views,
+        "likes":         likes,
+        "comments":      comments,
+        "shares":        shares,
+        "er":            calc_er(likes, comments, shares, views),
+        "published":     parse_unix(v.get("create_time", 0)),
+        "language":      detect_language(caption),
+        "thumbnail_url": thumb,
     }
 
 
@@ -112,19 +115,23 @@ def fetch_instagram_account(handle: str) -> list:
         shares   = item.get("share_count", 0) or 0
         code     = item.get("code", "")
         url      = item.get("url") or (f"https://www.instagram.com/p/{code}/" if code else "")
+        thumb = (item.get("thumbnail_url") or
+                 (item.get("image_versions2", {}).get("candidates") or [{}])[0].get("url") or
+                 item.get("cover_frame_url") or "")
         posts.append({
-            "post_id":   str(item.get("pk", "")),
-            "platform":  "Instagram",
-            "account":   handle,
-            "caption":   caption,
-            "url":       url,
-            "views":     views,
-            "likes":     likes,
-            "comments":  comments,
-            "shares":    shares,
-            "er":        calc_er(likes, comments, shares, views),
-            "published": parse_unix(item.get("taken_at", 0)),
-            "language":  detect_language(caption),
+            "post_id":       str(item.get("pk", "")),
+            "platform":      "Instagram",
+            "account":       handle,
+            "caption":       caption,
+            "url":           url,
+            "views":         views,
+            "likes":         likes,
+            "comments":      comments,
+            "shares":        shares,
+            "er":            calc_er(likes, comments, shares, views),
+            "published":     parse_unix(item.get("taken_at", 0)),
+            "language":      detect_language(caption),
+            "thumbnail_url": thumb,
         })
     return posts
 
@@ -149,19 +156,23 @@ def fetch_instagram_hashtag(hashtag: str) -> list:
             url      = item.get("url") or ""
             taken_at = item.get("taken_at", "")
             owner    = item.get("owner", {}).get("username") or f"#{hashtag}"
+            thumb = (item.get("thumbnail_url") or
+                     (item.get("image_versions2", {}).get("candidates") or [{}])[0].get("url") or
+                     item.get("display_url") or "")
             all_posts.append({
-                "post_id":   str(item.get("id", "")),
-                "platform":  "Instagram",
-                "account":   f"#{hashtag} (@{owner})",
-                "caption":   caption,
-                "url":       url,
-                "views":     views,
-                "likes":     likes,
-                "comments":  comments,
-                "shares":    0,
-                "er":        calc_er(likes, comments, 0, views),
-                "published": parse_iso(taken_at) if isinstance(taken_at, str) else parse_unix(taken_at),
-                "language":  detect_language(caption),
+                "post_id":       str(item.get("id", "")),
+                "platform":      "Instagram",
+                "account":       f"#{hashtag} (@{owner})",
+                "caption":       caption,
+                "url":           url,
+                "views":         views,
+                "likes":         likes,
+                "comments":      comments,
+                "shares":        0,
+                "er":            calc_er(likes, comments, 0, views),
+                "published":     parse_iso(taken_at) if isinstance(taken_at, str) else parse_unix(taken_at),
+                "language":      detect_language(caption),
+                "thumbnail_url": thumb,
             })
         cursor = data.get("cursor")
         if not cursor:
@@ -225,18 +236,20 @@ def fetch_youtube_keyword(query: str) -> list:
         except Exception:
             published = datetime.now(tz=timezone.utc).isoformat()
         caption = (snippet.get("title") or "")[:300]
+        vid_id = item["id"]
         posts.append({
-            "post_id":   item["id"],
-            "platform":  "YouTube",
-            "account":   f'"{query}"',
-            "url":       f"https://www.youtube.com/shorts/{item['id']}",
-            "views":     views,
-            "likes":     likes,
-            "comments":  comments,
-            "shares":    0,
-            "er":        round((likes + comments) / views * 100, 2) if views > 0 else 0.0,
-            "published": published,
-            "language":  detect_language(caption),
+            "post_id":       vid_id,
+            "platform":      "YouTube",
+            "account":       f'"{query}"',
+            "url":           f"https://www.youtube.com/shorts/{vid_id}",
+            "views":         views,
+            "likes":         likes,
+            "comments":      comments,
+            "shares":        0,
+            "er":            round((likes + comments) / views * 100, 2) if views > 0 else 0.0,
+            "published":     published,
+            "language":      detect_language(caption),
+            "thumbnail_url": f"https://img.youtube.com/vi/{vid_id}/mqdefault.jpg",
         })
     return posts
 
@@ -283,18 +296,20 @@ def fetch_youtube_hashtag(hashtag: str) -> list:
         except Exception:
             published = datetime.now(tz=timezone.utc).isoformat()
         caption = (snippet.get("title") or "")[:300]
+        vid_id = item["id"]
         posts.append({
-            "post_id":   item["id"],
-            "platform":  "YouTube",
-            "account":   f"#{hashtag}",
-            "url":       f"https://www.youtube.com/shorts/{item['id']}",
-            "views":     views,
-            "likes":     likes,
-            "comments":  comments,
-            "shares":    0,
-            "er":        round((likes + comments) / views * 100, 2) if views > 0 else 0.0,
-            "published": published,
-            "language":  detect_language(caption),
+            "post_id":       vid_id,
+            "platform":      "YouTube",
+            "account":       f"#{hashtag}",
+            "url":           f"https://www.youtube.com/shorts/{vid_id}",
+            "views":         views,
+            "likes":         likes,
+            "comments":      comments,
+            "shares":        0,
+            "er":            round((likes + comments) / views * 100, 2) if views > 0 else 0.0,
+            "published":     published,
+            "language":      detect_language(caption),
+            "thumbnail_url": f"https://img.youtube.com/vi/{vid_id}/mqdefault.jpg",
         })
     return posts
 

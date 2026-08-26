@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 from fastapi.responses import JSONResponse
+import time as _time
 
 SCRAPECREATORS_API_KEY  = os.getenv("SCRAPECREATORS_KEY", "")
 YOUTUBE_API_KEY         = os.getenv("YOUTUBE_API_KEY", "")
@@ -851,26 +852,56 @@ def tags_page(request: Request):
     })
 
 
+_preview_cache: dict = {}  # url -> (timestamp, data)
+_PREVIEW_TTL = 3600  # 1 час
+
 @app.get("/api/preview")
 async def api_preview(url: str, platform: str = ""):
+    # Серверный кэш — не тратим кредиты на повторные запросы
+    if url in _preview_cache:
+        ts, data = _preview_cache[url]
+        if _time.time() - ts < _PREVIEW_TTL:
+            return JSONResponse(data)
+
+    result = {"type": "unknown", "url": url}
     try:
         if platform == "YouTube" or "youtube.com" in url or "youtu.be" in url:
-            import re
-            m = re.search(r'(?:shorts/|v=|youtu\.be/)([^?&/]+)', url)
+            m = _re.search(r'(?:shorts/|v=|youtu\.be/)([^?&/]+)', url)
             vid = m.group(1) if m else None
             if vid:
-                return JSONResponse({"type": "youtube", "thumbnail": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg", "embed": f"https://www.youtube.com/embed/{vid}", "url": url})
-        if platform == "TikTok" or "tiktok.com" in url:
-            async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.get(f"https://www.tiktok.com/oembed?url={url}", headers={"User-Agent": "Mozilla/5.0"})
-                if r.status_code == 200:
-                    d = r.json()
-                    return JSONResponse({"type": "tiktok", "thumbnail": d.get("thumbnail_url"), "title": d.get("title","")[:60], "author": d.get("author_name",""), "url": url})
-        if platform == "Instagram" or "instagram.com" in url:
-            return JSONResponse({"type": "instagram", "thumbnail": None, "url": url})
+                result = {"type": "youtube", "thumbnail": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg",
+                          "embed": f"https://www.youtube.com/embed/{vid}", "url": url}
+        elif platform == "TikTok" or "tiktok.com" in url:
+            async with httpx.AsyncClient(timeout=8) as client:
+                thumb, title, author = None, "", ""
+                # Фолбэк — ScrapeCreators (oEmbed у TikTok сломан)
+                try:
+                    r = await client.get(
+                        "https://api.scrapecreators.com/v2/tiktok/video",
+                        params={"url": url},
+                        headers={"x-api-key": SCRAPECREATORS_API_KEY},
+                        timeout=8,
+                    )
+                    if r.status_code == 200:
+                        d = r.json()
+                        video = d.get("data", d)
+                        thumb  = (video.get("video", {}).get("cover") or
+                                  video.get("thumbnail_url") or
+                                  video.get("cover_url") or
+                                  d.get("thumbnail_url"))
+                        title  = (video.get("desc") or d.get("title", ""))[:60]
+                        author = (video.get("author", {}).get("unique_id") or
+                                  d.get("author_name", ""))
+                except Exception:
+                    pass
+                result = {"type": "tiktok", "thumbnail": thumb, "title": title, "author": author, "url": url}
+        elif platform == "Instagram" or "instagram.com" in url:
+            result = {"type": "instagram", "thumbnail": None, "url": url}
     except Exception:
         pass
-    return JSONResponse({"type": "unknown", "url": url})
+
+    _preview_cache[url] = (_time.time(), result)
+    return JSONResponse(result)
 
 
 @app.get("/system", response_class=HTMLResponse)
@@ -1166,6 +1197,7 @@ def _run_in_background(campaign_id: int):
                 url=pd["url"], views=pd["views"], likes=pd["likes"],
                 comments=pd["comments"], shares=pd["shares"],
                 er=pd["er"], published=pd["published"], language=pd["language"],
+                thumbnail_url=pd.get("thumbnail_url") or "",
             ))
             push_post_to_notion(pd)
 

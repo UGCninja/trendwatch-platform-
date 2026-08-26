@@ -49,9 +49,10 @@ class Post(Base):
     comments    = Column(Integer, default=0)
     shares      = Column(Integer, default=0)
     er          = Column(Float,   default=0.0)
-    published   = Column(String)
-    language    = Column(String)
-    added_at    = Column(DateTime, default=datetime.utcnow)
+    published     = Column(String)
+    language      = Column(String)
+    thumbnail_url = Column(String, nullable=True)
+    added_at      = Column(DateTime, default=datetime.utcnow)
 
 
 class Tag(Base):

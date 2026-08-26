@@ -61,6 +61,7 @@ def init_db():
     _run_migration("ALTER TABLE comment_projects ADD COLUMN last_sc_spend INTEGER")
     _run_migration("ALTER TABLE comment_projects ADD COLUMN last_apify_spend FLOAT")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN metrics_updated_at TIMESTAMP")
+    _run_migration("ALTER TABLE posts ADD COLUMN thumbnail_url VARCHAR")
 
     from app.models import Vertical
     db = SessionLocal()
