@@ -874,7 +874,7 @@ async def api_preview(url: str, platform: str = ""):
         elif platform == "TikTok" or "tiktok.com" in url:
             async with httpx.AsyncClient(timeout=8) as client:
                 thumb, title, author = None, "", ""
-                # Фолбэк — ScrapeCreators (oEmbed у TikTok сломан)
+                # ScrapeCreators v2 (oEmbed у TikTok сломан)
                 try:
                     r = await client.get(
                         "https://api.scrapecreators.com/v2/tiktok/video",
@@ -884,14 +884,14 @@ async def api_preview(url: str, platform: str = ""):
                     )
                     if r.status_code == 200:
                         d = r.json()
-                        video = d.get("data", d)
-                        thumb  = (video.get("video", {}).get("cover") or
-                                  video.get("thumbnail_url") or
-                                  video.get("cover_url") or
-                                  d.get("thumbnail_url"))
-                        title  = (video.get("desc") or d.get("title", ""))[:60]
-                        author = (video.get("author", {}).get("unique_id") or
-                                  d.get("author_name", ""))
+                        detail = d.get("aweme_detail") or d.get("data") or d
+                        vid    = detail.get("video", {})
+                        thumb  = (
+                            (vid.get("origin_cover") or vid.get("cover") or {}).get("url_list", [None])[0]
+                            or detail.get("thumbnail_url")
+                        )
+                        title  = (detail.get("desc") or d.get("title", ""))[:60]
+                        author = (detail.get("author", {}).get("unique_id") or d.get("author_name", ""))
                 except Exception:
                     pass
                 result = {"type": "tiktok", "thumbnail": thumb, "title": title, "author": author, "url": url}

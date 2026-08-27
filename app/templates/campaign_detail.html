@@ -291,7 +291,7 @@ function toggleConfig() {
          data-url="{{ post.url }}" data-platform="{{ post.platform }}">
         {% if post.thumbnail_url %}
         <img src="{{ post.thumbnail_url }}" class="card-thumb-img"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';reloadThumb(this.closest('.card-thumb-wrap'))">
         {% endif %}
         <div class="card-ph" {% if post.thumbnail_url %}style="display:none"{% endif %}>
             {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
@@ -570,6 +570,14 @@ async function removeTag(postId, tagId) {
         entries.forEach(e => { if (e.isIntersecting) { obs.unobserve(e.target); loadThumb(e.target); } });
     }, { rootMargin: '300px' });
     document.querySelectorAll('.card-thumb-wrap.thumb-cell').forEach(c => obs.observe(c));
+
+    // Вызывается из onerror когда stored thumbnail истёк
+    window.reloadThumb = function(cell) {
+        delete thumbCache[cell.dataset.url];
+        saveCache();
+        loadThumb(cell);
+    };
+
 })();
 
 // ── Init ─────────────────────────────────────────────────────────────────
