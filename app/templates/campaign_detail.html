@@ -103,37 +103,149 @@ function toggleConfig() {
 
 {% if posts %}
 
-<!-- ── Filters & Tags controls ──────────────────────────────────────────── -->
-<div class="section-card" style="padding:14px 18px;margin-bottom:8px">
-    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+<style>
+.post-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    transition: border-color .15s;
+}
+.post-card:hover { border-color: rgba(200,241,53,.2); }
+.card-thumb-wrap {
+    position: relative;
+    width: 130px;
+    min-width: 130px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.card-thumb-wrap img, .card-thumb-wrap .card-ph {
+    width: 100%;
+    height: 100%;
+    min-height: 230px;
+    object-fit: cover;
+    display: block;
+    border-radius: 10px 0 0 10px;
+}
+.card-ph {
+    background: rgba(255,255,255,.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    opacity: .2;
+}
+.card-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .15s;
+    border-radius: 10px 0 0 10px;
+}
+.card-thumb-wrap:hover .card-overlay { opacity: 1; }
+.card-overlay a {
+    color: #fff;
+    font-size: 12px;
+    text-decoration: none;
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.35);
+    border-radius: 6px;
+    padding: 6px 14px;
+}
+.card-body {
+    flex: 1;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.card-mrow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.card-mrow:last-of-type { border-bottom: none; }
+.card-mlabel { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); font-weight: 600; }
+.card-mval   { font-size: 12px; font-weight: 700; }
+.card-sel-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    pointer-events: none;
+    transition: border-color .1s;
+}
+.post-card.selected .card-sel-overlay { border-color: var(--accent); }
+</style>
+
+<!-- ── Filter bar ──────────────────────────────────────────────────────── -->
+<div class="section-card" style="padding:12px 16px;margin-bottom:12px">
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+
+        <!-- Sort -->
         <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Published</span>
+            <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">Sort</span>
+            <select id="sortSelect" onchange="applyFilters()"
+                    style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer">
+                <option value="views">Views ↓</option>
+                <option value="likes">Likes ↓</option>
+                <option value="er">ER ↓</option>
+                <option value="published">Published ↓</option>
+                <option value="added">Added ↓</option>
+            </select>
+        </div>
+
+        <div style="width:1px;height:18px;background:var(--border)"></div>
+
+        <!-- Platform -->
+        <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">Platform</span>
+            {% for plat in ["All","TikTok","Instagram","YouTube"] %}
+            <button onclick="setPlatform('{{ plat }}')" id="plat{{ plat }}"
+                    style="background:{% if plat == 'All' %}rgba(200,241,53,.12){% else %}rgba(255,255,255,.05){% endif %};
+                           border:1px solid {% if plat == 'All' %}rgba(200,241,53,.4){% else %}var(--border){% endif %};
+                           color:{% if plat == 'All' %}var(--accent){% else %}var(--text-muted){% endif %};
+                           border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">
+                {{ plat }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <div style="width:1px;height:18px;background:var(--border)"></div>
+
+        <!-- Published -->
+        <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">Published</span>
             <input type="date" id="pubFrom" onchange="applyFilters()"
                    style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
-            <span style="color:var(--text-muted)">—</span>
+            <span style="color:var(--text-muted);font-size:11px">—</span>
             <input type="date" id="pubTo" onchange="applyFilters()"
                    style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Added</span>
-            <input type="date" id="addFrom" onchange="applyFilters()"
-                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
-            <span style="color:var(--text-muted)">—</span>
-            <input type="date" id="addTo" onchange="applyFilters()"
-                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px;font-size:12px;font-family:inherit">
-        </div>
+
         <button onclick="clearFilters()"
                 style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit">
             Clear
         </button>
+
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Tags</span>
+
+    <!-- Tags row -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">Tags</span>
         <div id="tagFilterChips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
         <div style="display:flex;gap:4px;margin-left:4px">
             <input id="newTagInput" type="text" placeholder="New tag…"
                    onkeydown="if(event.key==='Enter'){createTag()}"
-                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 8px;font-size:12px;font-family:inherit;width:120px">
+                   style="background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 8px;font-size:12px;font-family:inherit;width:110px">
             <button onclick="createTag()"
                     style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit">
                 + Add
@@ -142,144 +254,120 @@ function toggleConfig() {
     </div>
 </div>
 
-<!-- ── Posts table ──────────────────────────────────────────────────────── -->
-<div class="section-card" style="padding:0;overflow:hidden;margin-bottom:12px">
-    <div style="padding:14px 18px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span class="section-title" style="margin:0">
-            Posts (<span id="visibleCount">{{ posts|length }}</span> / {{ posts|length }})
-        </span>
-        <span style="font-size:11px;color:var(--text-muted)">Click column headers to sort</span>
-        <div style="margin-left:auto">
-            <form id="bulkDeleteForm" method="post" action="/campaigns/{{ campaign.id }}/posts/delete"
-                  onsubmit="return confirm('Delete selected posts? This cannot be undone.')">
-                <button type="submit" id="deleteBtn" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
-                    Delete selected (<span id="selCount">0</span>)
-                </button>
-            </form>
-        </div>
-    </div>
-    <div style="overflow-x:auto">
-    <table class="data-table" id="postsTable">
-        <thead>
-            <tr>
-                <th style="width:32px;padding:10px 8px">
-                    <input type="checkbox" id="selectAll" style="cursor:pointer;accent-color:var(--accent)">
-                </th>
-                <th style="width:100px"></th>
-                <th>Platform</th>
-                <th>Account</th>
-                <th class="text-right sortable" data-col="3" style="cursor:pointer">Views ↕</th>
-                <th class="text-right sortable" data-col="4" style="cursor:pointer">Likes ↕</th>
-                <th class="text-right sortable" data-col="5" style="cursor:pointer">Comments ↕</th>
-                <th class="text-right sortable" data-col="6" style="cursor:pointer">Shares ↕</th>
-                <th class="text-right sortable" data-col="7" style="cursor:pointer">ER ↕</th>
-                <th>Language</th>
-                <th class="sortable" data-col="9" style="cursor:pointer">Published ↕</th>
-                <th class="sortable" data-col="10" style="cursor:pointer">Added ↕</th>
-                <th>Tags</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for post in posts %}
-        <tr data-pub="{{ post.published[:10] if post.published else '' }}"
-            data-added="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}"
-            data-post-id="{{ post.id }}"
-            data-tags="">
-            <td style="padding:8px">
-                <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
-                       class="row-checkbox" style="cursor:pointer;accent-color:var(--accent)">
-            </td>
-            <td style="padding:4px 6px;width:100px;vertical-align:middle">
-                {% if post.url %}
-                <div class="thumb-cell" data-url="{{ post.url }}" data-platform="{{ post.platform }}"
-                     style="width:90px;height:160px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                    {% if post.thumbnail_url %}
-                    <img class="thumb-img" src="{{ post.thumbnail_url }}"
-                         style="width:100%;height:100%;object-fit:cover"
-                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                    <span class="thumb-icon" style="font-size:18px;opacity:.3;display:none">
-                        {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
-                    </span>
-                    {% else %}
-                    <img class="thumb-img" style="width:100%;height:100%;object-fit:cover;display:none" loading="lazy">
-                    <span class="thumb-icon" style="font-size:18px;opacity:.3">
-                        {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
-                    </span>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </td>
-            <td>
-                {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
-                {% elif post.platform == "YouTube" %}<span class="badge badge-yt">YouTube</span>
-                {% else %}<span class="badge badge-ig">Instagram</span>{% endif %}
-            </td>
-            <td style="color:var(--text-muted);font-size:12px">{{ post.account.split(' (')[0] }}</td>
-            <td class="text-right" data-val="{{ post.views }}">{{ "{:,}".format(post.views) }}</td>
-            <td class="text-right" style="color:#60a5fa" data-val="{{ post.likes }}">{{ "{:,}".format(post.likes) }}</td>
-            <td class="text-right" style="color:#c084fc" data-val="{{ post.comments }}">{{ "{:,}".format(post.comments) }}</td>
-            <td class="text-right" style="color:#4ade80" data-val="{{ post.shares }}">{{ "{:,}".format(post.shares) }}</td>
-            <td class="text-right" style="color:#fb923c;font-weight:600" data-val="{{ post.er }}">{{ post.er }}%</td>
-            <td><span style="background:rgba(255,255,255,.06);color:var(--text-muted);border-radius:4px;padding:2px 7px;font-size:11px">{{ post.language }}</span></td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
-                data-val="{{ post.published[:10] if post.published else '' }}">{{ post.published[:10] if post.published else "—" }}</td>
-            <td style="color:var(--text-muted);font-size:12px;white-space:nowrap"
-                data-val="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}">
-                {{ post.added_at.strftime('%Y-%m-%d') if post.added_at else "—" }}</td>
-            <td style="white-space:nowrap;max-width:180px">
-                <div id="tags-{{ post.id }}" style="display:inline-flex;gap:3px;flex-wrap:wrap;align-items:center;vertical-align:middle"></div>
-                <button class="add-tag-btn" data-post-id="{{ post.id }}"
-                        style="background:none;border:1px solid rgba(255,255,255,.15);color:var(--text-muted);border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer;vertical-align:middle;margin-left:2px;line-height:1.6">+</button>
-            </td>
-            <td>
-                {% if post.url %}
-                <a href="{{ post.url }}" target="_blank" class="btn btn-outline-secondary btn-sm preview-btn"
-                   data-url="{{ post.url }}" data-platform="{{ post.platform }}">→</a>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    </div>
+<!-- ── Posts header ───────────────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+    <span class="section-title" style="margin:0">
+        Posts (<span id="visibleCount">{{ posts|length }}</span> / {{ posts|length }})
+    </span>
+    <form id="bulkDeleteForm" method="post" action="/campaigns/{{ campaign.id }}/posts/delete"
+          onsubmit="return confirm('Delete selected posts? This cannot be undone.')" style="margin-left:auto">
+        <button type="submit" id="deleteBtn" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit">
+            Delete selected (<span id="selCount">0</span>)
+        </button>
+    </form>
 </div>
 
-<!-- ── Tag dropdown (shared, repositioned on open) ────────────────────── -->
+<!-- ── Cards Grid ─────────────────────────────────────────────────────── -->
+<div id="cardsGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:12px">
+{% for post in posts %}
+<div class="post-card" style="position:relative"
+     data-pub="{{ post.published[:10] if post.published else '' }}"
+     data-added="{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else '' }}"
+     data-post-id="{{ post.id }}"
+     data-platform="{{ post.platform }}"
+     data-views="{{ post.views }}"
+     data-likes="{{ post.likes }}"
+     data-er="{{ post.er }}"
+     data-tags="">
+
+    <div class="card-sel-overlay"></div>
+
+    <!-- Thumbnail -->
+    <div class="card-thumb-wrap thumb-cell"
+         data-url="{{ post.url }}" data-platform="{{ post.platform }}">
+        {% if post.thumbnail_url %}
+        <img src="{{ post.thumbnail_url }}" class="card-thumb-img"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        {% endif %}
+        <div class="card-ph" {% if post.thumbnail_url %}style="display:none"{% endif %}>
+            {% if post.platform == "TikTok" %}𝕋{% elif post.platform == "Instagram" %}📷{% else %}▶{% endif %}
+        </div>
+        {% if post.url %}
+        <div class="card-overlay">
+            <a href="{{ post.url }}" target="_blank">↗ Open</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Body -->
+    <div class="card-body">
+        <!-- Platform + account -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            {% if post.platform == "TikTok" %}<span class="badge badge-tt">TikTok</span>
+            {% elif post.platform == "YouTube" %}<span class="badge badge-yt">YouTube</span>
+            {% else %}<span class="badge badge-ig">Instagram</span>{% endif %}
+            <span style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ post.account.split(' (')[0] }}</span>
+            <!-- Checkbox for bulk delete -->
+            <input type="checkbox" name="post_ids" value="{{ post.id }}" form="bulkDeleteForm"
+                   class="row-checkbox" onclick="updateBulkUI()"
+                   style="margin-left:auto;cursor:pointer;accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">
+        </div>
+
+        <!-- Metrics -->
+        <div class="card-mrow"><span class="card-mlabel">Views</span><span class="card-mval" style="color:#e8eaf0">{{ "{:,}".format(post.views) }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Likes</span><span class="card-mval" style="color:#60a5fa">{{ "{:,}".format(post.likes) }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Comments</span><span class="card-mval" style="color:#c084fc">{{ "{:,}".format(post.comments) }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Shares</span><span class="card-mval" style="color:#4ade80">{{ "{:,}".format(post.shares) }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">ER</span><span class="card-mval" style="color:#fb923c">{{ post.er }}%</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Language</span><span class="card-mval" style="color:var(--text-muted);font-weight:400;font-size:11px">{{ post.language }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Published</span><span class="card-mval" style="color:var(--text-muted);font-weight:400;font-size:11px">{{ post.published[:10] if post.published else "—" }}</span></div>
+        <div class="card-mrow"><span class="card-mlabel">Added</span><span class="card-mval" style="color:var(--text-muted);font-weight:400;font-size:11px">{{ post.added_at.strftime('%Y-%m-%d') if post.added_at else "—" }}</span></div>
+
+        <!-- Tags -->
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <div id="tags-{{ post.id }}" style="display:contents"></div>
+            <button class="add-tag-btn" data-post-id="{{ post.id }}"
+                    style="background:none;border:1px solid rgba(255,255,255,.15);color:var(--text-muted);border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;line-height:1.6;font-family:inherit">+</button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+
+<!-- ── Tag dropdown ────────────────────────────────────────────────────── -->
 <div id="tagDropdown" style="display:none;position:fixed;z-index:9999;background:#22252e;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;min-width:170px;max-height:240px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
 
 <script>
-// ── Server data ──────────────────────────────────────────────────────────
 let allTags         = {{ all_tags_json | safe }};
 let postTagsMap     = {{ post_tags_json | safe }};
 let activeTagFilter = null;
+let activePlatform  = 'All';
 let dropdownPostId  = null;
 
-// ── Render post tags chips ───────────────────────────────────────────────
+// ── Tags on cards ────────────────────────────────────────────────────────
 function renderPostTags(postId) {
-    const el   = document.getElementById('tags-' + postId);
+    const el = document.getElementById('tags-' + postId);
     if (!el) return;
     const tags = postTagsMap[postId] || [];
     el.innerHTML = tags.map(t =>
-        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:11px;display:inline-flex;align-items:center;gap:3px">
+        `<span style="background:rgba(99,102,241,.2);color:#a5b4fc;border-radius:4px;padding:1px 5px;font-size:10px;display:inline-flex;align-items:center;gap:3px">
           ${t.name}
           <span onclick="event.stopPropagation();removeTag(${postId},${t.id})"
-                style="cursor:pointer;opacity:.6;font-size:13px;line-height:1">×</span>
+                style="cursor:pointer;opacity:.6;font-size:12px;line-height:1">×</span>
         </span>`
     ).join('');
-    const row = el.closest('tr');
-    if (row) row.dataset.tags = tags.map(t => t.id).join(',');
+    const card = el.closest('.post-card');
+    if (card) card.dataset.tags = tags.map(t => t.id).join(',');
 }
-
 function renderAllPostTags() {
-    document.querySelectorAll('tr[data-post-id]').forEach(tr => {
-        const pid = tr.dataset.postId;
+    document.querySelectorAll('.post-card[data-post-id]').forEach(c => {
+        const pid = c.dataset.postId;
         renderPostTags(pid);
-        if (!postTagsMap[pid]) tr.dataset.tags = '';
+        if (!postTagsMap[pid]) c.dataset.tags = '';
     });
 }
 
-// ── Tag filter chips (above table) ──────────────────────────────────────
+// ── Tag filter chips ─────────────────────────────────────────────────────
 function renderTagFilterChips() {
     const c = document.getElementById('tagFilterChips');
     c.innerHTML = allTags.map(t => {
@@ -291,56 +379,79 @@ function renderTagFilterChips() {
                          border:1px solid ${active ? 'rgba(99,102,241,.5)' : 'transparent'}">${t.name}</span>`;
     }).join('');
 }
-
 function toggleTagFilter(tagId) {
     activeTagFilter = (activeTagFilter === tagId) ? null : tagId;
     renderTagFilterChips();
     applyFilters();
 }
 
-// ── Date + tag filters ───────────────────────────────────────────────────
+// ── Platform filter ──────────────────────────────────────────────────────
+function setPlatform(plat) {
+    activePlatform = plat;
+    ['All','TikTok','Instagram','YouTube'].forEach(p => {
+        const btn = document.getElementById('plat' + p);
+        const on  = p === plat;
+        btn.style.background    = on ? 'rgba(200,241,53,.12)' : 'rgba(255,255,255,.05)';
+        btn.style.borderColor   = on ? 'rgba(200,241,53,.4)'  : 'var(--border)';
+        btn.style.color         = on ? 'var(--accent)'        : 'var(--text-muted)';
+    });
+    applyFilters();
+}
+
+// ── Apply all filters + sort ─────────────────────────────────────────────
 function applyFilters() {
     const pubFrom = document.getElementById('pubFrom').value;
     const pubTo   = document.getElementById('pubTo').value;
-    const addFrom = document.getElementById('addFrom').value;
-    const addTo   = document.getElementById('addTo').value;
+    const sortBy  = document.getElementById('sortSelect').value;
     let visible = 0;
-    document.querySelectorAll('#postsTable tbody tr').forEach(row => {
-        const pub    = row.dataset.pub   || '';
-        const added  = row.dataset.added || '';
-        const tagIds = (row.dataset.tags || '').split(',').filter(Boolean).map(Number);
-        const pubOk  = (!pubFrom || pub >= pubFrom) && (!pubTo   || pub   <= pubTo);
-        const addOk  = (!addFrom || added >= addFrom) && (!addTo || added <= addTo);
+    const grid  = document.getElementById('cardsGrid');
+    const cards = Array.from(grid.querySelectorAll('.post-card'));
+
+    cards.forEach(card => {
+        const pub    = card.dataset.pub    || '';
+        const added  = card.dataset.added  || '';
+        const plat   = card.dataset.platform || '';
+        const tagIds = (card.dataset.tags || '').split(',').filter(Boolean).map(Number);
+        const pubOk  = (!pubFrom || pub >= pubFrom) && (!pubTo || pub <= pubTo);
+        const platOk = activePlatform === 'All' || plat === activePlatform;
         const tagOk  = !activeTagFilter || tagIds.includes(activeTagFilter);
-        if (pubOk && addOk && tagOk) { row.style.display = ''; visible++; }
-        else                         { row.style.display = 'none'; }
+        if (pubOk && platOk && tagOk) { card.style.display = ''; visible++; }
+        else                          { card.style.display = 'none'; }
     });
+
+    // Sort visible cards
+    const visible_cards = cards.filter(c => c.style.display !== 'none');
+    visible_cards.sort((a, b) => {
+        let av, bv;
+        if (sortBy === 'views')     { av = +a.dataset.views;   bv = +b.dataset.views; }
+        else if (sortBy === 'likes'){ av = +a.dataset.likes;   bv = +b.dataset.likes; }
+        else if (sortBy === 'er')   { av = +a.dataset.er;      bv = +b.dataset.er; }
+        else if (sortBy === 'published') { av = a.dataset.pub; bv = b.dataset.pub; }
+        else                        { av = a.dataset.added;    bv = b.dataset.added; }
+        return av < bv ? 1 : av > bv ? -1 : 0;
+    });
+    visible_cards.forEach(c => grid.appendChild(c));
+
     document.getElementById('visibleCount').textContent = visible;
 }
 
 function clearFilters() {
-    ['pubFrom','pubTo','addFrom','addTo'].forEach(id => document.getElementById(id).value = '');
+    ['pubFrom','pubTo'].forEach(id => document.getElementById(id).value = '');
     activeTagFilter = null;
+    setPlatform('All');
     renderTagFilterChips();
     applyFilters();
 }
 
-// ── Create new tag ───────────────────────────────────────────────────────
-async function createTag() {
-    const input = document.getElementById('newTagInput');
-    const name  = input.value.trim();
-    if (!name) return;
-    const fd = new FormData();
-    fd.append('name', name);
-    const r   = await fetch('/api/tags', {method:'POST', body:fd});
-    const tag = await r.json();
-    if (!allTags.find(t => t.id === tag.id)) {
-        allTags.push(tag);
-        allTags.sort((a,b) => a.name.localeCompare(b.name));
-    }
-    input.value = '';
-    renderTagFilterChips();
-    if (dropdownPostId !== null) renderTagDropdown(dropdownPostId);
+// ── Bulk delete ──────────────────────────────────────────────────────────
+function updateBulkUI() {
+    const checked = document.querySelectorAll('.row-checkbox:checked').length;
+    document.getElementById('deleteBtn').style.display = checked ? '' : 'none';
+    document.getElementById('selCount').textContent = checked;
+    document.querySelectorAll('.post-card').forEach(card => {
+        const cb = card.querySelector('.row-checkbox');
+        card.classList.toggle('selected', cb && cb.checked);
+    });
 }
 
 // ── Tag dropdown ─────────────────────────────────────────────────────────
@@ -359,7 +470,7 @@ function renderTagDropdown(postId) {
                       <span style="font-size:11px;opacity:.8">${on ? '✓' : '○'}</span>${t.name}
                     </div>`;
           }).join('')
-        : '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">No tags yet — create one above</div>';
+        : '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">No tags yet</div>';
 }
 
 function openTagDropdown(btn, postId) {
@@ -368,214 +479,99 @@ function openTagDropdown(btn, postId) {
     const rect = btn.getBoundingClientRect();
     tagDropdownEl.style.display = 'block';
     requestAnimationFrame(() => {
-        const dh = tagDropdownEl.offsetHeight;
-        const dw = tagDropdownEl.offsetWidth;
-        let top  = rect.bottom + 4;
-        let left = rect.left;
+        const dh = tagDropdownEl.offsetHeight, dw = tagDropdownEl.offsetWidth;
+        let top = rect.bottom + 4, left = rect.left;
         if (top + dh > window.innerHeight) top = rect.top - dh - 4;
         if (left + dw > window.innerWidth) left = window.innerWidth - dw - 8;
-        tagDropdownEl.style.top  = top  + 'px';
-        tagDropdownEl.style.left = left + 'px';
+        tagDropdownEl.style.top = top + 'px'; tagDropdownEl.style.left = left + 'px';
     });
 }
 
 document.addEventListener('click', e => {
     if (!tagDropdownEl.contains(e.target) && !e.target.classList.contains('add-tag-btn')) {
-        tagDropdownEl.style.display = 'none';
-        dropdownPostId = null;
+        tagDropdownEl.style.display = 'none'; dropdownPostId = null;
     }
 });
-
 document.querySelectorAll('.add-tag-btn').forEach(btn => {
     btn.addEventListener('click', e => {
         e.stopPropagation();
         const pid = parseInt(btn.dataset.postId);
         if (dropdownPostId === pid && tagDropdownEl.style.display === 'block') {
-            tagDropdownEl.style.display = 'none';
-            dropdownPostId = null;
-        } else {
-            openTagDropdown(btn, pid);
-        }
+            tagDropdownEl.style.display = 'none'; dropdownPostId = null;
+        } else { openTagDropdown(btn, pid); }
     });
 });
 
+async function createTag() {
+    const input = document.getElementById('newTagInput');
+    const name  = input.value.trim(); if (!name) return;
+    const fd = new FormData(); fd.append('name', name);
+    const r = await fetch('/api/tags', {method:'POST', body:fd});
+    const tag = await r.json();
+    if (!allTags.find(t => t.id === tag.id)) { allTags.push(tag); allTags.sort((a,b) => a.name.localeCompare(b.name)); }
+    input.value = '';
+    renderTagFilterChips();
+    if (dropdownPostId !== null) renderTagDropdown(dropdownPostId);
+}
+
 async function togglePostTag(postId, tagId) {
-    const tags    = postTagsMap[postId] || [];
-    const hasTag  = tags.find(t => t.id === tagId);
+    const tags = postTagsMap[postId] || [], hasTag = tags.find(t => t.id === tagId);
     if (hasTag) {
         await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
         postTagsMap[postId] = tags.filter(t => t.id !== tagId);
     } else {
         await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'POST'});
         const tag = allTags.find(t => t.id === tagId);
-        if (tag) {
-            if (!postTagsMap[postId]) postTagsMap[postId] = [];
-            postTagsMap[postId].push(tag);
-        }
+        if (tag) { if (!postTagsMap[postId]) postTagsMap[postId] = []; postTagsMap[postId].push(tag); }
     }
-    renderPostTags(postId);
-    renderTagDropdown(postId);
-    applyFilters();
+    renderPostTags(postId); renderTagDropdown(postId); applyFilters();
 }
 
 async function removeTag(postId, tagId) {
     await fetch(`/api/posts/${postId}/tags/${tagId}`, {method:'DELETE'});
     if (postTagsMap[postId]) postTagsMap[postId] = postTagsMap[postId].filter(t => t.id !== tagId);
-    renderPostTags(postId);
-    applyFilters();
+    renderPostTags(postId); applyFilters();
 }
 
-// ── Bulk select / delete ─────────────────────────────────────────────────
-function updateBulkUI() {
-    const checked = document.querySelectorAll('.row-checkbox:checked').length;
-    document.getElementById('deleteBtn').style.display = checked ? '' : 'none';
-    document.getElementById('selCount').textContent = checked;
-}
-
-document.getElementById('selectAll').addEventListener('change', function() {
-    document.querySelectorAll('#postsTable tbody tr').forEach(tr => {
-        if (tr.style.display !== 'none') {
-            tr.querySelector('.row-checkbox').checked = this.checked;
-        }
-    });
-    updateBulkUI();
-});
-
-document.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkUI));
-
-// ── Sorting (fixed: date strings compared lexicographically) ─────────────
-document.querySelectorAll('.sortable').forEach(th => {
-    let asc = false;
-    th.addEventListener('click', () => {
-        const col   = parseInt(th.dataset.col);
-        const tbody = document.querySelector('#postsTable tbody');
-        const rows  = Array.from(tbody.querySelectorAll('tr'));
-        rows.sort((a, b) => {
-            const av = a.cells[col].dataset.val ?? a.cells[col].textContent.trim();
-            const bv = b.cells[col].dataset.val ?? b.cells[col].textContent.trim();
-            const an = /^-?\d+(\.\d+)?$/.test(av) ? parseFloat(av) : null;
-            const bn = /^-?\d+(\.\d+)?$/.test(bv) ? parseFloat(bv) : null;
-            const a_ = (an !== null && bn !== null) ? an : av;
-            const b_ = (an !== null && bn !== null) ? bn : bv;
-            return asc ? (a_ < b_ ? -1 : a_ > b_ ? 1 : 0) : (a_ > b_ ? -1 : a_ < b_ ? 1 : 0);
-        });
-        asc = !asc;
-        rows.forEach(r => tbody.appendChild(r));
-        document.querySelectorAll('.sortable').forEach(t => {
-            t.textContent = t.textContent.replace(/ [↑↓↕]/, '') + ' ↕';
-        });
-        th.textContent = th.textContent.replace(/ [↑↓↕]/, '') + (asc ? ' ↑' : ' ↓');
-    });
-});
-
-// ── Inline thumbnail lazy load ───────────────────────────────────────────
+// ── Thumbnail lazy-load for cards without thumbnail_url ──────────────────
 (function() {
-    const CACHE_KEY = 'tw_thumb_v1';
+    const CACHE_KEY = 'tw_thumb_v2';
     let thumbCache = {};
     try { thumbCache = JSON.parse(sessionStorage.getItem(CACHE_KEY) || '{}'); } catch(e) {}
+    function saveCache() { try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(thumbCache)); } catch(e) {} }
 
-    function saveCache() {
-        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(thumbCache)); } catch(e) {}
-    }
-
-    function applyThumb(cell, thumbUrl) {
-        if (!thumbUrl) return;
-        const img  = cell.querySelector('.thumb-img');
-        const icon = cell.querySelector('.thumb-icon');
-        img.src = thumbUrl;
-        img.onload = () => { img.style.display = 'block'; if(icon) icon.style.display = 'none'; };
+    function applyThumb(cell, url) {
+        if (!url) return;
+        const ph = cell.querySelector('.card-ph');
+        if (!ph) return;
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width:100%;height:100%;min-height:230px;object-fit:cover;border-radius:10px 0 0 10px';
+        img.onload  = () => ph.replaceWith(img);
         img.onerror = () => {};
     }
 
     async function loadThumb(cell) {
-        const url      = cell.dataset.url;
-        const platform = cell.dataset.platform;
-        if (!url) return;
-
+        const url = cell.dataset.url, platform = cell.dataset.platform;
+        if (!url || !cell.querySelector('.card-ph')) return;
         if (thumbCache[url]) { applyThumb(cell, thumbCache[url]); return; }
-
         try {
             const r = await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${encodeURIComponent(platform)}`);
             const d = await r.json();
-            if (d.thumbnail) {
-                thumbCache[url] = d.thumbnail;
-                saveCache();
-                applyThumb(cell, d.thumbnail);
-            }
+            if (d.thumbnail) { thumbCache[url] = d.thumbnail; saveCache(); applyThumb(cell, d.thumbnail); }
         } catch(e) {}
     }
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                observer.unobserve(entry.target);
-                loadThumb(entry.target);
-            }
-        });
-    }, { rootMargin: '200px' });
-
-    document.querySelectorAll('.thumb-cell').forEach(cell => observer.observe(cell));
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { obs.unobserve(e.target); loadThumb(e.target); } });
+    }, { rootMargin: '300px' });
+    document.querySelectorAll('.card-thumb-wrap.thumb-cell').forEach(c => obs.observe(c));
 })();
-
-// ── Video preview ────────────────────────────────────────────────────────
-const previewCard = document.createElement('div');
-previewCard.className = 'preview-card';
-document.body.appendChild(previewCard);
-let hideTimer;
-const cache = {};
-
-function getRowThumb(btn) {
-    // Берём уже загруженный thumbnail из инлайн-колонки той же строки
-    const row = btn.closest('tr');
-    if (!row) return null;
-    const img = row.querySelector('.thumb-img');
-    return (img && img.complete && img.naturalWidth > 0) ? img.src : null;
-}
-
-async function showPreview(btn, e) {
-    const url = btn.dataset.url, platform = btn.dataset.platform;
-    clearTimeout(hideTimer);
-
-    // Мгновенно показываем с inline-thumbnail пока грузится API
-    const rowThumb = getRowThumb(btn);
-    if (!cache[url]) {
-        const tmpThumb = rowThumb ? `<img src="${rowThumb}">` : '';
-        previewCard.innerHTML = `${tmpThumb}<div class="preview-info"><div class="preview-url">${url.replace('https://','')}</div></div>`;
-        previewCard.classList.add('visible');
-        positionCard(e);
-        try {
-            const r = await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${platform}`);
-            cache[url] = await r.json();
-        } catch(ex) { cache[url] = {type:'unknown', url}; }
-    }
-    const d = cache[url];
-    const thumb = d.thumbnail || rowThumb;
-    let html = thumb ? `<img src="${thumb}" onerror="this.style.display='none'">` : '';
-    html += `<div class="preview-info"><div class="preview-platform">${platform}</div>`;
-    if (d.title)  html += `<div class="preview-title">${d.title}</div>`;
-    if (d.author) html += `<div class="preview-author">@${d.author}</div>`;
-    html += `<div class="preview-url">${url.replace('https://','')}</div></div>`;
-    previewCard.innerHTML = html;
-    previewCard.classList.add('visible');
-    positionCard(e);
-}
-
-function positionCard(e) {
-    const x = e.clientX + 12, y = e.clientY - 20;
-    const w = previewCard.offsetWidth, h = previewCard.offsetHeight;
-    previewCard.style.left = (x + w > window.innerWidth  ? x - w - 24 : x) + 'px';
-    previewCard.style.top  = (y + h > window.innerHeight ? y - h      : y) + 'px';
-}
-
-document.querySelectorAll('.preview-btn').forEach(btn => {
-    btn.addEventListener('mouseenter', e => showPreview(btn, e));
-    btn.addEventListener('mousemove',  e => positionCard(e));
-    btn.addEventListener('mouseleave', () => { hideTimer = setTimeout(() => previewCard.classList.remove('visible'), 150); });
-});
 
 // ── Init ─────────────────────────────────────────────────────────────────
 renderAllPostTags();
 renderTagFilterChips();
+applyFilters();
 </script>
 
 {% else %}
