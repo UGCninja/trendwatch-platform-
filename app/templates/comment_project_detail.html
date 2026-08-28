@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header d-flex align-items-center gap-3">
-  <a href="/comments/projects" class="text-muted text-decoration-none">← Проекты</a>
+  <a href="/comments/projects" class="text-muted text-decoration-none">← Projects</a>
   <h1 class="page-title mb-0">{{ project.name }}</h1>
 </div>
 
@@ -10,7 +10,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ sources|length }}</div>
-        <div class="text-muted">постов</div>
+        <div class="text-muted">posts</div>
       </div>
     </div>
   </div>
@@ -18,7 +18,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <div style="font-size:2rem;font-weight:700;color:var(--bs-primary)">{{ total_comments }}</div>
-        <div class="text-muted">комментариев</div>
+        <div class="text-muted">comments</div>
       </div>
     </div>
   </div>
@@ -26,7 +26,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <div style="font-size:2rem;font-weight:700;color:#6366f1">{{ total_likers }}</div>
-        <div class="text-muted">лайкеров</div>
+        <div class="text-muted">likers</div>
       </div>
     </div>
   </div>
@@ -35,23 +35,23 @@
       <div class="card-body text-center d-flex flex-column align-items-center justify-content-center gap-2">
         <div id="runControls">
           <form method="post" action="/comments/projects/{{ project.id }}/run">
-            <button class="btn btn-primary px-4" id="runBtn">▶ Обновить</button>
+            <button class="btn btn-primary px-4" id="runBtn">▶ Update</button>
           </form>
         </div>
         <div id="taskProgress" class="d-none w-100">
-          <div class="text-muted mb-1" style="font-size:.82rem" id="taskStatusText">Запуск...</div>
+          <div class="text-muted mb-1" style="font-size:.82rem" id="taskStatusText">Starting...</div>
           <div class="progress mb-2" style="height:6px">
             <div class="progress-bar progress-bar-striped progress-bar-animated" id="taskBar" style="width:0%"></div>
           </div>
           <form method="post" action="/comments/projects/{{ project.id }}/cancel">
-            <button type="submit" class="btn btn-outline-danger btn-sm">✕ Отменить</button>
+            <button type="submit" class="btn btn-outline-danger btn-sm">✕ Cancel</button>
           </form>
         </div>
-        <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Комментарии CSV</a>
-        <a href="/comments/projects/{{ project.id }}/download-likers" class="btn btn-outline-secondary btn-sm">⬇ Лайкеры CSV</a>
+        <a href="/comments/projects/{{ project.id }}/download" class="btn btn-outline-secondary btn-sm">⬇ Comments CSV</a>
+        <a href="/comments/projects/{{ project.id }}/download-likers" class="btn btn-outline-secondary btn-sm">⬇ Likers CSV</a>
         <button class="btn btn-outline-success btn-sm" onclick="exportSheets(this)">↗ Google Sheets</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Пересчитать языки</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Собрать лайкеры</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Recalculate Languages</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Collect Likers</button>
       </div>
     </div>
   </div>
@@ -61,9 +61,9 @@
 (function() {
   const pid = {{ project.id }};
   const STATUS_LABELS = {
-    queued: "В очереди...", collecting: "Сбор комментариев",
-    fetching_metrics: "Получаем метрики постов...", geo_lookup: "Определяем GEO...", collecting_likers: "Сбор лайков...",
-    done: "Готово!", cancelled: "Отменено"
+    queued: "Queued...", collecting: "Collecting comments",
+    fetching_metrics: "Fetching post metrics...", geo_lookup: "Resolving GEO...", collecting_likers: "Collecting likers...",
+    done: "Done!", cancelled: "Cancelled"
   };
   let wasRunning = false;
   let stopped = false;
@@ -80,7 +80,7 @@
         if (running) {
           wasRunning = true;
           const pct = data.total > 0 ? Math.round(data.done / data.total * 100) : 0;
-          const skip = data.skipped_fresh ? ` · пропущено (свежие): ${data.skipped_fresh}` : '';
+          const skip = data.skipped_fresh ? ` · skipped (fresh): ${data.skipped_fresh}` : '';
           document.getElementById('taskStatusText').textContent =
             (STATUS_LABELS[data.status] || data.status) + ` — ${data.done}/${data.total}${skip}`;
           document.getElementById('taskBar').style.width = pct + '%';
@@ -89,7 +89,7 @@
           stopped = true;
           location.reload();
         }
-        // idle или done без предыдущего running — просто ничего не делаем
+        
       }).catch(() => { if (!stopped) setTimeout(poll, 5000); });
   }
   poll();
@@ -99,14 +99,14 @@
 {% if provider_stats %}
 <div class="card mb-4">
   <div class="card-body">
-    <div class="fw-semibold mb-3">Подрядчики</div>
+    <div class="fw-semibold mb-3">Providers</div>
     <div class="row g-2">
       {% for name, st in provider_stats %}
       <div class="col-auto">
         <div class="card h-100" style="min-width:160px;border:1px solid #e5e7eb">
           <div class="card-body p-3">
             <div class="fw-semibold mb-1" style="font-size:.9rem">{{ name }}</div>
-            <div class="text-muted" style="font-size:.8rem">{{ st.posts }} постов · {{ st.comments }} комм.</div>
+            <div class="text-muted" style="font-size:.8rem">{{ st.posts }} posts · {{ st.comments }} comments</div>
             <div class="mt-1 d-flex gap-1">
               {% if st.active %}<span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.72rem">{{ st.active }} active</span>{% endif %}
               {% if st.deleted %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.72rem">{{ st.deleted }} deleted</span>{% endif %}
@@ -147,7 +147,7 @@
     <div class="card h-100">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topCommentersBody').classList.toggle('d-none');this.querySelector('.tc-arrow').textContent=document.getElementById('topCommentersBody').classList.contains('d-none')?'▾':'▴'">
-          <div class="fw-semibold">Топ комментаторов <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_comments }} комм.</span></div>
+          <div class="fw-semibold">Top Commenters <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_comments }} comments</span></div>
           <span class="tc-arrow text-muted">▾</span>
         </div>
         <div id="topCommentersBody" class="d-none mt-3">
@@ -179,7 +179,7 @@
     <div class="card h-100">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between" style="cursor:pointer" onclick="document.getElementById('topLikersBody').classList.toggle('d-none');this.querySelector('.tl-arrow').textContent=document.getElementById('topLikersBody').classList.contains('d-none')?'▾':'▴'">
-          <div class="fw-semibold">Топ лайкеров <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_likers }} уникальных</span></div>
+          <div class="fw-semibold">Top Likers <span class="text-muted fw-normal" style="font-size:.8rem">· {{ total_likers }} unique</span></div>
           <span class="tl-arrow text-muted">▾</span>
         </div>
         <div id="topLikersBody" class="d-none mt-3">
@@ -218,15 +218,15 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Язык · Вероятная страна</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">Язык точный · страна приблизительная</div>
+        <div class="fw-semibold mb-1">Language · Estimated Country</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">Language: exact · country: approximate</div>
         {% for lang_label, lang_iso, count in lang_stats %}{{ stat_bar(lang_label, count, total_comments, "var(--bs-primary)", "13rem", "language", lang_iso) }}{% endfor %}
         <div class="mt-auto pt-3">
-          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
+          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ How is this determined?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.6">
-            <b>Язык</b> — мы смотрим на текст самого комментария и определяем на каком языке он написан. Это точные данные.<br><br>
-            <b>Страна</b> — мы не знаем откуда человек. Мы просто предполагаем: если кто-то пишет на тагальском — скорее всего с Филиппин, на албанском — из Албании. Это грубая оценка, не факт.<br><br>
-            English не показываем в странах — на английском пишут со всего мира, привязать к одной стране нельзя.
+            <b>Language</b> — we analyze the comment text and detect the language it's written in. This is exact data.<br><br>
+            <b>Country</b> — we don't know where the person is from. We make an assumption: if someone writes in Tagalog — most likely from the Philippines, in Albanian — from Albania. This is a rough estimate, not a fact.<br><br>
+            English is not shown in countries — people write in English from all over the world, so it can't be linked to one country.
           </div>
         </div>
       </div>
@@ -238,8 +238,8 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Регион из профиля</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">TikTok authorRegion · только точные данные</div>
+        <div class="fw-semibold mb-1">Region from Profile</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">TikTok authorRegion · exact data only</div>
         {% for region, count in region_stats %}{{ stat_bar(region, count, total_comments, "#198754", "9rem", "region", region) }}{% endfor %}
       </div>
     </div>
@@ -250,13 +250,13 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">Регион лайкеров</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">{{ total_likers }} уникальных · Instagram</div>
+        <div class="fw-semibold mb-1">Likers Region</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">{{ total_likers }} unique · Instagram</div>
         {% for region, count in liker_region_stats %}{{ stat_bar(region, count, total_likers, "#6366f1", "9rem") }}{% endfor %}
         <div class="mt-auto pt-3">
-          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
+          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ How is this determined?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Список пользователей поставивших лайк (только Instagram, Apify). Регион: флаги в bio и поле "About this account". TikTok и YouTube не раскрывают список лайкнувших.
+            List of users who liked (Instagram only, via Apify). Region: flags in bio and the "About this account" field. TikTok and YouTube do not expose the list of people who liked.
           </div>
         </div>
       </div>
@@ -273,13 +273,13 @@
   <div class="col-md-3">
     <div class="card h-100">
       <div class="card-body d-flex flex-column">
-        <div class="fw-semibold mb-1">📍 Геолокация постов</div>
-        <div class="text-muted mb-3" style="font-size:.75rem">{{ geo_sources|length }} из {{ sources|length }} постов</div>
+        <div class="fw-semibold mb-1">📍 Post Geolocation</div>
+        <div class="text-muted mb-3" style="font-size:.75rem">{{ geo_sources|length }} of {{ sources|length }} posts</div>
         {% for loc, cnt in loc_counts.items() %}{{ stat_bar(loc, cnt, geo_sources|length, "#1a73e8", "9rem") }}{% endfor %}
         <div class="mt-auto pt-3">
-          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ Как определяется?</div>
+          <div class="text-muted" style="font-size:.75rem;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">▸ How is this determined?</div>
           <div class="d-none mt-2" style="font-size:.75rem;color:#666;line-height:1.5">
-            Геотег самого поста (не автора). Instagram: читается из метаданных поста если блогер указал локацию при публикации.
+            Geotag of the post itself (not the author). Instagram: read from post metadata if the creator tagged a location at publishing.
           </div>
         </div>
       </div>
@@ -293,53 +293,52 @@
 <div class="card mb-4">
   <div class="card-body">
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-      <div class="fw-semibold">Посты (<span id="visibleCount">{{ sources|length }}</span> из {{ sources|length }})</div>
+      <div class="fw-semibold">Posts (<span id="visibleCount">{{ sources|length }}</span> of {{ sources|length }})</div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <select class="form-select form-select-sm" id="platformFilter" style="width:auto">
-          <option value="all">Все платформы</option>
+          <option value="all">All platforms</option>
           {% set platforms = sources | map(attribute='platform') | unique | list %}
           {% for p in platforms %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
         </select>
         {% if providers %}
         <select class="form-select form-select-sm" id="providerFilter" style="width:auto">
-          <option value="all">Все подрядчики</option>
+          <option value="all">All providers</option>
           {% for p in providers %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
         </select>
         {% endif %}
         <select class="form-select form-select-sm" id="commentsFilter" style="width:auto">
-          <option value="all">Все комментарии</option>
-          <option value="has">Есть комментарии</option>
-          <option value="none">Без комментариев</option>
+          <option value="all">All comments</option>
+          <option value="has">Has comments</option>
+          <option value="none">No comments</option>
           <option value="5">5+</option>
           <option value="10">10+</option>
         </select>
-        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Добавить ссылки</button>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUrlsModal">+ Add URLs</button>
       </div>
     </div>
     {% if sources %}
     <div id="sourcesList">
-      <!-- Заголовок таблицы -->
       <div id="postsHeader" style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 80px 30px;gap:4px;padding:6px 4px;border-bottom:2px solid #e5e7eb;font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em">
-        <div>Платформа</div>
-        <div>Статус</div>
-        <div>Ссылка</div>
-        <div>Подрядчик</div>
-        <div class="sort-col" data-col="4" style="text-align:right;cursor:pointer" title="Сортировать">Комм. <span class="sort-arrow"></span></div>
-        <div class="sort-col" data-col="5" style="text-align:right;cursor:pointer" title="Сортировать">Лайки <span class="sort-arrow"></span></div>
-        <div class="sort-col" data-col="6" style="text-align:right;cursor:pointer" title="Сортировать">Лайкеры <span class="sort-arrow"></span></div>
-        <div class="sort-col" data-col="7" style="text-align:right;cursor:pointer" title="Сортировать">Подп. <span class="sort-arrow"></span></div>
-        <div class="sort-col" data-col="8" style="text-align:right;cursor:pointer" title="Сортировать">ER% <span class="sort-arrow"></span></div>
-        <div class="sort-col" data-col="9" style="text-align:right;cursor:pointer" title="Сортировать">Просмотры <span class="sort-arrow"></span></div>
-        <div style="text-align:right">Опубликован</div>
+        <div>Platform</div>
+        <div>Status</div>
+        <div>URL</div>
+        <div>Provider</div>
+        <div class="sort-col" data-col="4" style="text-align:right;cursor:pointer" title="Sort">Comments <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="5" style="text-align:right;cursor:pointer" title="Sort">Likes <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="6" style="text-align:right;cursor:pointer" title="Sort">Likers <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="7" style="text-align:right;cursor:pointer" title="Sort">Followers <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="8" style="text-align:right;cursor:pointer" title="Sort">ER% <span class="sort-arrow"></span></div>
+        <div class="sort-col" data-col="9" style="text-align:right;cursor:pointer" title="Sort">Views <span class="sort-arrow"></span></div>
+        <div style="text-align:right">Published</div>
         <div></div>
       </div>
       {% for s in sources %}
       {% set lk_cnt = liker_per_source.get(s.id, 0) %}
       <div class="source-row" data-platform="{{ s.platform }}" data-sid="{{ s.id }}" data-comments="{{ s.comments_count }}" data-provider="{{ s.provider or '' }}">
         <div style="display:grid;grid-template-columns:80px 60px 1fr 100px 70px 70px 60px 60px 70px 80px 80px 30px;gap:4px;padding:7px 4px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82rem" data-er="{{ s.post_er or 0 }}" data-views="{{ s.post_views or 0 }}" data-likes="{{ s.post_likes or 0 }}" data-lk="{{ lk_cnt }}" data-followers="{{ s.post_followers or 0 }}" data-comments="{{ s.comments_count }}">
-          <!-- Платформа -->
+
           <div><span class="badge bg-secondary" style="font-size:.72rem">{{ s.platform }}</span></div>
-          <!-- Статус -->
+
           <div>
             {% if s.status == 'deleted' %}
             <span class="badge" style="background:#fee2e2;color:#dc2626;font-size:.7rem">deleted</span>
@@ -349,31 +348,31 @@
             <span class="badge" style="background:#dcfce7;color:#16a34a;font-size:.7rem">active</span>
             {% endif %}
           </div>
-          <!-- Ссылка + Креатор -->
+
           <div style="min-width:0">
             <a href="{{ s.url }}" target="_blank" class="text-decoration-none" style="font-size:.82rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
             {% if s.creator %}<span class="text-muted" style="font-size:.75rem">{{ s.creator }}</span>{% endif %}
           </div>
-          <!-- Подрядчик -->
+
           <div>{% if s.provider %}<span class="badge" style="background:#f0f0f0;color:#555;font-size:.72rem">{{ s.provider }}</span>{% endif %}</div>
-          <!-- Комментарии -->
+
           <div style="text-align:right">
             {% if s.comments_count > 0 %}
             <button class="btn btn-link btn-sm p-0 text-primary toggle-comments" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none">{{ s.comments_count }} ▾</button>
             {% else %}<span class="text-muted">0</span>{% endif %}
           </div>
-          <!-- Лайки поста (из метрик платформы) -->
+
           <div style="text-align:right;color:#555">
             {% if s.post_likes %}{{ '{:,}'.format(s.post_likes).replace(',', ' ') }}
             {% else %}<span class="text-muted">—</span>{% endif %}
           </div>
-          <!-- Лайкеры (собранные нами аккаунты) -->
+
           <div style="text-align:right">
             {% if lk_cnt > 0 %}
             <button class="btn btn-link btn-sm p-0 toggle-likers" data-sid="{{ s.id }}" style="font-size:.82rem;text-decoration:none;color:#6366f1">{{ lk_cnt }} ▾</button>
             {% else %}<span class="text-muted">0</span>{% endif %}
           </div>
-          <!-- Подписчики -->
+
           <div style="text-align:right;color:#555">
             {% if s.post_followers %}
               {% set f = s.post_followers %}
@@ -388,18 +387,17 @@
             <span style="font-weight:600;{% if s.post_er >= 5 %}color:#16a34a{% elif s.post_er >= 2 %}color:#d97706{% else %}color:#dc2626{% endif %}" title="ER = (likes + comments) / views × 100">{{ '%.1f'|format(s.post_er) }}%</span>
             {% else %}<span class="text-muted">—</span>{% endif %}
           </div>
-          <!-- Просмотры -->
+
           <div style="text-align:right;color:#888">
             {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}
             {% else %}<span class="text-muted">—</span>{% endif %}
           </div>
-          <!-- Дата публикации -->
-          <div style="text-align:right;color:#888;font-size:.75rem" title="Дата публикации поста">
+
+          <div style="text-align:right;color:#888;font-size:.75rem" title="Post publish date">
             {% if s.post_date %}{{ s.post_date }}{% else %}<span class="text-muted">—</span>{% endif %}
           </div>
-          <!-- Удалить -->
           <div>
-            <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Удалить?')">
+            <form method="post" action="/comments/projects/{{ project.id }}/delete-source" onsubmit="return confirm('Delete?')">
               <input type="hidden" name="source_id" value="{{ s.id }}">
               <button type="submit" class="btn btn-sm btn-link text-danger p-0">✕</button>
             </form>
@@ -411,7 +409,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-muted text-center py-3">Нет постов. Добавь ссылки чтобы начать.</div>
+    <div class="text-muted text-center py-3">No posts yet. Add URLs to get started.</div>
     {% endif %}
   </div>
 </div>
@@ -458,12 +456,12 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
       this.textContent = this.textContent.replace('▾', '▴');
       return;
     }
-    panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+    panel.innerHTML = '<span class="text-muted">Loading...</span>';
     panel.classList.remove('d-none');
     const pid = {{ project.id }};
     const resp = await fetch(`/comments/projects/${pid}/sources/${sid}/comments`);
     const data = await resp.json();
-    if (!data.length) { panel.innerHTML = '<span class="text-muted">Нет комментариев</span>'; }
+    if (!data.length) { panel.innerHTML = '<span class="text-muted">No comments</span>'; }
     else {
       panel.innerHTML = data.map(c => {
         const handle = (c.author || '').replace(/^@/, '');
@@ -491,31 +489,31 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-          <h5 class="modal-title">Добавить ссылки</h5>
+          <h5 class="modal-title">Add URLs</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <ul class="nav nav-tabs mb-3" id="addUrlsTabs">
-            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabText">Вручную</a></li>
-            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabFile">CSV файл</a></li>
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabText">Manual</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabFile">CSV File</a></li>
           </ul>
           <div class="tab-content">
             <div class="tab-pane fade show active" id="tabText">
               <form method="post" action="/comments/projects/{{ project.id }}/sources" enctype="multipart/form-data">
                 <textarea name="urls" class="form-control" rows="7" placeholder="https://www.tiktok.com/@user/video/123&#10;https://www.instagram.com/reel/ABC/&#10;https://www.youtube.com/watch?v=XYZ"></textarea>
                 <div class="mt-3 text-end">
-                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
-                  <button type="submit" class="btn btn-primary">Добавить</button>
+                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Add</button>
                 </div>
               </form>
             </div>
             <div class="tab-pane fade" id="tabFile">
               <form method="post" action="/comments/projects/{{ project.id }}/sources/upload" enctype="multipart/form-data">
-                <label class="form-label fw-semibold">CSV или TXT файл (одна ссылка на строку)</label>
+                <label class="form-label fw-semibold">CSV or TXT file (one URL per line)</label>
                 <input type="file" name="file" class="form-control" accept=".csv,.txt">
                 <div class="mt-3 text-end">
-                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
-                  <button type="submit" class="btn btn-primary">Загрузить</button>
+                  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Upload</button>
                 </div>
               </form>
             </div>
@@ -531,7 +529,7 @@ document.querySelectorAll('.toggle-comments').forEach(btn => {
 <script>
 const GEO_PID = {{ project.id }};
 
-// Сортировка таблицы постов
+
 (function() {
   const dataKeys = ['comments','likes','lk','followers','er','views'];
   let sortCol = -1, sortAsc = false;
@@ -555,7 +553,7 @@ const GEO_PID = {{ project.id }};
   });
 })();
 
-// Лайкеры на посте
+
 document.querySelectorAll('.toggle-likers').forEach(btn => {
   btn.addEventListener('click', async function() {
     const sid = this.dataset.sid;
@@ -570,12 +568,12 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
       this.textContent = this.textContent.replace('▾', '▴');
       return;
     }
-    panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+    panel.innerHTML = '<span class="text-muted">Loading...</span>';
     panel.classList.remove('d-none');
     const resp = await fetch(`/comments/projects/${GEO_PID}/sources/${sid}/likers`);
     const data = await resp.json();
     if (!data.length) {
-      panel.innerHTML = '<span class="text-muted">Нет лайкеров</span>';
+      panel.innerHTML = '<span class="text-muted">No likers</span>';
     } else {
       panel.innerHTML = data.map(l =>
         `<a href="https://www.instagram.com/${l.username}/" target="_blank" style="display:inline-block;margin:2px 4px;background:#ede9fe;color:#6366f1;border-radius:4px;padding:2px 7px;font-size:.78rem;text-decoration:none">
@@ -590,53 +588,53 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
 
 async function exportSheets(btn) {
   btn.disabled = true;
-  btn.textContent = '↗ Создаю...';
+  btn.textContent = '↗ Creating...';
   try {
     const r = await fetch(`/comments/projects/${GEO_PID}/export-sheets`, {method:'POST'});
     const d = await r.json();
     if (d.url) {
-      btn.textContent = '✓ Открыть';
+      btn.textContent = '✓ Open';
       btn.onclick = () => window.open(d.url, '_blank');
       btn.disabled = false;
     } else {
-      btn.textContent = '✕ ' + (d.error || 'Ошибка');
+      btn.textContent = '✕ ' + (d.error || 'Error');
       btn.disabled = false;
     }
   } catch(e) {
-    btn.textContent = '✕ Ошибка';
+    btn.textContent = '✕ Error';
     btn.disabled = false;
   }
 }
 
 async function collectLikers(btn) {
   btn.disabled = true;
-  btn.textContent = '♥ Сбор...';
+  btn.textContent = '♥ Collecting...';
   try {
     const r = await fetch(`/comments/projects/${GEO_PID}/collect-likers`, {method:'POST'});
     const d = await r.json();
     if (d.ok) {
-      btn.textContent = '✓ Запущено';
-      setTimeout(() => { btn.textContent = '♥ Собрать лайкеры'; btn.disabled = false; }, 3000);
+      btn.textContent = '✓ Started';
+      setTimeout(() => { btn.textContent = '♥ Collect Likers'; btn.disabled = false; }, 3000);
     } else {
-      btn.textContent = '✕ ' + (d.error || 'Ошибка');
+      btn.textContent = '✕ ' + (d.error || 'Error');
       btn.disabled = false;
     }
   } catch(e) {
-    btn.textContent = '✕ Ошибка';
+    btn.textContent = '✕ Error';
     btn.disabled = false;
   }
 }
 
 async function recalcLangs(btn) {
   btn.disabled = true;
-  btn.textContent = '⟳ Пересчёт...';
+  btn.textContent = '⟳ Recalculating...';
   try {
     const r = await fetch(`/comments/projects/${GEO_PID}/recalc-languages`, {method:'POST'});
     const d = await r.json();
-    btn.textContent = `✓ Обновлено ${d.updated} из ${d.total}`;
+    btn.textContent = `✓ Updated ${d.updated} of ${d.total}`;
     setTimeout(() => location.reload(), 1500);
   } catch(e) {
-    btn.textContent = '✕ Ошибка';
+    btn.textContent = '✕ Error';
     btn.disabled = false;
   }
 }
@@ -653,12 +651,12 @@ async function toggleStatPanel(el, filterType, filterValue) {
   panel.classList.remove('d-none');
   if (arrow) arrow.textContent = '▴';
   if (panel.dataset.loaded) return;
-  panel.innerHTML = '<span class="text-muted">Загрузка...</span>';
+  panel.innerHTML = '<span class="text-muted">Loading...</span>';
   try {
     const resp = await fetch(`/comments/projects/${GEO_PID}/comments-by?type=${encodeURIComponent(filterType)}&value=${encodeURIComponent(filterValue)}`);
     const data = await resp.json();
     if (!data.length) {
-      panel.innerHTML = '<span class="text-muted">Нет комментариев</span>';
+      panel.innerHTML = '<span class="text-muted">No comments</span>';
     } else {
       panel.innerHTML = data.map(c => `
         <div style="padding:5px 0;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:baseline">
@@ -669,7 +667,7 @@ async function toggleStatPanel(el, filterType, filterValue) {
     }
     panel.dataset.loaded = '1';
   } catch(e) {
-    panel.innerHTML = '<span class="text-danger">Ошибка загрузки</span>';
+    panel.innerHTML = '<span class="text-danger">Load error</span>';
   }
 }
 </script>

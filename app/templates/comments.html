@@ -8,13 +8,13 @@
   <div class="col-md-7">
 
     <div class="page-tabs mb-4">
-      <a href="/comments/projects" class="page-tab">Проекты</a>
-      <button class="page-tab active" onclick="switchTab('new')">Разовый запрос</button>
-      <button class="page-tab" onclick="switchTab('history')">История</button>
+      <a href="/comments/projects" class="page-tab">Projects</a>
+      <button class="page-tab active" onclick="switchTab('new')">One-time Request</button>
+      <button class="page-tab" onclick="switchTab('history')">History</button>
     </div>
 
     <div id="panel-history" style="display:none">
-      <div id="history-list"><div class="text-muted text-center py-4">Загружаем...</div></div>
+      <div id="history-list"><div class="text-muted text-center py-4">Loading...</div></div>
     </div>
 
     <div id="panel-new">
@@ -23,17 +23,17 @@
         <form id="commentsForm" action="/comments" method="post" enctype="multipart/form-data">
 
           <div class="mb-3">
-            <label class="form-label fw-semibold">Название продукта / кампании</label>
-            <input type="text" name="product" class="form-control" placeholder="Например: Cash Legends, OneState, Bestplay" required>
+            <label class="form-label fw-semibold">Product / Campaign Name</label>
+            <input type="text" name="product" class="form-control" placeholder="e.g. Cash Legends, OneState, Bestplay" required>
           </div>
 
           <div class="mb-4">
-            <label class="form-label fw-semibold">CSV файл со ссылками на посты</label>
+            <label class="form-label fw-semibold">CSV file with post URLs</label>
             <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
               <div id="dropText">
                 <div style="font-size:2rem;margin-bottom:.5rem">📂</div>
-                <div>Перетащи файл сюда или <span class="text-primary" style="cursor:pointer">выбери с компьютера</span></div>
-                <div class="text-muted mt-1" style="font-size:.85rem">Любые соцсети в одном файле: TikTok, Instagram, YouTube</div>
+                <div>Drop file here or <span class="text-primary" style="cursor:pointer">select from computer</span></div>
+                <div class="text-muted mt-1" style="font-size:.85rem">Any social network in one file: TikTok, Instagram, YouTube</div>
               </div>
               <div id="fileChosen" style="display:none">
                 <div style="font-size:2rem;margin-bottom:.5rem">✅</div>
@@ -45,68 +45,68 @@
           </div>
 
           <div class="mb-4">
-            <label class="form-label fw-semibold">Что сделать?</label>
+            <label class="form-label fw-semibold">What to do?</label>
             <div class="row g-3">
               <div class="col-sm-6">
                 <label class="mode-card" id="card-comments">
                   <input type="radio" name="mode" value="comments" checked hidden>
                   <div class="mode-icon">💬</div>
-                  <div class="fw-semibold">Только комментарии</div>
-                  <div class="text-muted" style="font-size:.82rem">Собрать все комменты в CSV-файл</div>
+                  <div class="fw-semibold">Comments Only</div>
+                  <div class="text-muted" style="font-size:.82rem">Collect all comments into a CSV file</div>
                 </label>
               </div>
               <div class="col-sm-6">
                 <label class="mode-card" id="card-audit">
                   <input type="radio" name="mode" value="audit" hidden>
                   <div class="mode-icon">🔍</div>
-                  <div class="fw-semibold">Комментарии + Аудит</div>
-                  <div class="text-muted" style="font-size:.82rem">Собрать + анализ Claude (сентимент, темы, рекомендации)</div>
+                  <div class="fw-semibold">Comments + Audit</div>
+                  <div class="text-muted" style="font-size:.82rem">Collect + Claude analysis (sentiment, topics, recommendations)</div>
                 </label>
               </div>
             </div>
           </div>
 
           <button type="submit" class="btn btn-primary w-100 py-2" id="submitBtn">
-            Запустить
+            Run
           </button>
         </form>
 
         <div id="loadingBlock" style="display:none;text-align:center;padding:2rem 0">
           <div class="spinner-border text-primary mb-3" role="status"></div>
-          <div class="fw-semibold">Загружаем файл...</div>
+          <div class="fw-semibold">Uploading file...</div>
         </div>
       </div>
     </div>
 
     <details class="card">
       <summary class="card-body p-3 d-flex align-items-center justify-content-between" style="cursor:pointer;list-style:none;user-select:none">
-        <span class="fw-semibold">Инструкция</span>
-        <span class="text-muted" style="font-size:.85rem">развернуть ▾</span>
+        <span class="fw-semibold">Instructions</span>
+        <span class="text-muted" style="font-size:.85rem">expand ▾</span>
       </summary>
       <div class="card-body pt-0 p-4">
         <div class="row g-3 mb-3">
           <div class="col-sm-4">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
               <div class="fw-semibold mb-1">TikTok ✅</div>
-              <div class="text-muted" style="font-size:.83rem">Комментарии + лайки + автор + дата</div>
+              <div class="text-muted" style="font-size:.83rem">Comments + likes + author + date</div>
             </div>
           </div>
           <div class="col-sm-4">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
               <div class="fw-semibold mb-1">Instagram ✅</div>
-              <div class="text-muted" style="font-size:.83rem">Комментарии + лайки + автор + дата</div>
+              <div class="text-muted" style="font-size:.83rem">Comments + likes + author + date</div>
             </div>
           </div>
           <div class="col-sm-4">
             <div class="p-3 rounded" style="background:var(--bg-card-hover,#f8f9fa)">
               <div class="fw-semibold mb-1">YouTube ✅</div>
-              <div class="text-muted" style="font-size:.83rem">Комментарии + лайки + автор + дата</div>
+              <div class="text-muted" style="font-size:.83rem">Comments + likes + author + date</div>
             </div>
           </div>
         </div>
         <div class="p-3 rounded" style="background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);font-size:.85rem">
-          ⚠️ <strong>X (Twitter)</strong> — комментарии не поддерживаются (API ограничение)<br>
-          📄 Формат файла: одна ссылка на пост в строке, или несколько колонок — система найдёт ссылки сама
+          ⚠️ <strong>X (Twitter)</strong> — comments not supported (API limitation)<br>
+          📄 File format: one post URL per line, or multiple columns — the system will find the URLs automatically
         </div>
       </div>
     </details>
@@ -164,16 +164,16 @@ function loadHistory() {
     .then(r => r.json())
     .then(items => {
       const el = document.getElementById('history-list');
-      if (!items.length) { el.innerHTML = '<div class="text-muted text-center py-4">Нет запусков за последние 24 часа</div>'; return; }
+      if (!items.length) { el.innerHTML = '<div class="text-muted text-center py-4">No runs in the last 24 hours</div>'; return; }
       el.innerHTML = '<div class="card"><div class="card-body p-0">' +
         items.map(i => {
-          const d = new Date(i.ts * 1000).toLocaleString('ru');
-          const badge = i.status === 'done' ? '<span class="badge bg-success">Готово</span>' : '<span class="badge bg-danger">Ошибка</span>';
-          const typeLabel = i.result_type === 'html' ? '🔍 Аудит' : '💬 Комментарии';
+          const d = new Date(i.ts * 1000).toLocaleString('en');
+          const badge = i.status === 'done' ? '<span class="badge bg-success">Done</span>' : '<span class="badge bg-danger">Error</span>';
+          const typeLabel = i.result_type === 'html' ? '🔍 Audit' : '💬 Comments';
           const dl = i.status === 'done'
-            ? `<a href="/comments/download/${i.task_id}" class="btn btn-sm btn-outline-primary">Скачать</a>`
+            ? `<a href="/comments/download/${i.task_id}" class="btn btn-sm btn-outline-primary">Download</a>`
             : `<span class="text-muted" style="font-size:.8rem">${i.error||''}</span>`;
-          return `<div class="history-row"><div>${badge} ${typeLabel} <strong class="ms-1">${i.filename||'—'}</strong> <span class="text-muted ms-2">${i.comments_count} комментариев</span></div><div class="d-flex align-items-center gap-2"><span class="text-muted" style="font-size:.8rem">${d}</span>${dl}</div></div>`;
+          return `<div class="history-row"><div>${badge} ${typeLabel} <strong class="ms-1">${i.filename||'—'}</strong> <span class="text-muted ms-2">${i.comments_count} comments</span></div><div class="d-flex align-items-center gap-2"><span class="text-muted" style="font-size:.8rem">${d}</span>${dl}</div></div>`;
         }).join('') + '</div></div>';
     });
 }
