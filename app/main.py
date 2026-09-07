@@ -1862,6 +1862,10 @@ def _save_comments_to_db(source_id: int, comments: list[dict], platform: str):
 
 
 async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: str, apify_token: str = "") -> list[dict]:
+    # Извлекаем ник автора из URL чтобы отфильтровать описание поста
+    _url_author_m = _re.search(r'tiktok\.com/@([^/?]+)', url)
+    _url_author = _url_author_m.group(1).lower() if _url_author_m else None
+
     # 1. Clockworks Apify — возвращает authorRegion прямо в комментарии
     if apify_token:
         try:
@@ -1876,12 +1880,16 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
                 if items:
                     out = []
                     for c in items:
+                        author_meta = c.get("authorMeta") or {}
+                        comment_author = (author_meta.get("name") or c.get("uniqueId") or "").lower()
+                        # Пропускаем описание поста (автор комментария = автор ролика)
+                        if _url_author and comment_author == _url_author:
+                            continue
                         ts = c.get("createTimeISO") or c.get("createTime") or ""
                         try:
                             date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
                         except Exception:
                             date = ""
-                        author_meta = c.get("authorMeta") or {}
                         out.append({
                             "comment_id": str(c.get("id") or c.get("cid") or ""),
                             "post_url":   url,
@@ -1895,7 +1903,11 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
                         })
                     if out:
                         return out
-        except Exception:
+                    # Apify вернул только описание — комментарии отключены или недоступны
+                    raise Exception("comments_disabled")
+        except Exception as e:
+            if "comments_disabled" in str(e):
+                raise
             pass
 
     # 2. ScrapeCreators fallback (без authorRegion)
@@ -2851,6 +2863,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         new_status = "deleted"
                     elif any(x in err_str for x in ["no_items", "empty or private", "unavailable", "blocked", "500"]):
                         new_status = "unavailable"
+                    elif "comments_disabled" in err_str:
+                        new_status = "comments_disabled"
                     else:
                         new_status = None
                     if new_status:
