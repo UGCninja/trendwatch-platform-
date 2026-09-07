@@ -3085,6 +3085,25 @@ async def comment_project_run(request: Request, pid: int, back: str = "project")
     return RedirectResponse(redirect_to, status_code=302)
 
 
+@app.post("/comments/projects/{pid}/clear-comments")
+async def comment_project_clear_comments(request: Request, pid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    sources = db.query(CommentSource).filter(CommentSource.project_id == pid).all()
+    src_ids = [s.id for s in sources]
+    if src_ids:
+        db.query(_StoredComment).filter(_StoredComment.source_id.in_(src_ids)).delete(synchronize_session=False)
+        # Сбрасываем кэш чтобы следующий запуск пересобрал все посты
+        db.query(CommentSource).filter(CommentSource.project_id == pid).update(
+            {"last_fetched_at": None, "comments_count": 0}, synchronize_session=False
+        )
+    db.commit()
+    db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
 @app.post("/comments/projects/{pid}/delete")
 async def comment_project_delete(request: Request, pid: int):
     if not check_auth(request):

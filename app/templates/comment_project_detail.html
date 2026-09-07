@@ -52,6 +52,9 @@
         <button class="btn btn-outline-success btn-sm" onclick="exportSheets(this)">↗ Google Sheets</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="recalcLangs(this)">⟳ Recalculate Languages</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="collectLikers(this)">♥ Collect Likers</button>
+        <form method="post" action="/comments/projects/{{ project.id }}/clear-comments" class="d-inline" onsubmit="return confirm('Удалить все комментарии и сбросить кэш? Посты не удалятся.')">
+          <button type="submit" class="btn btn-outline-warning btn-sm">🗑 Clear & Re-collect</button>
+        </form>
       </div>
     </div>
   </div>
