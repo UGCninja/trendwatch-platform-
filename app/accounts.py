@@ -370,6 +370,58 @@ async def account_fetch_posts(request: Request, aid: int):
     return RedirectResponse(f"/accounts/{aid}", status_code=302)
 
 
+@router.post("/accounts/{aid}/full-audit")
+async def account_full_audit(request: Request, aid: int):
+    """Fetch Posts + Update в одном запросе."""
+    from app.main import (check_auth, SessionLocal, _AccountProject, CommentSource,
+                          _comments_tasks, _run_project_comments_task,
+                          SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY, APIFY_TOKEN, _detect_platform)
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    ap = db.query(_AccountProject).filter(_AccountProject.id == aid).first()
+    if not ap:
+        db.close()
+        return RedirectResponse("/accounts", status_code=302)
+    handle = extract_handle(ap.account_url, ap.platform or "")
+
+    # 1. Fetch profile
+    profile = await fetch_profile(handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY)
+    urls, profile_from_posts = await fetch_posts_with_profile(
+        handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY, limit=50
+    )
+    if not profile and profile_from_posts:
+        profile = profile_from_posts
+    if profile:
+        ap.profile_data = json.dumps(profile)
+        db.commit()
+
+    # 2. Save posts
+    existing = {s.url for s in db.query(CommentSource.url).filter(
+        CommentSource.project_id == ap.comment_project_id).all()}
+    for url in urls:
+        if url in existing:
+            continue
+        try:
+            src = CommentSource(project_id=ap.comment_project_id, url=url,
+                                platform=ap.platform or _detect_platform(url), creator=handle)
+            db.add(src); db.flush(); existing.add(url)
+        except Exception:
+            db.rollback()
+
+    ap.last_fetched_at = datetime.utcnow()
+    ap.posts_count = db.query(CommentSource).filter(
+        CommentSource.project_id == ap.comment_project_id).count()
+    db.commit(); db.close()
+
+    # 3. Run comments + metrics collection
+    pid = ap.comment_project_id
+    task_id = str(uuid.uuid4())
+    _comments_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time(), "project_id": pid}
+    threading.Thread(target=_run_project_comments_task, args=[task_id, pid, SCRAPECREATORS_API_KEY, APIFY_TOKEN], daemon=True).start()
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
 @router.post("/accounts/{aid}/run")
 async def account_run(request: Request, aid: int):
     from app.main import (check_auth, SessionLocal, _AccountProject, _comments_tasks,

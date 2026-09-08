@@ -123,20 +123,22 @@
   </div>
   <div style="flex:1"></div>
   <div class="acc-bar-actions" id="accRunControls">
-    <form method="post" action="/accounts/{{ ap.id }}/fetch-posts" style="display:contents">
-      <button type="submit" class="btn-ghost" style="border-color:var(--accent);color:var(--accent)">↓ Fetch Posts</button>
-    </form>
+    {# Full Audit — одна кнопка #}
     <div class="acc-dd-wrap">
       <div class="dd-split">
-        <form method="post" action="/accounts/{{ ap.id }}/run" style="display:contents">
-          <button type="submit" class="dd-split-main">▶ Update</button>
+        <form method="post" action="/accounts/{{ ap.id }}/full-audit" style="display:contents">
+          <button type="submit" class="dd-split-main">▶ Full Audit</button>
         </form>
         <button class="dd-split-caret" onclick="toggleAccDd('dd-update')">▾</button>
       </div>
       <div class="acc-dd-menu" id="dd-update">
-        <form method="post" action="/accounts/{{ ap.id }}/run" style="display:contents">
-          <button type="submit" class="acc-dd-item">▶ Run Update</button>
+        <form method="post" action="/accounts/{{ ap.id }}/fetch-posts" style="display:contents">
+          <button type="submit" class="acc-dd-item">↓ Fetch Posts only</button>
         </form>
+        <form method="post" action="/accounts/{{ ap.id }}/run" style="display:contents">
+          <button type="submit" class="acc-dd-item">▶ Update comments only</button>
+        </form>
+        <div class="acc-dd-sep"></div>
         <button class="acc-dd-item" onclick="closeAccDds();accCollectLikers(this)">♥ Collect Likers</button>
       </div>
     </div>
