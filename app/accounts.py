@@ -174,26 +174,34 @@ async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limi
                         url = item.get("webVideoUrl") or item.get("url") or (f"https://www.tiktok.com/@{handle}/video/{vid}" if vid else "")
                         if url: urls.append(url)
             elif platform == "Instagram":
-                r = await c.get("https://api.scrapecreators.com/v2/instagram/user/posts",
-                                params={"handle": handle}, headers={"x-api-key": sc_key})
-                if r.status_code == 200:
+                # Пагинация через next_max_id
+                max_id = None
+                while len(urls) < limit:
+                    params = {"handle": handle}
+                    if max_id:
+                        params["max_id"] = max_id
+                    r = await c.get("https://api.scrapecreators.com/v2/instagram/user/posts",
+                                    params=params, headers={"x-api-key": sc_key})
+                    if r.status_code != 200:
+                        break
                     data = r.json()
-                    # SC v2 может вернуть list или {data: [...]} или {items: [...]}
-                    if isinstance(data, list):
-                        items = data
-                    else:
-                        items = (data.get("data") or data.get("posts") or
-                                 data.get("items") or data.get("edges") or [])
-                        # Вложенный node pattern (GraphQL)
-                        if items and isinstance(items[0], dict) and "node" in items[0]:
-                            items = [i["node"] for i in items]
-                    for item in items[:limit]:
-                        # SC v2 Instagram: shortcode is in "code" field
-                        sc = (item.get("code") or item.get("shortCode") or
-                              item.get("shortcode"))
-                        url = (item.get("url") or item.get("link") or item.get("permalink") or
-                               (f"https://www.instagram.com/p/{sc}/" if sc else ""))
-                        if url: urls.append(url)
+                    items = data.get("items") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                    if not items:
+                        break
+                    for item in items:
+                        if len(urls) >= limit:
+                            break
+                        url = (item.get("url") or item.get("link") or item.get("permalink"))
+                        if not url:
+                            sc = item.get("code") or item.get("shortCode") or item.get("shortcode")
+                            url = f"https://www.instagram.com/p/{sc}/" if sc else ""
+                        if url:
+                            urls.append(url)
+                    # Следующая страница
+                    more = data.get("more_available") if isinstance(data, dict) else False
+                    max_id = data.get("next_max_id") if isinstance(data, dict) else None
+                    if not more or not max_id:
+                        break
             elif platform == "YouTube" and yt_key:
                 r2 = await c.get("https://www.googleapis.com/youtube/v3/channels",
                                  params={"part": "id", "forHandle": handle, "key": yt_key})
