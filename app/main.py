@@ -3644,3 +3644,41 @@ async def account_delete(request: Request, aid: int):
         db.commit()
     db.close()
     return RedirectResponse("/accounts", status_code=302)
+
+
+@app.post("/accounts/{aid}/cancel")
+async def account_cancel(request: Request, aid: int):
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.database import SessionLocal
+    db = SessionLocal()
+    ap = db.query(_AccountProject).filter(_AccountProject.id == aid).first()
+    pid = ap.comment_project_id if ap else None
+    db.close()
+    if pid:
+        for task in _comments_tasks.values():
+            if task.get("project_id") == pid and task.get("status") not in ("done", "cancelled", "error"):
+                task["status"] = "cancelled"
+    return RedirectResponse(f"/accounts/{aid}/detail", status_code=302)
+
+
+@app.post("/accounts/{aid}/clear-comments")
+async def account_clear_comments(request: Request, aid: int):
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    from app.database import SessionLocal
+    from app.models import StoredComment as _SC4
+    db = SessionLocal()
+    ap = db.query(_AccountProject).filter(_AccountProject.id == aid).first()
+    if ap:
+        pid = ap.comment_project_id
+        src_ids = [s.id for s in db.query(CommentSource).filter(CommentSource.project_id == pid).all()]
+        if src_ids:
+            db.query(_SC4).filter(_SC4.source_id.in_(src_ids)).delete(synchronize_session=False)
+            db.query(CommentSource).filter(CommentSource.project_id == pid).update(
+                {"last_fetched_at": None, "comments_count": 0, "likers_count": 0},
+                synchronize_session=False
+            )
+        db.commit()
+    db.close()
+    return RedirectResponse(f"/accounts/{aid}/detail", status_code=302)
