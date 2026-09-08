@@ -443,15 +443,4 @@ async def account_delete(request: Request, aid: int):
     return RedirectResponse("/accounts", status_code=302)
 
 
-@router.get("/comments/projects/{pid}/sources/{sid}/comments")
-async def account_comments_by_source(request: Request, pid: int, sid: int):
-    """Прокси — используется из account_project_detail.html для раскрытия комментов."""
-    from app.main import check_auth, SessionLocal, _StoredComment
-    if not check_auth(request):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
-    db = SessionLocal()
-    comments = db.query(_StoredComment).filter(_StoredComment.source_id == sid).limit(200).all()
-    db.close()
-    return JSONResponse([{"author": c.author, "text": c.text, "platform": c.platform,
-                          "date": c.date, "language": c.language, "user_region": c.user_region}
-                         for c in comments])
+# /comments/projects/{pid}/sources/{sid}/comments already defined in main.py
