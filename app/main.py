@@ -3085,6 +3085,11 @@ async def comment_project_clear_comments(request: Request, pid: int):
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
+@app.get("/comments/projects/{pid}/delete")
+async def comment_project_delete_get(request: Request, pid: int):
+    return RedirectResponse("/comments/projects", status_code=302)
+
+
 @app.post("/comments/projects/{pid}/delete")
 async def comment_project_delete(request: Request, pid: int):
     if not check_auth(request):
