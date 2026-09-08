@@ -2756,8 +2756,9 @@ async def comments_by_filter(request: Request, pid: int, type: str = "", value: 
     if type == "language":
         q = q.filter(_StoredComment.language == value)
     elif type == "region":
-        # Только реальный user_region из профиля — без примеси языкового определения
         q = q.filter(_StoredComment.user_region == value)
+    elif type == "author":
+        q = q.filter(_StoredComment.author == value)
     comments = q.order_by(_StoredComment.fetched_at.desc()).limit(100).all()
     db.close()
     return JSONResponse([{
