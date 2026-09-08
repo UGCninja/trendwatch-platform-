@@ -49,7 +49,13 @@ def _execute_campaign(campaign_id: int):
         run.posts_added  = len(new_posts)
         run.status       = "done"
         campaign.last_run_at = now
-        campaign.next_run_at = now + timedelta(days=3)
+        from app.main import compute_next_run
+        campaign.next_run_at = compute_next_run(
+            campaign.schedule_frequency or "manual",
+            campaign.schedule_days or "[]",
+            datetime.now(tz=timezone.utc),
+            campaign.schedule_time or "10:00",
+        )
         db.commit()
 
         if new_posts:
