@@ -1903,7 +1903,7 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
                             continue
                         ts = c.get("createTimeISO") or c.get("createTime") or ""
                         try:
-                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y %H:%M") if ts else ""
                         except Exception:
                             date = ""
                         out.append({
@@ -1943,7 +1943,7 @@ async def _fetch_comments_tiktok(client: httpx.AsyncClient, url: str, sc_key: st
         out = []
         for c in body.get("comments", []):
             ts = c.get("create_time", 0)
-            date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+            date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else ""
             out.append({
                 "comment_id": str(c.get("cid") or c.get("id") or ""),
                 "post_url":   url,
@@ -1984,7 +1984,7 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
                     for c in real_items:
                         ts = c.get("timestamp") or c.get("created_at") or ""
                         try:
-                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y") if ts else ""
+                            date = _dt.fromisoformat(ts.replace("Z", "+00:00")).strftime("%d.%m.%Y %H:%M") if ts else ""
                         except Exception:
                             date = str(ts)[:10] if ts else ""
                         out.append({
@@ -2021,7 +2021,7 @@ async def _fetch_comments_instagram(client: httpx.AsyncClient, url: str, sc_key:
                 out = []
                 for c in raw:
                     ts = c.get("created_at", 0)
-                    date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y") if ts else ""
+                    date = _dt.utcfromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else ""
                     out.append({
                         "comment_id": str(c.get("id") or c.get("pk") or ""),
                         "post_url":   url,
@@ -2076,7 +2076,7 @@ async def _fetch_comments_x(client: httpx.AsyncClient, url: str, apify_token: st
             date       = ""
             try:
                 if ts:
-                    date = _dt.utcfromtimestamp(ts / 1000 if ts > 1e10 else ts).strftime("%d.%m.%Y")
+                    date = _dt.utcfromtimestamp(ts / 1000 if ts > 1e10 else ts).strftime("%d.%m.%Y %H:%M")
             except Exception:
                 pass
             likes = int(c.get("favouriteCount") or c.get("likeCount") or c.get("favorite_count") or 0)
@@ -2116,7 +2116,7 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
         try:
             raw = c.get("publishedTime", "")
             if raw:
-                date = _dt.fromisoformat(raw.replace("Z", "+00:00")).strftime("%d.%m.%Y")
+                date = _dt.fromisoformat(raw.replace("Z", "+00:00")).strftime("%d.%m.%Y %H:%M")
         except Exception:
             pass
         out.append({
