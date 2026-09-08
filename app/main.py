@@ -588,6 +588,15 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str, fetc
                             )
                     except Exception:
                         pass
+                typename = media.get("__typename", "")
+                if typename == "GraphSidecar":
+                    post_type = "Carousel"
+                elif typename == "GraphVideo":
+                    post_type = "Video"
+                elif typename == "GraphImage":
+                    post_type = "Image"
+                else:
+                    post_type = ""
                 return {
                     "status":    "Active",
                     "api_views": media.get("video_play_count", media.get("video_view_count", "")),
@@ -598,6 +607,7 @@ async def _fetch_metrics(client: httpx.AsyncClient, url: str, api_key: str, fetc
                     "saves":     "",
                     "author":    ig_username,
                     "followers": ig_followers,
+                    "post_type": post_type,
                 }
             return {"status": "Not Updated"}
 
@@ -1546,18 +1556,24 @@ async def _enrich_rows_async(rows: list[dict], api_key: str, task: dict, update_
     results = [r if isinstance(r, dict) else {"url": "", "views": "", "date": "", "status": "Non-Active"} for r in results]
 
     out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=["URL", "Views", "Platform", "Date", "Likes", "Comments", "Shares", "Saves", "Status"])
+    writer = csv.DictWriter(out, fieldnames=["URL", "Platform", "Type", "Author", "Followers", "Views", "Likes", "Comments", "Shares", "Saves", "Date", "Status"])
     writer.writeheader()
     for r in results:
         views = (r.get("api_views") or r.get("views", "")) if update_views else (r.get("views") or r.get("api_views", ""))
         date  = r.get("api_date") or r.get("date", "")
         writer.writerow({
-            "URL": r["url"], "Views": views,
-            "Platform": _detect_platform(r["url"]),
-            "Date": date,
-            "Likes": r.get("likes", ""), "Comments": r.get("comments", ""),
-            "Shares": r.get("shares", ""), "Saves": r.get("saves", ""),
-            "Status": r.get("status", ""),
+            "URL":       r["url"],
+            "Platform":  _detect_platform(r["url"]),
+            "Type":      r.get("post_type", ""),
+            "Author":    r.get("author", ""),
+            "Followers": r.get("followers", ""),
+            "Views":     views,
+            "Likes":     r.get("likes", ""),
+            "Comments":  r.get("comments", ""),
+            "Shares":    r.get("shares", ""),
+            "Saves":     r.get("saves", ""),
+            "Date":      date,
+            "Status":    r.get("status", ""),
         })
     return out.getvalue()
 
