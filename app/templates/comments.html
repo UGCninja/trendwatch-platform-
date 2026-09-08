@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">Comments</h1>
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+  <h2 style="font-size:22px;font-weight:700;margin:0">Comments</h2>
+  <div style="display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px">
+    <a href="/comments/projects" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;color:var(--text-muted)">Projects</a>
+    <button id="pill-new" onclick="switchTab('new')" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:var(--accent,#b6f542);color:#111">One-time</button>
+    <button id="pill-history" onclick="switchTab('history')" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;color:var(--text-muted)">History</button>
+  </div>
 </div>
 
 <div class="row justify-content-center">
   <div class="col-md-7">
-
-    <div class="page-tabs mb-4">
-      <a href="/comments/projects" class="page-tab">Projects</a>
-      <button class="page-tab active" onclick="switchTab('new')">One-time Request</button>
-      <button class="page-tab" onclick="switchTab('history')">History</button>
-    </div>
 
     <div id="panel-history" style="display:none">
       <div id="history-list"><div class="text-muted text-center py-4">Loading...</div></div>
@@ -152,8 +151,10 @@ dropZone.addEventListener('drop',e=>{
 form.addEventListener('submit',()=>{form.style.display='none';loading.style.display='block';});
 
 function switchTab(tab) {
-  document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  const active = {background:'var(--accent,#b6f542)', color:'#111'};
+  const inactive = {background:'none', color:'var(--text-muted)'};
+  Object.assign(document.getElementById('pill-new').style, tab === 'new' ? active : inactive);
+  Object.assign(document.getElementById('pill-history').style, tab === 'history' ? active : inactive);
   document.getElementById('panel-new').style.display = tab === 'new' ? '' : 'none';
   document.getElementById('panel-history').style.display = tab === 'history' ? '' : 'none';
   if (tab === 'history') loadHistory();
