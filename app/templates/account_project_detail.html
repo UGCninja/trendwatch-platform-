@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+:root { --accent: #8DC63F; }
+.acc-bar { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:0; margin-bottom:10px; }
+.acc-bar-left { padding-right:20px; border-right:1px solid #e5e7eb; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.acc-bar-back { color:#9ca3af; text-decoration:none; font-size:.82rem; }
+.acc-bar-back:hover { color:#374151; }
+.acc-bar-name { font-size:1.15rem; font-weight:700; color:#111827; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.acc-bar-stats { display:flex; align-items:stretch; flex:1; }
+.acc-bar-stat { padding:0 20px; border-right:1px solid #e5e7eb; }
+.acc-bar-stat:last-child { border-right:none; }
+.acc-bar-stat-val { font-size:1.25rem; font-weight:700; color:#111827; line-height:1.2; }
+.acc-bar-stat-lbl { font-size:.68rem; color:#9ca3af; text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+.acc-bar-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.dd-split { display:inline-flex; border-radius:6px; overflow:visible; position:relative; }
+.dd-split-main { background:var(--accent); color:#fff; border:none; padding:6px 12px; font-size:.8rem; font-weight:600; cursor:pointer; border-radius:6px 0 0 6px; white-space:nowrap; }
+.dd-split-main:hover { background:#7ab335; }
+.dd-split-caret { background:#6fa32d; color:#fff; border:none; padding:6px 8px; font-size:.75rem; cursor:pointer; border-radius:0 6px 6px 0; border-left:1px solid rgba(255,255,255,.25); }
+.acc-dd-wrap { position:relative; display:inline-block; }
+.acc-dd-menu { display:none; position:absolute; top:calc(100% + 4px); right:0; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.12); min-width:190px; z-index:999; overflow:hidden; }
+.acc-dd-menu.open { display:block; }
+.acc-dd-item { display:block; width:100%; padding:8px 14px; font-size:.82rem; color:#222; text-decoration:none; background:none; border:none; text-align:left; cursor:pointer; white-space:nowrap; }
+.acc-dd-item:hover { background:#f5f5f5; }
+.acc-dd-sep { border-top:1px solid #eee; margin:3px 0; }
+.btn-ghost { background:#f3f4f6; border:1px solid #e5e7eb; color:#374151; border-radius:6px; padding:6px 11px; font-size:.8rem; cursor:pointer; white-space:nowrap; }
+.btn-ghost:hover { background:#e5e7eb; }
+#accTaskProgress { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; }
+.acc-bar-track { flex:1; background:#e5e7eb; border-radius:4px; height:6px; overflow:hidden; }
+.acc-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .4s; }
+.profile-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px 24px; margin-bottom:10px; display:flex; align-items:flex-start; gap:20px; }
+.profile-avatar { width:64px; height:64px; border-radius:50%; object-fit:cover; background:#f3f4f6; flex-shrink:0; }
+.profile-avatar-ph { width:64px; height:64px; border-radius:50%; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+.profile-name { font-size:1.1rem; font-weight:700; color:#111827; }
+.profile-handle { font-size:.85rem; color:#6b7280; margin-top:2px; }
+.profile-bio { font-size:.82rem; color:#374151; margin-top:6px; max-width:440px; line-height:1.5; }
+.profile-stats { display:flex; gap:24px; margin-top:12px; flex-wrap:wrap; }
+.profile-stat-val { font-size:1rem; font-weight:700; color:#111827; }
+.profile-stat-lbl { font-size:.72rem; color:#9ca3af; text-transform:uppercase; letter-spacing:.04em; margin-top:1px; }
+.verified-badge { display:inline-block; background:var(--accent); color:#fff; border-radius:3px; padding:1px 6px; font-size:.7rem; margin-left:6px; vertical-align:middle; }
+.acc-block { background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; margin-bottom:10px; }
+.acc-block-hdr { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; cursor:pointer; user-select:none; }
+.acc-block-hdr:hover { background:#f9fafb; }
+.acc-block-title { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#6b7280; }
+.acc-block-arrow { color:#9ca3af; font-size:.8rem; transition:transform .2s; }
+.acc-block-arrow.open { transform:rotate(180deg); }
+.acc-block-body { padding:14px 18px; border-top:1px solid #f3f4f6; }
+.acc-block-body.hidden { display:none; }
+.ana-row { display:flex; align-items:center; gap:8px; padding:5px 2px; border-radius:4px; }
+.ana-row:hover { background:#f9fafb; }
+.ana-nick { width:10rem; font-size:.83rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; color:var(--accent); text-decoration:none; cursor:pointer; }
+.ana-nick:hover { text-decoration:underline; }
+.ana-cnt { width:2.4rem; text-align:right; font-size:.83rem; color:#9ca3af; flex-shrink:0; }
+.ana-bar-track { flex:1; background:#f3f4f6; border-radius:4px; height:7px; overflow:hidden; }
+.ana-bar-fill { height:100%; background:var(--accent); border-radius:4px; }
+.ana-expand-btn { background:none; border:none; color:#9ca3af; font-size:.75rem; cursor:pointer; padding:0 4px; flex-shrink:0; }
+.ana-expand-btn:hover { color:var(--accent); }
+.commenter-panel { background:#f9fafb; border-left:2px solid rgba(141,198,63,.3); margin:2px 0 4px 10.5rem; border-radius:0 6px 6px 0; padding:6px 10px; font-size:.78rem; color:#6b7280; }
+.show-more-btn { background:none; border:none; color:var(--accent); font-size:.78rem; cursor:pointer; padding:4px 0 0; }
+.show-more-btn:hover { text-decoration:underline; }
+.lang-row { display:flex; align-items:center; gap:8px; padding:5px 2px; font-size:.82rem; cursor:pointer; border-radius:4px; }
+.lang-row:hover { background:#f9fafb; }
+.lang-row span:first-child { flex:1; color:#374151; }
+.lang-row span:nth-child(2) { min-width:36px; text-align:right; font-weight:600; color:#111827; }
+.lang-row span:nth-child(3) { min-width:40px; text-align:right; color:#6b7280; }
+.lang-arr { font-size:10px; color:#9ca3af; min-width:12px; transition:transform .15s; }
+.lang-arr.open { transform:rotate(180deg); display:inline-block; }
+.lang-bar-wrap { width:60px; background:#f3f4f6; border-radius:3px; height:5px; }
+.lang-bar { display:block; background:#818cf8; border-radius:3px; height:5px; }
+.lang-comments { display:none; background:#f9fafb; border-left:2px solid rgba(129,140,248,.3); margin:2px 0 4px 4px; border-radius:0 5px 5px 0; padding:6px 10px; }
+.lang-comments.open { display:block; }
+.lc-item { display:flex; gap:8px; align-items:baseline; font-size:.78rem; padding:3px 0; }
+.lc-item span { color:#9ca3af; flex:1; }
+.lc-date { color:#d1d5db!important; flex:none!important; white-space:nowrap; }
+.lc-more { font-size:.72rem; color:#d1d5db; margin-top:3px; }
+#postsHeader { display:grid; grid-template-columns:1fr 90px 80px 75px 70px 60px 75px 90px 100px 28px; gap:4px; padding:8px 14px; border-bottom:2px solid #e5e7eb; font-size:.68rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; background:#fff; z-index:2; }
+.source-row { border-bottom:1px solid #f3f4f6; }
+.source-row:hover .row-inner { background:#f9fafb; }
+.row-inner { display:grid; grid-template-columns:1fr 90px 80px 75px 70px 60px 75px 90px 100px 28px; gap:4px; padding:7px 14px; align-items:center; font-size:.8rem; color:#374151; }
+.url-link { color:#3b82f6; text-decoration:none; font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+.url-link:hover { text-decoration:underline; }
+.sort-col { cursor:pointer; display:flex; align-items:center; justify-content:flex-end; gap:3px; user-select:none; }
+.sort-col:hover { color:#374151; }
+.sort-col.active { color:var(--accent); }
+.sort-arrow { font-size:.65rem; opacity:.6; }
+.comments-panel { background:#f9fafb; padding:8px 14px; font-size:.78rem; }
+.likers-panel { background:#f0fdf4; padding:8px 14px; font-size:.78rem; }
+.hidden-panel { display:none; }
+.toggle-btn { background:none; border:none; color:var(--accent); font-size:.78rem; cursor:pointer; padding:0; }
+.badge-status-active { background:#dcfce7; color:#16a34a; border-radius:4px; padding:2px 7px; font-size:.72rem; font-weight:600; }
+.badge-status-deleted { background:#fee2e2; color:#dc2626; border-radius:4px; padding:2px 7px; font-size:.72rem; font-weight:600; }
+.badge-status-disabled { background:#fef3c7; color:#92400e; border-radius:4px; padding:2px 7px; font-size:.72rem; font-weight:600; }
+.er-high{color:#16a34a;font-weight:600}.er-mid{color:#d97706;font-weight:600}.er-low{color:#dc2626;font-weight:600}
+.nick-hp { display:none; position:fixed; width:200px; background:#1e2128; border:1px solid #333; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.35); padding:10px 12px; font-size:.78rem; color:#ccc; z-index:1200; pointer-events:none; }
+.nick-hp.visible { display:block; }
+.nick-hp-platform { display:inline-block; background:var(--accent); color:#fff; border-radius:3px; padding:1px 6px; font-size:.68rem; margin-bottom:5px; }
+.nick-hp-handle { font-weight:700; color:#f0f0f0; font-size:.84rem; }
+.nick-hp-cnt { color:#888; margin-top:3px; }
+.link-hp { display:none; position:fixed; width:280px; background:#1e2128; border:1px solid #333; border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.4); overflow:hidden; z-index:1200; pointer-events:none; }
+.link-hp.visible { display:block; }
+.link-hp-thumb { width:100%; height:140px; background:#252a34; display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:#444; }
+.link-hp-thumb img { width:100%; height:100%; object-fit:cover; }
+.link-hp-body { padding:10px 12px; }
+.link-hp-caption { font-size:.78rem; color:#ccc; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.link-hp-meta { font-size:.72rem; color:#666; }
+</style>
+
+{# ── Header bar ── #}
+<div class="acc-bar">
+  <div class="acc-bar-left">
+    <a href="/accounts" class="acc-bar-back">← Accounts</a>
+    <div>
+      <div class="acc-bar-name">{{ ap.name }}</div>
+      <div style="font-size:.72rem;color:#9ca3af;margin-top:2px">
+        <a href="{{ ap.account_url }}" target="_blank" style="color:#9ca3af;text-decoration:none">{{ ap.platform }} · {{ ap.account_url[:40] }}{% if ap.account_url|length > 40 %}…{% endif %}</a>
+      </div>
+    </div>
+  </div>
+  <div class="acc-bar-stats">
+    <div class="acc-bar-stat"><div class="acc-bar-stat-val">{{ sources|length }}</div><div class="acc-bar-stat-lbl">Posts</div></div>
+    <div class="acc-bar-stat"><div class="acc-bar-stat-val">{{ total_comments }}</div><div class="acc-bar-stat-lbl">Comments</div></div>
+    <div class="acc-bar-stat"><div class="acc-bar-stat-val">{{ total_likers }}</div><div class="acc-bar-stat-lbl">Likers</div></div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="acc-bar-actions" id="accRunControls">
+    <form method="post" action="/accounts/{{ ap.id }}/fetch-posts" style="display:contents">
+      <button type="submit" class="btn-ghost" style="border-color:var(--accent);color:var(--accent)">↓ Fetch Posts</button>
+    </form>
+    <div class="acc-dd-wrap">
+      <div class="dd-split">
+        <form method="post" action="/accounts/{{ ap.id }}/run" style="display:contents">
+          <button type="submit" class="dd-split-main">▶ Update</button>
+        </form>
+        <button class="dd-split-caret" onclick="toggleAccDd('dd-update')">▾</button>
+      </div>
+      <div class="acc-dd-menu" id="dd-update">
+        <form method="post" action="/accounts/{{ ap.id }}/run" style="display:contents">
+          <button type="submit" class="acc-dd-item">▶ Run Update</button>
+        </form>
+        <button class="acc-dd-item" onclick="closeAccDds();accCollectLikers(this)">♥ Collect Likers</button>
+      </div>
+    </div>
+    <div class="acc-dd-wrap">
+      <button class="btn-ghost" onclick="toggleAccDd('dd-export')">⬇ Export ▾</button>
+      <div class="acc-dd-menu" id="dd-export">
+        <a class="acc-dd-item" href="/accounts/{{ ap.id }}/download">⬇ Comments CSV</a>
+        <div class="acc-dd-sep"></div>
+        <button class="acc-dd-item" onclick="closeAccDds();accExportSheets(this)">↗ Google Sheets</button>
+      </div>
+    </div>
+    <div class="acc-dd-wrap">
+      <button class="btn-ghost" style="padding:6px 10px" onclick="toggleAccDd('dd-more')">⋯</button>
+      <div class="acc-dd-menu" id="dd-more">
+        <button class="acc-dd-item" onclick="closeAccDds();accRecalcLangs(this)">⟳ Recalculate Languages</button>
+        <div class="acc-dd-sep"></div>
+        <form method="post" action="/accounts/{{ ap.id }}/delete" style="display:contents" onsubmit="return confirm('Delete this account project?')">
+          <button type="submit" class="acc-dd-item" style="color:#f87171">✕ Delete Account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Progress #}
+<div id="accTaskProgress" style="display:none;margin-bottom:10px">
+  <span id="accTaskStatusText" style="color:#6b7280;font-size:.8rem;flex-shrink:0">Starting...</span>
+  <div class="acc-bar-track"><div class="acc-bar-fill" id="accTaskBar" style="width:0%"></div></div>
+  <form method="post" action="/accounts/{{ ap.id }}/cancel" style="flex-shrink:0">
+    <button type="submit" class="btn-ghost" style="font-size:.75rem;padding:4px 9px;color:#f87171;border-color:#fecaca">✕ Cancel</button>
+  </form>
+</div>
+
+<script>
+(function(){
+  const aid={{ ap.id }};
+  const STATUS={queued:"Queued...",collecting:"Collecting comments",fetching_metrics:"Fetching metrics...",done:"Done!",cancelled:"Cancelled"};
+  let wasRunning=false,stopped=false;
+  function poll(){
+    if(stopped)return;
+    fetch(`/api/accounts/${aid}/task-status`).then(r=>r.json()).then(data=>{
+      if(stopped)return;
+      const running=data.status&&!["done","cancelled","idle","error"].includes(data.status);
+      document.getElementById('accRunControls').style.display=running?'none':'';
+      document.getElementById('accTaskProgress').style.display=running?'':'none';
+      if(running){
+        wasRunning=true;
+        const pct=data.total>0?Math.round(data.done/data.total*100):0;
+        document.getElementById('accTaskStatusText').textContent=(STATUS[data.status]||data.status)+` — ${data.done}/${data.total}`;
+        document.getElementById('accTaskBar').style.width=pct+'%';
+        setTimeout(poll,2000);
+      }else if(wasRunning&&data.status==='done'){stopped=true;location.reload();}
+    }).catch(()=>{if(!stopped)setTimeout(poll,5000);});
+  }
+  poll();
+})();
+</script>
+
+{# Profile card #}
+{% if profile %}
+<div class="profile-card">
+  {% if profile.avatar %}
+  <img src="{{ profile.avatar }}" class="profile-avatar" alt="" onerror="this.style.display='none'">
+  {% else %}
+  <div class="profile-avatar-ph">👤</div>
+  {% endif %}
+  <div style="flex:1">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="profile-name">{{ profile.nickname or profile.username or ap.name }}</div>
+      {% if profile.verified %}<span class="verified-badge">✓ verified</span>{% endif %}
+      {% if profile.is_business %}<span style="background:#eff6ff;color:#3b82f6;border-radius:3px;padding:1px 6px;font-size:.7rem">Business</span>{% endif %}
+    </div>
+    <div class="profile-handle">@{{ profile.username or '' }}{% if profile.region %} · {{ profile.region }}{% endif %}</div>
+    {% if profile.bio %}<div class="profile-bio">{{ profile.bio[:200] }}{% if profile.bio|length > 200 %}…{% endif %}</div>{% endif %}
+    <div class="profile-stats">
+      {% if profile.followers is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.followers|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Followers</div></div>{% endif %}
+      {% if profile.following is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.following|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Following</div></div>{% endif %}
+      {% if profile.posts is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.posts|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Posts</div></div>{% endif %}
+      {% if profile.likes_total is defined and profile.likes_total %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.likes_total|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Total Likes</div></div>{% endif %}
+      {% if profile.views_total is defined and profile.views_total %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.views_total|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Total Views</div></div>{% endif %}
+      {% if profile.created is defined and profile.created %}<div><div class="profile-stat-val">{{ profile.created }}</div><div class="profile-stat-lbl">Created</div></div>{% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="acc-block" style="margin-bottom:10px">
+  <div class="acc-block-body" style="color:#9ca3af;font-size:.85rem;text-align:center;padding:20px">
+    Press <strong>↓ Fetch Posts</strong> to load profile data and last 50 posts from this account.
+  </div>
+</div>
+{% endif %}
+
+{# Analytics ── 2-column ── #}
+{% if top_commenters or lang_stats %}
+<div style="display:grid;grid-template-columns:1fr 320px;gap:10px;margin-bottom:10px">
+  <div style="display:flex;flex-direction:column;gap:10px">
+
+    {# Top Commenters #}
+    {% if top_commenters %}
+    <div class="acc-block">
+      <div class="acc-block-hdr" onclick="toggleAccBlock(this)">
+        <span class="acc-block-title">Top Commenters · {{ total_comments }} comments</span>
+        <span class="acc-block-arrow open">▾</span>
+      </div>
+      <div class="acc-block-body">
+        {% set max_cnt = top_commenters[0][1] if top_commenters else 1 %}
+        {% for author, cnt, platform in top_commenters %}
+        {% set handle = author.lstrip('@') %}
+        {% if platform == 'TikTok' %}{% set pu = 'https://www.tiktok.com/@' ~ handle %}
+        {% elif platform == 'Instagram' %}{% set pu = 'https://www.instagram.com/' ~ handle ~ '/' %}
+        {% elif platform == 'X' %}{% set pu = 'https://x.com/' ~ handle %}
+        {% else %}{% set pu = '' %}{% endif %}
+        <div class="ana-row{% if loop.index > 5 %} ana-extra hidden-panel{% endif %}">
+          <span class="ana-nick" {% if pu %}onclick="window.open('{{ pu }}','_blank')"{% endif %}
+                data-author="{{ author }}" data-platform="{{ platform }}" data-cnt="{{ cnt }}"
+                onmouseenter="showNickHp(event,this)" onmouseleave="hideNickHp()">{{ author }}</span>
+          <div class="ana-cnt">{{ cnt }}</div>
+          <div class="ana-bar-track"><div class="ana-bar-fill" style="width:{{ (cnt/max_cnt*100)|round(0) }}%"></div></div>
+          <button class="ana-expand-btn toggle-commenter" data-author="{{ author }}">▾</button>
+        </div>
+        <div class="commenter-panel hidden-panel" id="cp-{{ loop.index }}"></div>
+        {% endfor %}
+        {% if top_commenters|length > 5 %}
+        <button class="show-more-btn" onclick="showMoreAna(this,'.ana-extra')">+ Show {{ top_commenters|length - 5 }} more</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Top Likers #}
+    <div class="acc-block">
+      <div class="acc-block-hdr" onclick="toggleAccBlock(this)">
+        <span class="acc-block-title">Top Likers · {{ total_likers }} unique</span>
+        <span class="acc-block-arrow open">▾</span>
+      </div>
+      <div class="acc-block-body">
+        {% if top_likers %}
+        {% set max_lk = top_likers[0][1] if top_likers else 1 %}
+        {% for username, cnt in top_likers %}
+        {% set handle = username.lstrip('@') %}
+        <div class="ana-row{% if loop.index > 5 %} ana-lk-extra hidden-panel{% endif %}">
+          <span class="ana-nick" onclick="window.open('https://www.instagram.com/{{ handle }}/','_blank')">{{ username }}</span>
+          <div class="ana-cnt">{{ cnt }}</div>
+          <div class="ana-bar-track"><div class="ana-bar-fill" style="width:{{ (cnt/max_lk*100)|round(0) }}%"></div></div>
+        </div>
+        {% endfor %}
+        {% if top_likers|length > 5 %}
+        <button class="show-more-btn" onclick="showMoreAna(this,'.ana-lk-extra')">+ Show {{ top_likers|length - 5 }} more</button>
+        {% endif %}
+        {% else %}
+        <div style="color:#9ca3af;font-size:.82rem;padding:4px 0">No likers — press ♥ Collect Likers to start</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  {# Language #}
+  {% if lang_stats %}
+  <div class="acc-block" style="align-self:start">
+    <div class="acc-block-hdr" onclick="toggleAccBlock(this)">
+      <div>
+        <div class="acc-block-title">Language · Estimated Country</div>
+        <div style="font-size:.7rem;color:#9ca3af;margin-top:2px;font-weight:400;text-transform:none;letter-spacing:0">Language: exact · country: approximate</div>
+      </div>
+      <span class="acc-block-arrow open">▾</span>
+    </div>
+    <div class="acc-block-body">
+      {% for label, iso, count in lang_stats[:3] %}
+      {% set pct = (count/total_comments*100)|round(1) if total_comments else 0 %}
+      <div class="lang-row" onclick="toggleLangRow('lr-{{ loop.index }}','{{ iso }}',this)">
+        <span>{{ label }}</span><span>{{ count }}</span><span>{{ pct }}%</span>
+        <span class="lang-bar-wrap"><span class="lang-bar" style="width:{{ pct }}%"></span></span>
+        <span class="lang-arr">▾</span>
+      </div>
+      <div class="lang-comments" id="lr-{{ loop.index }}"></div>
+      {% endfor %}
+      {% if lang_stats|length > 3 %}
+      <div id="langExtra" class="hidden-panel">
+        {% for label, iso, count in lang_stats[3:] %}
+        {% set pct = (count/total_comments*100)|round(1) if total_comments else 0 %}
+        <div class="lang-row" onclick="toggleLangRow('lre-{{ loop.index }}','{{ iso }}',this)">
+          <span>{{ label }}</span><span>{{ count }}</span><span>{{ pct }}%</span>
+          <span class="lang-bar-wrap"><span class="lang-bar" style="width:{{ pct }}%"></span></span>
+          <span class="lang-arr">▾</span>
+        </div>
+        <div class="lang-comments" id="lre-{{ loop.index }}"></div>
+        {% endfor %}
+      </div>
+      <button class="show-more-btn" onclick="document.getElementById('langExtra').classList.toggle('hidden-panel');this.textContent=this.textContent.includes('more')?'− Show less':'+ Show {{ lang_stats|length - 3 }} more'">+ Show {{ lang_stats|length - 3 }} more</button>
+      {% endif %}
+      <div style="font-size:.72rem;color:#9ca3af;margin-top:10px;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('hidden-panel')">▸ How is this determined?</div>
+      <div class="hidden-panel" style="font-size:.72rem;color:#6b7280;line-height:1.6;margin-top:6px">
+        <b>Language</b> — detected from comment text (exact).<br><br>
+        <b>Country</b> — estimated based on language (rough, not exact).
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
+
+{# Posts table #}
+<div class="acc-block">
+  <div class="acc-block-hdr" style="cursor:default">
+    <span class="acc-block-title">Posts · {{ sources|length }}</span>
+    <button class="btn-ghost" style="font-size:.72rem;padding:3px 10px;cursor:pointer" onclick="clearPostsSort()">× Clear sort</button>
+  </div>
+  {% if sources %}
+  <div style="overflow-x:auto">
+    <div id="postsHeader">
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Link</div>
+      <div class="sort-col" data-key="comments" style="justify-content:flex-end">Comments <span class="sort-arrow">↕</span></div>
+      <div class="sort-col" data-key="likes" style="justify-content:flex-end">Likes <span class="sort-arrow">↕</span></div>
+      <div class="sort-col" data-key="lk" style="justify-content:flex-end">Likers <span class="sort-arrow">↕</span></div>
+      <div class="sort-col" data-key="er" style="justify-content:flex-end">ER% <span class="sort-arrow">↕</span></div>
+      <div class="sort-col" data-key="views" style="justify-content:flex-end">Views <span class="sort-arrow">↕</span></div>
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Date</div>
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Status</div>
+      <div></div>
+    </div>
+    <div id="sourcesList">
+    {% for s in sources %}
+    {% set lk_cnt = liker_per_source.get(s.id, 0) %}
+    <div class="source-row" data-comments="{{ s.comments_count }}" data-likes="{{ s.post_likes or 0 }}"
+         data-lk="{{ lk_cnt }}" data-er="{{ s.post_er or 0 }}" data-views="{{ s.post_views or 0 }}">
+      <div class="row-inner">
+        <div style="min-width:0">
+          <a href="{{ s.url }}" target="_blank" class="url-link post-url-link"
+             data-url="{{ s.url }}" data-platform="{{ s.platform }}"
+             onmouseenter="showLinkHp(event,this)" onmouseleave="hideLinkHp()">{{ s.url[:55] }}{% if s.url|length > 55 %}…{% endif %}</a>
+          {% if s.creator %}<span style="color:#9ca3af;font-size:.72rem">@{{ s.creator }}</span>{% endif %}
+        </div>
+        <div style="text-align:right">
+          {% if s.comments_count > 0 %}
+          <button class="toggle-btn toggle-comments" data-sid="{{ s.id }}">{{ s.comments_count }} ▾</button>
+          {% else %}<span style="color:#d1d5db">0</span>{% endif %}
+        </div>
+        <div style="text-align:right;color:#374151">
+          {% if s.post_likes %}{{ '{:,}'.format(s.post_likes).replace(',', ' ') }}{% else %}<span style="color:#d1d5db">—</span>{% endif %}
+        </div>
+        <div style="text-align:right">
+          {% if lk_cnt > 0 %}<button class="toggle-btn toggle-likers" data-sid="{{ s.id }}" style="color:#6366f1">{{ lk_cnt }} ▾</button>
+          {% else %}<span style="color:#d1d5db">0</span>{% endif %}
+        </div>
+        <div style="text-align:right">
+          {% if s.post_er is not none %}<span class="{% if s.post_er >= 5 %}er-high{% elif s.post_er >= 2 %}er-mid{% else %}er-low{% endif %}">{{ '%.1f'|format(s.post_er) }}%</span>
+          {% else %}<span style="color:#d1d5db">—</span>{% endif %}
+        </div>
+        <div style="text-align:right;color:#6b7280">
+          {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}{% else %}<span style="color:#d1d5db">—</span>{% endif %}
+        </div>
+        <div style="color:#9ca3af;font-size:.75rem">{{ s.post_date or '—' }}</div>
+        <div>
+          {% if s.status == 'deleted' %}<span class="badge-status-deleted">deleted</span>
+          {% elif s.status == 'comments_disabled' %}<span class="badge-status-disabled">no cmts</span>
+          {% else %}<span class="badge-status-active">active</span>{% endif %}
+        </div>
+        <div>
+          <form method="post" action="/comments/projects/{{ pid }}/delete-source" style="display:contents" onsubmit="return confirm('Delete?')">
+            <input type="hidden" name="source_id" value="{{ s.id }}">
+            <button type="submit" style="background:none;border:none;color:#d1d5db;cursor:pointer;font-size:.8rem">✕</button>
+          </form>
+        </div>
+      </div>
+      <div class="comments-panel hidden-panel" id="comments-{{ s.id }}"></div>
+      <div class="likers-panel hidden-panel" id="likers-{{ s.id }}"></div>
+    </div>
+    {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div style="padding:32px;text-align:center;color:#9ca3af;font-size:.85rem">
+    No posts yet — press <strong>↓ Fetch Posts</strong> to load the last 50 posts.
+  </div>
+  {% endif %}
+</div>
+
+{# Hover cards #}
+<div class="nick-hp" id="nick-hp-global">
+  <div class="nick-hp-platform" id="nhp-platform"></div>
+  <div class="nick-hp-handle" id="nhp-handle"></div>
+  <div class="nick-hp-cnt" id="nhp-cnt"></div>
+</div>
+<div class="link-hp" id="link-hp-global">
+  <div class="link-hp-thumb" id="lhp-thumb"><span id="lhp-emoji">🎬</span></div>
+  <div class="link-hp-body">
+    <div class="link-hp-caption" id="lhp-caption"></div>
+    <div class="link-hp-meta" id="lhp-meta"></div>
+  </div>
+</div>
+
+<script>
+const AID={{ ap.id }}, PID={{ pid }};
+
+function toggleAccDd(id){document.querySelectorAll('.acc-dd-menu').forEach(m=>{if(m.id!==id)m.classList.remove('open');});document.getElementById(id).classList.toggle('open');}
+function closeAccDds(){document.querySelectorAll('.acc-dd-menu').forEach(m=>m.classList.remove('open'));}
+document.addEventListener('click',e=>{if(!e.target.closest('.acc-dd-wrap,.dd-split'))closeAccDds();});
+function toggleAccBlock(hdr){const b=hdr.nextElementSibling,a=hdr.querySelector('.acc-block-arrow');b.classList.toggle('hidden');a.classList.toggle('open');}
+
+async function accCollectLikers(btn){btn.disabled=true;btn.textContent='♥ Collecting...';try{const r=await fetch(`/accounts/${AID}/collect-likers`,{method:'POST'});const d=await r.json();if(d.ok){btn.textContent='✓ Started';setTimeout(()=>{btn.textContent='♥ Collect Likers';btn.disabled=false;},3000);}else{btn.textContent='✕ '+(d.error||'Error');btn.disabled=false;}}catch(e){btn.textContent='✕ Error';btn.disabled=false;}}
+async function accExportSheets(btn){btn.disabled=true;btn.textContent='↗ Creating...';try{const r=await fetch(`/accounts/${AID}/export-sheets`,{method:'POST'});const d=await r.json();if(d.url){btn.textContent='✓ Open';btn.onclick=()=>window.open(d.url,'_blank');btn.disabled=false;}else{btn.textContent='✕ '+(d.error||'Error');btn.disabled=false;}}catch(e){btn.textContent='✕ Error';btn.disabled=false;}}
+async function accRecalcLangs(btn){btn.disabled=true;btn.textContent='⟳ Recalculating...';try{const r=await fetch(`/accounts/${AID}/recalc-languages`,{method:'POST'});const d=await r.json();btn.textContent=`✓ Updated ${d.updated} of ${d.total}`;setTimeout(()=>location.reload(),1500);}catch(e){btn.textContent='✕ Error';btn.disabled=false;}}
+
+function showMoreAna(btn,sel){btn.closest('.acc-block-body').querySelectorAll(sel).forEach(el=>el.classList.remove('hidden-panel'));btn.remove();}
+
+document.querySelectorAll('.toggle-commenter').forEach(btn=>{
+  btn.addEventListener('click',async function(){
+    const author=this.dataset.author,row=this.closest('.ana-row'),panel=row.nextElementSibling;
+    if(!panel||!panel.classList.contains('commenter-panel'))return;
+    if(!panel.classList.contains('hidden-panel')){panel.classList.add('hidden-panel');this.textContent='▾';return;}
+    if(panel.dataset.loaded){panel.classList.remove('hidden-panel');this.textContent='▴';return;}
+    panel.innerHTML='Loading...';panel.classList.remove('hidden-panel');this.textContent='▴';
+    try{
+      const r=await fetch(`/comments/projects/${PID}/comments-by?type=author&value=${encodeURIComponent(author)}`);
+      const data=await r.json();
+      if(!data.length){panel.innerHTML='No comments';}
+      else{
+        const rr=c=>`<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">"${c.text}" <span style="color:#9ca3af;margin-left:6px">${c.date||''}</span></div>`;
+        const f=data.slice(0,5).map(rr).join('');
+        const rest=data.length>5?`<div id="cpr${author.replace(/\W/g,'')}" style="display:none">${data.slice(5).map(rr).join('')}</div><div style="color:var(--accent);cursor:pointer;font-size:.75rem;margin-top:4px" onclick="const e=this.previousElementSibling;e.style.display=e.style.display?'':'none';this.textContent=e.style.display?'+ ${data.length-5} more':'− Hide'">+ ${data.length-5} more</div>`:'';
+        panel.innerHTML=f+rest;
+      }
+      panel.dataset.loaded='1';
+    }catch(e){panel.innerHTML='Error';}
+  });
+});
+
+function toggleLangRow(id,iso,row){
+  const el=document.getElementById(id),arr=row.querySelector('.lang-arr');
+  if(!el)return;
+  el.classList.toggle('open');arr.classList.toggle('open');
+  if(el.classList.contains('open')&&!el.dataset.loaded){
+    el.dataset.loaded='1';
+    fetch(`/comments/projects/${PID}/comments-by?type=language&value=${encodeURIComponent(iso)}`)
+      .then(r=>r.json()).then(data=>{
+        if(!data.length){el.innerHTML='<div style="color:#9ca3af;font-size:.75rem">No comments</div>';return;}
+        el.innerHTML=data.slice(0,3).map(c=>`<div style="display:flex;gap:8px;padding:3px 0;font-size:.78rem;border-bottom:1px solid #f3f4f6"><span style="color:#818cf8;min-width:8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.author||''}</span><span style="color:#374151;flex:1">${c.text||''}</span><span style="color:#d1d5db;white-space:nowrap">${c.date||''}</span></div>`).join('')+(data.length>3?`<div style="color:#d1d5db;font-size:.72rem;margin-top:3px">+ ${data.length-3} more</div>`:'');
+      });
+  }
+}
+
+document.querySelectorAll('.toggle-comments').forEach(btn=>{
+  btn.addEventListener('click',async function(){
+    const sid=this.dataset.sid,panel=document.getElementById('comments-'+sid);
+    if(!panel.classList.contains('hidden-panel')){panel.classList.add('hidden-panel');this.textContent=this.textContent.replace('▴','▾');return;}
+    if(panel.dataset.loaded){panel.classList.remove('hidden-panel');this.textContent=this.textContent.replace('▾','▴');return;}
+    panel.innerHTML='<span style="color:#9ca3af">Loading...</span>';panel.classList.remove('hidden-panel');
+    const data=await(await fetch(`/comments/projects/${PID}/sources/${sid}/comments`)).json();
+    if(!data.length){panel.innerHTML='<span style="color:#9ca3af">No comments</span>';}
+    else{
+      panel.innerHTML=data.map(c=>{
+        const h=(c.author||'').replace(/^@/,'');
+        const u=c.platform==='TikTok'?`https://www.tiktok.com/@${h}`:c.platform==='Instagram'?`https://www.instagram.com/${h}/`:c.platform==='X'?`https://x.com/${h}`:'';
+        const a=u?`<a href="${u}" target="_blank" style="color:var(--accent);text-decoration:none;width:8rem;display:inline-block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.author}</a>`:`<span style="color:#9ca3af;width:8rem;display:inline-block">${c.author}</span>`;
+        return `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">${a}<span> ${c.text}</span><span style="color:#9ca3af;margin-left:8px;font-size:.75rem">${c.date||''}</span></div>`;
+      }).join('');
+    }
+    panel.dataset.loaded='1';this.textContent=this.textContent.replace('▾','▴');
+  });
+});
+
+document.querySelectorAll('.toggle-likers').forEach(btn=>{
+  btn.addEventListener('click',async function(){
+    const sid=this.dataset.sid,panel=document.getElementById('likers-'+sid);
+    if(!panel.classList.contains('hidden-panel')){panel.classList.add('hidden-panel');this.textContent=this.textContent.replace('▴','▾');return;}
+    if(panel.dataset.loaded){panel.classList.remove('hidden-panel');this.textContent=this.textContent.replace('▾','▴');return;}
+    panel.innerHTML='<span style="color:#9ca3af">Loading...</span>';panel.classList.remove('hidden-panel');
+    const data=await(await fetch(`/comments/projects/${PID}/sources/${sid}/likers`)).json();
+    panel.innerHTML=!data.length?'<span style="color:#9ca3af">No likers</span>':data.map(l=>`<a href="https://www.instagram.com/${l.username}/" target="_blank" style="display:inline-block;margin:2px 4px;background:#f0fdf4;color:#16a34a;border-radius:4px;padding:2px 7px;font-size:.75rem;text-decoration:none">${l.is_verified?'✓ ':''}${l.username}${l.is_private?' 🔒':''}</a>`).join('');
+    panel.dataset.loaded='1';this.textContent=this.textContent.replace('▾','▴');
+  });
+});
+
+(function(){
+  let sKey=null,sAsc=false;
+  document.querySelectorAll('.sort-col').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const k=th.dataset.key;
+      if(sKey===k)sAsc=!sAsc;else{sKey=k;sAsc=false;}
+      document.querySelectorAll('.sort-arrow').forEach(a=>a.textContent='↕');
+      document.querySelectorAll('.sort-col').forEach(t=>t.classList.remove('active'));
+      th.querySelector('.sort-arrow').textContent=sAsc?'↑':'↓';
+      th.classList.add('active');
+      const list=document.getElementById('sourcesList');
+      [...list.querySelectorAll('.source-row')].sort((a,b)=>{
+        const av=parseFloat(a.dataset[k]||0),bv=parseFloat(b.dataset[k]||0);
+        return sAsc?av-bv:bv-av;
+      }).forEach(r=>list.appendChild(r));
+    });
+  });
+})();
+function clearPostsSort(){document.querySelectorAll('.sort-arrow').forEach(a=>a.textContent='↕');document.querySelectorAll('.sort-col').forEach(t=>t.classList.remove('active'));}
+
+const nickHp=document.getElementById('nick-hp-global');
+function showNickHp(e,el){document.getElementById('nhp-platform').textContent=el.dataset.platform||'';document.getElementById('nhp-handle').textContent=el.dataset.author||'';document.getElementById('nhp-cnt').textContent=(el.dataset.cnt||'0')+' comments';nickHp.classList.add('visible');const x=Math.min(e.clientX+12,window.innerWidth-220),y=Math.min(e.clientY+12,window.innerHeight-100);nickHp.style.left=x+'px';nickHp.style.top=y+'px';}
+function hideNickHp(){nickHp.classList.remove('visible');}
+
+const linkHp=document.getElementById('link-hp-global'),linkHpCache={};let linkHpTimer=null;
+function showLinkHp(e,el){clearTimeout(linkHpTimer);linkHpTimer=setTimeout(async()=>{const url=el.dataset.url,plat=el.dataset.platform;const x=Math.min(e.clientX+12,window.innerWidth-290),y=Math.min(e.clientY+12,window.innerHeight-200);linkHp.style.left=x+'px';linkHp.style.top=y+'px';linkHp.classList.add('visible');if(linkHpCache[url]){renderLinkHp(linkHpCache[url]);return;}document.getElementById('lhp-emoji').textContent='⏳';document.getElementById('lhp-caption').textContent='Loading...';try{const r=await fetch(`/api/preview?url=${encodeURIComponent(url)}&platform=${encodeURIComponent(plat)}`);const d=await r.json();linkHpCache[url]=d;renderLinkHp(d);}catch(_){document.getElementById('lhp-caption').textContent='Preview unavailable';}},300);}
+function hideLinkHp(){clearTimeout(linkHpTimer);linkHp.classList.remove('visible');}
+function renderLinkHp(d){const t=document.getElementById('lhp-thumb'),em=document.getElementById('lhp-emoji');if(d.thumbnail){em.textContent='';let img=t.querySelector('img');if(!img){img=document.createElement('img');t.appendChild(img);}img.src=d.thumbnail;}else{em.textContent='🎬';const img=t.querySelector('img');if(img)img.remove();}document.getElementById('lhp-caption').textContent=d.title||d.caption||'';document.getElementById('lhp-meta').textContent=d.author?'@'+d.author:'';}
+</script>
+{% endblock %}

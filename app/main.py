@@ -712,9 +712,13 @@ def compute_next_run(frequency: str, schedule_days: str, from_time: datetime, sc
     return None  # manual
 from app.parser import run_campaign
 from app.scheduler import start_scheduler
+from app.models import AccountProject as _AccountProject
 from app.telegram import send_message
 
 app = FastAPI()
+
+from app.accounts import router as _accounts_router
+app.include_router(_accounts_router)
 
 BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=BASE_DIR.parent / "static"), name="static")
