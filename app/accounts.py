@@ -71,6 +71,10 @@ async def fetch_profile(handle: str, platform: str, sc_key: str, yt_key: str) ->
             elif platform == "Instagram":
                 r = await c.get("https://api.scrapecreators.com/v1/instagram/user",
                                 params={"username": handle}, headers={"x-api-key": sc_key})
+                if r.status_code != 200:
+                    # Fallback: попробуем handle параметр
+                    r = await c.get("https://api.scrapecreators.com/v1/instagram/user",
+                                    params={"handle": handle}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     d = r.json()
                     u = (d.get("data") or {}).get("user", d)
@@ -141,13 +145,23 @@ async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limi
                         if url: urls.append(url)
             elif platform == "Instagram":
                 r = await c.get("https://api.scrapecreators.com/v2/instagram/user/posts",
-                                params={"username": handle}, headers={"x-api-key": sc_key})
+                                params={"handle": handle}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     data = r.json()
-                    items = data if isinstance(data, list) else (data.get("data") or data.get("posts") or data.get("items") or [])
+                    # SC v2 может вернуть list или {data: [...]} или {items: [...]}
+                    if isinstance(data, list):
+                        items = data
+                    else:
+                        items = (data.get("data") or data.get("posts") or
+                                 data.get("items") or data.get("edges") or [])
+                        # Вложенный node pattern (GraphQL)
+                        if items and isinstance(items[0], dict) and "node" in items[0]:
+                            items = [i["node"] for i in items]
                     for item in items[:limit]:
-                        sc = item.get("shortCode") or item.get("shortcode") or item.get("id")
-                        url = item.get("url") or item.get("link") or (f"https://www.instagram.com/p/{sc}/" if sc else "")
+                        sc = (item.get("shortCode") or item.get("shortcode") or
+                              item.get("code") or item.get("id"))
+                        url = (item.get("url") or item.get("link") or item.get("permalink") or
+                               (f"https://www.instagram.com/p/{sc}/" if sc else ""))
                         if url: urls.append(url)
             elif platform == "YouTube" and yt_key:
                 r2 = await c.get("https://www.googleapis.com/youtube/v3/channels",

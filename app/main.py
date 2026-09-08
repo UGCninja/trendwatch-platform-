@@ -1483,7 +1483,7 @@ async def api_test_account(request: Request, url: str):
         posts_raw = {}
         if platform == "Instagram":
             r2 = await client.get("https://api.scrapecreators.com/v2/instagram/user/posts",
-                                  params={"username": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+                                  params={"handle": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
             d = r2.json() if r2.status_code == 200 else {}
             posts_raw = {"status": r2.status_code, "type": type(d).__name__,
                          "keys": list(d.keys()) if isinstance(d, dict) else "list",
