@@ -3548,11 +3548,11 @@ async def _account_detail_render(request: Request, aid: int, pid: int):
             .filter(_SC2.source_id.in_(src_ids), _SC2.language != None, _SC2.language != "")
             .group_by(_SC2.language).order_by(_f2.count(_SC2.id).desc()).limit(20).all())
 
-    from app.parser import LANG_COUNTRY_MAP
-    lang_stats = []
-    for lang_iso, count in lang_rows:
-        label = LANG_COUNTRY_MAP.get(lang_iso, {}).get("label", lang_iso)
-        lang_stats.append((label, lang_iso, count))
+    def _acct_lang_label(code: str) -> str:
+        name = _LANG_NAMES.get(code) or code
+        country = _LANG_TO_COUNTRY.get(code)
+        return f"{name} · {country}" if country else name
+    lang_stats = [(_acct_lang_label(k), k, v) for k, v in lang_rows]
 
     region_rows = []
     if src_ids:
