@@ -2524,7 +2524,7 @@ def comment_project_detail(request: Request, pid: int):
         .filter(CommentSource.project_id == pid, _StoredComment.author != None, _StoredComment.author != "")
         .group_by(_StoredComment.author)
         .order_by(_func.count(_StoredComment.id).desc())
-        .limit(30).all())
+        .limit(100).all())
     top_commenters = [(author, cnt, platform) for author, cnt, platform in author_rows]
 
     # Статистика по подрядчикам
