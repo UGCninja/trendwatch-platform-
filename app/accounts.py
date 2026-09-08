@@ -365,9 +365,28 @@ async def account_fetch_posts(request: Request, aid: int):
     ap.last_fetched_at = datetime.utcnow()
     ap.posts_count = db.query(CommentSource).filter(
         CommentSource.project_id == ap.comment_project_id).count()
-    db.commit()
-    db.close()
+    db.commit(); db.close()
     return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.get("/accounts/{aid}/full-audit")
+async def account_full_audit_get(request: Request, aid: int):
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.get("/accounts/{aid}/fetch-posts")
+async def account_fetch_posts_get(request: Request, aid: int):
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.get("/accounts/{aid}/run")
+async def account_run_get(request: Request, aid: int):
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.get("/accounts/{aid}/delete")
+async def account_delete_get(request: Request, aid: int):
+    return RedirectResponse("/accounts", status_code=302)
 
 
 @router.post("/accounts/{aid}/full-audit")
@@ -410,12 +429,12 @@ async def account_full_audit(request: Request, aid: int):
             db.rollback()
 
     ap.last_fetched_at = datetime.utcnow()
+    pid = ap.comment_project_id  # сохраняем ДО закрытия сессии
     ap.posts_count = db.query(CommentSource).filter(
-        CommentSource.project_id == ap.comment_project_id).count()
+        CommentSource.project_id == pid).count()
     db.commit(); db.close()
 
     # 3. Run comments + metrics collection
-    pid = ap.comment_project_id
     task_id = str(uuid.uuid4())
     _comments_tasks[task_id] = {"status": "queued", "done": 0, "total": 0, "ts": time.time(), "project_id": pid}
     threading.Thread(target=_run_project_comments_task, args=[task_id, pid, SCRAPECREATORS_API_KEY, APIFY_TOKEN], daemon=True).start()
