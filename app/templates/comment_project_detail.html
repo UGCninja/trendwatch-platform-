@@ -398,7 +398,7 @@
 #sourcesList { overflow-x: auto; }
 #postsHeader {
   display: grid;
-  grid-template-columns: 1fr 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
+  grid-template-columns: 1fr 110px 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
   gap: 4px;
   padding: 8px 14px;
   border-bottom: 2px solid #e5e7eb;
@@ -417,7 +417,7 @@
 .source-row:hover .row-inner { background: rgba(0,0,0,.015); }
 .row-inner {
   display: grid;
-  grid-template-columns: 1fr 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
+  grid-template-columns: 1fr 110px 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
   gap: 4px;
   padding: 7px 14px;
   align-items: center;
@@ -917,6 +917,9 @@
       {# Link (first, widest) #}
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Link</div>
 
+      {# Creator #}
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Creator</div>
+
       {# Platform filter col #}
       <div class="filter-col" id="hdr-platform" onclick="toggleFilterDd('dd-platform')">
         Platform ▾
@@ -1004,7 +1007,20 @@
              onmouseenter="showLinkHp(event,this)"
              onmouseleave="hideLinkHp()"
              onclick="event.stopPropagation()">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
-          {% if s.creator %}<span style="color:#9ca3af;font-size:.72rem;display:block">{{ s.creator }}</span>{% endif %}
+        </div>
+
+        {# Creator #}
+        <div style="min-width:0">
+          {% if s.creator %}
+          {% set creator_handle = s.creator.lstrip('@') %}
+          {% if s.platform == 'TikTok' %}
+            <a href="https://www.tiktok.com/@{{ creator_handle }}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ s.creator }}</a>
+          {% elif s.platform == 'Instagram' %}
+            <a href="https://www.instagram.com/{{ creator_handle }}/" target="_blank" style="color:var(--accent);text-decoration:none;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ s.creator }}</a>
+          {% else %}
+            <span style="color:#9ca3af;font-size:.78rem">{{ s.creator }}</span>
+          {% endif %}
+          {% else %}<span style="color:#d1d5db">—</span>{% endif %}
         </div>
 
         {# Platform #}
@@ -1320,7 +1336,7 @@ function applyFilters() {
   const el = document.getElementById('visibleCount');
   if (el) el.textContent = visible;
 }
-document.getElementById('commentsFilter').addEventListener('change', applyFilters);
+// commentsFilter removed
 
 /* ── Expand comments ── */
 document.querySelectorAll('.toggle-comments').forEach(btn => {
@@ -1533,8 +1549,8 @@ function renderLinkHp(d) {
     const img = thumb.querySelector('img');
     if (img) img.remove();
   }
-  document.getElementById('lhp-caption').textContent = d.caption || '';
-  document.getElementById('lhp-meta').textContent = [d.author, d.date].filter(Boolean).join(' · ');
+  document.getElementById('lhp-caption').textContent = d.title || d.caption || '';
+  document.getElementById('lhp-meta').textContent = [d.author ? '@'+d.author : '', d.url ? new URL(d.url).hostname : ''].filter(Boolean).join(' · ');
 }
 
 function positionHp(el, e, w, h) {
