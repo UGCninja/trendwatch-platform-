@@ -129,6 +129,36 @@ async def fetch_profile(handle: str, platform: str, sc_key: str, yt_key: str) ->
     return result
 
 
+async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_key: str, limit: int = 50):
+    """Возвращает (urls, profile_dict) — профиль извлекается из ответа если возможно."""
+    urls = await fetch_posts(handle, platform, sc_key, yt_key, limit)
+    profile = {}
+    # Для Instagram пробуем вытащить профиль из user-поля в постах
+    if platform == "Instagram":
+        try:
+            async with httpx.AsyncClient(timeout=20) as c:
+                r = await c.get("https://api.scrapecreators.com/v2/instagram/user/posts",
+                                params={"handle": handle}, headers={"x-api-key": sc_key})
+                if r.status_code == 200:
+                    d = r.json()
+                    items = d.get("items", [])
+                    u = d.get("user") or (items[0].get("user") if items else {}) or {}
+                    if u:
+                        profile = {
+                            "username":  u.get("username", handle),
+                            "nickname":  u.get("full_name", ""),
+                            "bio":       u.get("biography", ""),
+                            "verified":  bool(u.get("is_verified")),
+                            "avatar":    u.get("profile_pic_url", ""),
+                            "followers": u.get("follower_count", u.get("edge_followed_by", {}).get("count", 0)),
+                            "following": u.get("following_count", u.get("edge_follow", {}).get("count", 0)),
+                            "posts":     u.get("media_count", 0),
+                        }
+        except Exception:
+            pass
+    return urls, profile
+
+
 async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limit: int = 50) -> list[str]:
     urls: list[str] = []
     try:
@@ -294,13 +324,19 @@ async def account_fetch_posts(request: Request, aid: int):
         return RedirectResponse("/accounts", status_code=302)
     handle = extract_handle(ap.account_url, ap.platform or "")
 
-    # Сохраняем профиль отдельным коммитом чтобы не потерять при ошибках URL
+    # Пробуем получить профиль
     profile = await fetch_profile(handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY)
+
+    # Для Instagram: если профиль не нашли — берём из постов (поле user)
+    urls, profile_from_posts = await fetch_posts_with_profile(
+        handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY, limit=50
+    )
+    if not profile and profile_from_posts:
+        profile = profile_from_posts
+
     if profile:
         ap.profile_data = json.dumps(profile)
         db.commit()
-
-    urls = await fetch_posts(handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY, limit=50)
 
     # Получаем уже существующие URL чтобы не делать дубли
     existing = {s.url for s in db.query(CommentSource.url).filter(
