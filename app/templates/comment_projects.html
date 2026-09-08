@@ -1,13 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-  <div style="display:flex;align-items:center;gap:16px">
-    <h2 style="font-size:22px;font-weight:700;margin:0">Comments</h2>
-    <div style="display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px">
-      <a href="/comments/projects" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;background:var(--accent,#b6f542);color:#111">Projects</a>
-      <a href="/comments" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;color:var(--text-muted)">One-time</a>
-    </div>
-  </div>
+  <h2 style="font-size:22px;font-weight:700;margin:0">Projects</h2>
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">+ New Project</button>
 </div>
 

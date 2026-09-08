@@ -2455,7 +2455,7 @@ def comment_projects_list(request: Request):
         })
     db.close()
     return templates.TemplateResponse(request=request, name="comment_projects.html",
-                                      context={"active_page": "comments", "projects": result})
+                                      context={"active_page": "comment_projects", "projects": result})
 
 
 @app.post("/comments/projects")
@@ -2588,7 +2588,7 @@ def comment_project_detail(request: Request, pid: int):
 
     db.close()
     return templates.TemplateResponse(request=request, name="comment_project_detail.html", context={
-        "active_page": "comments",
+        "active_page": "comment_projects",
         "project": project,
         "sources": sources,
         "total_comments": total,
