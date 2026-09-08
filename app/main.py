@@ -2430,7 +2430,11 @@ def comment_projects_list(request: Request):
     from sqlalchemy import func as _f
     from app.models import StoredLiker as _SLi
     db = SessionLocal()
-    projects = db.query(CommentProject).order_by(CommentProject.created_at.desc()).all()
+    # Исключаем CommentProject-обёртки от AccountProject
+    account_cp_ids = {ap.comment_project_id for ap in db.query(_AccountProject).all() if ap.comment_project_id}
+    projects = db.query(CommentProject).filter(
+        ~CommentProject.id.in_(account_cp_ids)
+    ).order_by(CommentProject.created_at.desc()).all()
     result = []
     for p in projects:
         sources = db.query(CommentSource).filter(CommentSource.project_id == p.id).all()
