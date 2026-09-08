@@ -1590,7 +1590,7 @@ def _run_enrich_task(task_id: str, content: bytes, filename: str, api_key: str, 
 
 
 def _cleanup_old_tasks():
-    cutoff = time.time() - 86400  # хранить 24 часа
+    cutoff = time.time() - 86400 * 30  # хранить 30 дней
     for tid in list(_enrich_tasks.keys()):
         if _enrich_tasks[tid].get("ts", 0) < cutoff:
             del _enrich_tasks[tid]
