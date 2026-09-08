@@ -175,7 +175,7 @@
 <script>
 (function(){
   const aid={{ ap.id }};
-  const STATUS={queued:"Queued...",collecting:"Collecting comments",fetching_metrics:"Fetching metrics...",done:"Done!",cancelled:"Cancelled"};
+  const STATUS={queued:"Queued...",fetching_posts:"Fetching posts from account...",collecting:"Collecting comments",fetching_metrics:"Fetching metrics...",done:"Done!",cancelled:"Cancelled"};
   let wasRunning=false,stopped=false;
   function poll(){
     if(stopped)return;
