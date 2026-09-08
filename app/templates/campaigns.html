@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% set active_page = "campaigns" %}
 {% block content %}
+<style>
+.search-input { background:#fff !important; border-color:#e5e7eb !important; color:#111827 !important; }
+.search-input::placeholder { color:#9ca3af !important; }
+.section-card { background:#fff !important; border-color:#e5e7eb !important; }
+.data-table { background:#fff; color:#374151; }
+.data-table thead tr { border-bottom:2px solid #e5e7eb; }
+.data-table thead th { background:#fff; color:#6b7280 !important; }
+.data-table tbody tr { border-bottom:1px solid #f3f4f6; }
+.data-table tbody tr:hover { background:#f9fafb !important; }
+.data-table td { color:#374151 !important; }
+.data-table a { color:#374151 !important; }
+</style>
 
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
     <h2 style="font-size:22px;font-weight:700;margin:0">Campaigns</h2>
