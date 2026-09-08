@@ -715,7 +715,7 @@ from app.scheduler import start_scheduler
 from app.models import AccountProject as _AccountProject
 from app.telegram import send_message
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 from app.accounts import router as _accounts_router
 app.include_router(_accounts_router)

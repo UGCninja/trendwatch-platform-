@@ -211,9 +211,9 @@ async def accounts_create(request: Request, name: str = Form(...), account_url: 
 
 @router.get("/accounts/{aid}", response_class=HTMLResponse)
 async def account_detail(request: Request, aid: int):
-    from app.main import (check_auth, templates, SessionLocal, _AccountProject,
-                          CommentSource, _StoredComment, _StoredLiker, _func,
-                          _LANG_NAMES, _LANG_TO_COUNTRY)
+    from app.main import check_auth, templates, SessionLocal, _AccountProject, CommentSource, _StoredComment, _LANG_NAMES, _LANG_TO_COUNTRY
+    from app.models import StoredLiker as _StoredLiker
+    from sqlalchemy import func as _func
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     db = SessionLocal()
@@ -439,8 +439,8 @@ def account_task_status(request: Request, aid: int):
 
 @router.post("/accounts/{aid}/delete")
 async def account_delete(request: Request, aid: int):
-    from app.main import (check_auth, SessionLocal, _AccountProject, CommentProject,
-                          CommentSource, _StoredComment, _StoredLiker)
+    from app.main import check_auth, SessionLocal, _AccountProject, CommentProject, CommentSource, _StoredComment
+    from app.models import StoredLiker as _StoredLiker
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
     db = SessionLocal()
