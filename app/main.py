@@ -1485,9 +1485,12 @@ async def api_test_account(request: Request, url: str):
             r2 = await client.get("https://api.scrapecreators.com/v2/instagram/user/posts",
                                   params={"handle": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
             d = r2.json() if r2.status_code == 200 else {}
-            posts_raw = {"status": r2.status_code, "type": type(d).__name__,
-                         "keys": list(d.keys()) if isinstance(d, dict) else "list",
-                         "sample": str(r2.text[:800])}
+            items = d.get("items", []) if isinstance(d, dict) else (d if isinstance(d, list) else [])
+            first = items[0] if items else {}
+            posts_raw = {"status": r2.status_code, "total": len(items),
+                         "first_item_keys": list(first.keys()) if first else [],
+                         "first_item_code": first.get("code") or first.get("shortCode") or "NOT FOUND",
+                         "first_item_url": first.get("url") or first.get("link") or "NOT FOUND"}
         elif platform == "TikTok":
             r2 = await client.get("https://api.scrapecreators.com/v2/tiktok/user/posts",
                                   params={"username": handle, "limit": 3}, headers={"x-api-key": SCRAPECREATORS_API_KEY})

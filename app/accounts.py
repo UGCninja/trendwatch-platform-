@@ -158,8 +158,9 @@ async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limi
                         if items and isinstance(items[0], dict) and "node" in items[0]:
                             items = [i["node"] for i in items]
                     for item in items[:limit]:
-                        sc = (item.get("shortCode") or item.get("shortcode") or
-                              item.get("code") or item.get("id"))
+                        # SC v2 Instagram: shortcode is in "code" field
+                        sc = (item.get("code") or item.get("shortCode") or
+                              item.get("shortcode"))
                         url = (item.get("url") or item.get("link") or item.get("permalink") or
                                (f"https://www.instagram.com/p/{sc}/" if sc else ""))
                         if url: urls.append(url)
