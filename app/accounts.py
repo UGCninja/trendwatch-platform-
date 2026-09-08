@@ -278,20 +278,36 @@ async def account_fetch_posts(request: Request, aid: int):
         db.close()
         return RedirectResponse("/accounts", status_code=302)
     handle = extract_handle(ap.account_url, ap.platform or "")
+
+    # Сохраняем профиль отдельным коммитом чтобы не потерять при ошибках URL
     profile = await fetch_profile(handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY)
     if profile:
         ap.profile_data = json.dumps(profile)
+        db.commit()
+
     urls = await fetch_posts(handle, ap.platform or "", SCRAPECREATORS_API_KEY, YOUTUBE_API_KEY, limit=50)
+
+    # Получаем уже существующие URL чтобы не делать дубли
+    existing = {s.url for s in db.query(CommentSource.url).filter(
+        CommentSource.project_id == ap.comment_project_id).all()}
+
     for url in urls:
+        if url in existing:
+            continue
         try:
             src = CommentSource(project_id=ap.comment_project_id, url=url,
                                 platform=ap.platform or _detect_platform(url), creator=handle)
-            db.add(src); db.flush()
+            db.add(src)
+            db.flush()
+            existing.add(url)
         except Exception:
             db.rollback()
+
     ap.last_fetched_at = datetime.utcnow()
-    ap.posts_count = db.query(CommentSource).filter(CommentSource.project_id == ap.comment_project_id).count()
-    db.commit(); db.close()
+    ap.posts_count = db.query(CommentSource).filter(
+        CommentSource.project_id == ap.comment_project_id).count()
+    db.commit()
+    db.close()
     return RedirectResponse(f"/accounts/{aid}", status_code=302)
 
 
