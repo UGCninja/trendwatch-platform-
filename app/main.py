@@ -1459,6 +1459,47 @@ async def likers_debug(request: Request):
         return JSONResponse({"error": str(e)})
 
 
+@app.get("/api/test-account")
+async def api_test_account(request: Request, url: str):
+    """Debug: показывает что возвращает SC для аккаунта (профиль + первые посты)."""
+    if not check_auth(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    from app.accounts import fetch_profile, fetch_posts, detect_platform, extract_handle
+    platform = detect_platform(url)
+    handle = extract_handle(url, platform)
+    async with httpx.AsyncClient(timeout=20) as client:
+        # Raw profile response
+        profile_raw = {}
+        if platform == "Instagram":
+            r = await client.get("https://api.scrapecreators.com/v1/instagram/user",
+                                 params={"username": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+            profile_raw = {"status": r.status_code, "keys": list(r.json().keys()) if r.status_code == 200 else [], "sample": str(r.text[:500])}
+        elif platform == "TikTok":
+            r = await client.get("https://api.scrapecreators.com/v1/tiktok/profile",
+                                 params={"username": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+            profile_raw = {"status": r.status_code, "keys": list(r.json().keys()) if r.status_code == 200 else [], "sample": str(r.text[:500])}
+
+        # Raw posts response
+        posts_raw = {}
+        if platform == "Instagram":
+            r2 = await client.get("https://api.scrapecreators.com/v2/instagram/user/posts",
+                                  params={"username": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+            d = r2.json() if r2.status_code == 200 else {}
+            posts_raw = {"status": r2.status_code, "type": type(d).__name__,
+                         "keys": list(d.keys()) if isinstance(d, dict) else "list",
+                         "sample": str(r2.text[:800])}
+        elif platform == "TikTok":
+            r2 = await client.get("https://api.scrapecreators.com/v2/tiktok/user/posts",
+                                  params={"username": handle, "limit": 3}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+            d = r2.json() if r2.status_code == 200 else {}
+            posts_raw = {"status": r2.status_code, "type": type(d).__name__,
+                         "keys": list(d.keys()) if isinstance(d, dict) else "list",
+                         "sample": str(r2.text[:800])}
+
+    return JSONResponse({"platform": platform, "handle": handle,
+                         "profile_response": profile_raw, "posts_response": posts_raw})
+
+
 @app.get("/api/test-ig-likers")
 async def api_test_ig_likers(request: Request, url: str):
     if not check_auth(request):
