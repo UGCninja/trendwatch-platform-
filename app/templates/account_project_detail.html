@@ -655,7 +655,7 @@
 
   function poll() {
     if (stopped) return;
-    fetch(`/api/accounts/${pid}/task-status`)
+    fetch(`/api/comments/projects/${pid}/task-status`)
       .then(r => r.json())
       .then(data => {
         if (stopped) return;
@@ -1436,7 +1436,7 @@ document.querySelectorAll('.toggle-likers').forEach(btn => {
 async function exportSheets(btn) {
   btn.disabled = true; btn.textContent = '↗ Creating...';
   try {
-    const r = await fetch(`/accounts/${GEO_PID}/export-sheets`, {method:'POST'});
+    const r = await fetch(`/comments/projects/${GEO_PID}/export-sheets`, {method:'POST'});
     const d = await r.json();
     if (d.url) {
       btn.textContent = '✓ Open';
@@ -1449,7 +1449,7 @@ async function exportSheets(btn) {
 async function collectLikers(btn) {
   btn.disabled = true; btn.textContent = '♥ Collecting...';
   try {
-    const r = await fetch(`/accounts/${GEO_PID}/collect-likers`, {method:'POST'});
+    const r = await fetch(`/comments/projects/${GEO_PID}/collect-likers`, {method:'POST'});
     const d = await r.json();
     if (d.ok) {
       btn.textContent = '✓ Started';
@@ -1461,7 +1461,7 @@ async function collectLikers(btn) {
 async function recalcLangs(btn) {
   btn.disabled = true; btn.textContent = '⟳ Recalculating...';
   try {
-    const r = await fetch(`/accounts/${GEO_PID}/recalc-languages`, {method:'POST'});
+    const r = await fetch(`/comments/projects/${GEO_PID}/recalc-languages`, {method:'POST'});
     const d = await r.json();
     btn.textContent = `✓ Updated ${d.updated} of ${d.total}`;
     setTimeout(() => location.reload(), 1500);
