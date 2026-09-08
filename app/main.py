@@ -715,15 +715,10 @@ from app.scheduler import start_scheduler
 from app.models import AccountProject as _AccountProject
 from app.telegram import send_message
 
-app = FastAPI(debug=True)
+app = FastAPI()
 
-try:
-    from app.accounts import router as _accounts_router
-    app.include_router(_accounts_router)
-except Exception as _acc_err:
-    import traceback as _tb
-    print("ACCOUNTS IMPORT ERROR:", _acc_err)
-    _tb.print_exc()
+from app.accounts import router as _accounts_router
+app.include_router(_accounts_router)
 
 BASE_DIR = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=BASE_DIR.parent / "static"), name="static")
