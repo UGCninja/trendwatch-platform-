@@ -372,6 +372,12 @@
   padding: 4px 0 0;
 }
 .show-more-btn:hover { text-decoration: underline; }
+.ana-expand-btn {
+  background: none; border: none; color: #9ca3af; font-size: .75rem;
+  cursor: pointer; padding: 0 4px; flex-shrink: 0;
+}
+.ana-expand-btn:hover { color: var(--accent); }
+.commenter-panel { background: #f9fafb; border-left: 2px solid rgba(141,198,63,.3); margin: 2px 0 4px 12rem; border-radius: 0 6px 6px 0; padding: 6px 10px; font-size: .78rem; color: #6b7280; }
 
 /* ── Posts table ── */
 .posts-card { background: #fff; border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
@@ -392,7 +398,7 @@
 #sourcesList { overflow-x: auto; }
 #postsHeader {
   display: grid;
-  grid-template-columns: 55px 70px 90px 1fr 80px 75px 70px 60px 70px 70px 80px 28px;
+  grid-template-columns: 1fr 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
   gap: 4px;
   padding: 8px 14px;
   border-bottom: 2px solid #e5e7eb;
@@ -411,7 +417,7 @@
 .source-row:hover .row-inner { background: rgba(0,0,0,.015); }
 .row-inner {
   display: grid;
-  grid-template-columns: 55px 70px 90px 1fr 80px 75px 70px 60px 70px 70px 80px 28px;
+  grid-template-columns: 1fr 90px 110px 80px 75px 70px 60px 75px 90px 100px 28px;
   gap: 4px;
   padding: 7px 14px;
   align-items: center;
@@ -752,10 +758,11 @@
                 data-author="{{ author }}" data-platform="{{ platform }}" data-cnt="{{ cnt }}"
                 onmouseenter="showNickHp(event,this)" onmouseleave="hideNickHp()"
                 {% if profile_url %}onclick="window.open('{{ profile_url }}','_blank')"{% endif %}>{{ author }}</span>
-          <div class="ana-bar-track"><div class="ana-bar-fill" style="width:{{ (cnt / max_cnt * 100)|round(0) }}%"></div></div>
           <div class="ana-cnt">{{ cnt }}</div>
-          <div class="ana-pct">{{ pct }}%</div>
+          <div class="ana-bar-track"><div class="ana-bar-fill" style="width:{{ (cnt / max_cnt * 100)|round(0) }}%"></div></div>
+          <button class="ana-expand-btn toggle-commenter" data-author="{{ author }}" title="Show comments">▾</button>
         </div>
+        <div class="commenter-panel hidden-panel" id="cp-{{ loop.index }}"></div>
         {% endfor %}
         {% if top_commenters|length > 5 %}
         <button class="show-more-btn" onclick="showMoreAna(this, '.ana-extra')">+ Show {{ top_commenters|length - 5 }} more</button>
@@ -900,21 +907,16 @@
 <div class="posts-card">
   <div class="posts-card-hdr">
     <span class="posts-card-title">POSTS · <span id="visibleCount">{{ sources|length }}</span> of {{ sources|length }}</span>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <select class="form-select form-select-sm" id="commentsFilter" style="width:auto;background:#f3f4f6;border-color:#333;color:#374151;font-size:.75rem">
-        <option value="all">All comments</option>
-        <option value="has">Has comments</option>
-        <option value="none">No comments</option>
-        <option value="5">5+</option>
-        <option value="10">10+</option>
-      </select>
-    </div>
+    <button class="proj-btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="clearAllFilters()">× Clear filters</button>
   </div>
 
   {% if sources %}
   <div id="sourcesList">
     {# ── Table header ── #}
     <div id="postsHeader">
+      {# Link (first, widest) #}
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Link</div>
+
       {# Platform filter col #}
       <div class="filter-col" id="hdr-platform" onclick="toggleFilterDd('dd-platform')">
         Platform ▾
@@ -926,9 +928,6 @@
           {% endfor %}
         </div>
       </div>
-
-      {# Status #}
-      <div style="font-size:.68rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em">Status</div>
 
       {# Provider filter col #}
       <div class="filter-col" id="hdr-provider" onclick="toggleFilterDd('dd-provider')">
@@ -942,8 +941,6 @@
           {% endif %}
         </div>
       </div>
-
-      <div style="font-size:.68rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em">URL</div>
 
       <div class="sort-col" data-key="comments" style="text-align:right">Comments <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="likes" style="text-align:right">Likes <span class="sort-arrow">↕</span></div>
@@ -998,20 +995,7 @@
          data-sid="{{ s.id }}">
       <div class="row-inner">
 
-        {# Platform #}
-        <div><span class="badge-plat">{{ s.platform }}</span></div>
-
-        {# Status #}
-        <div>
-          {% if s.status == 'deleted' %}<span class="badge-status-deleted">deleted</span>
-          {% elif s.status == 'unavailable' %}<span class="badge-status-unavail">unavail</span>
-          {% else %}<span class="badge-status-active">active</span>{% endif %}
-        </div>
-
-        {# Provider #}
-        <div>{% if s.provider %}<span class="badge-provider">{{ s.provider }}</span>{% endif %}</div>
-
-        {# URL #}
+        {# Link / URL — first column #}
         <div style="min-width:0">
           <a href="{{ s.url }}" target="_blank"
              class="url-link post-url-link"
@@ -1019,9 +1003,15 @@
              data-platform="{{ s.platform }}"
              onmouseenter="showLinkHp(event,this)"
              onmouseleave="hideLinkHp()"
-             onclick="event.stopPropagation()">{{ s.url[:55] }}{% if s.url|length > 55 %}…{% endif %}</a>
-          {% if s.creator %}<span style="color:#555;font-size:.72rem;display:block">{{ s.creator }}</span>{% endif %}
+             onclick="event.stopPropagation()">{{ s.url[:60] }}{% if s.url|length > 60 %}…{% endif %}</a>
+          {% if s.creator %}<span style="color:#9ca3af;font-size:.72rem;display:block">{{ s.creator }}</span>{% endif %}
         </div>
+
+        {# Platform #}
+        <div><span class="badge-plat">{{ s.platform }}</span></div>
+
+        {# Provider #}
+        <div>{% if s.provider %}<span class="badge-provider">{{ s.provider }}</span>{% endif %}</div>
 
         {# Comments #}
         <div style="text-align:right">
@@ -1064,11 +1054,12 @@
           {% if s.post_date %}{{ s.post_date }}{% else %}<span style="color:#333">—</span>{% endif %}
         </div>
 
-        {# Row status duplicate (for narrow screens) — skip if redundant #}
+        {# Status #}
         <div>
-          {% if s.status == 'deleted' %}<span class="badge-status-deleted">del</span>
-          {% elif s.status == 'unavailable' %}<span class="badge-status-unavail">n/a</span>
-          {% else %}{% endif %}
+          {% if s.status == 'deleted' %}<span class="badge-status-deleted">deleted</span>
+          {% elif s.status == 'unavailable' %}<span class="badge-status-unavail">unavail</span>
+          {% elif s.status == 'comments_disabled' %}<span class="badge-status-unavail" style="background:#fef3c7;color:#92400e">no comments</span>
+          {% else %}<span class="badge-status-active">active</span>{% endif %}
         </div>
 
         {# Delete #}
@@ -1156,6 +1147,52 @@
 ────────────────────────────────────────────────────────── #}
 <script>
 const GEO_PID = {{ project.id }};
+
+/* ── Commenter expand (show comments by author) ── */
+document.querySelectorAll('.toggle-commenter').forEach(btn => {
+  btn.addEventListener('click', async function() {
+    const author = this.dataset.author;
+    const row = this.closest('.ana-row');
+    const panel = row.nextElementSibling;
+    if (!panel || !panel.classList.contains('commenter-panel')) return;
+    if (!panel.classList.contains('hidden-panel')) {
+      panel.classList.add('hidden-panel');
+      this.textContent = '▾';
+      return;
+    }
+    if (panel.dataset.loaded) {
+      panel.classList.remove('hidden-panel');
+      this.textContent = '▴';
+      return;
+    }
+    panel.innerHTML = 'Loading...';
+    panel.classList.remove('hidden-panel');
+    this.textContent = '▴';
+    try {
+      const r = await fetch(`/comments/projects/${GEO_PID}/comments-by?type=author&value=${encodeURIComponent(author)}`);
+      const data = await r.json();
+      if (!data.length) { panel.innerHTML = 'No comments'; }
+      else {
+        panel.innerHTML = data.slice(0,5).map(c =>
+          `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">"${c.text}" <span style="color:#9ca3af;margin-left:6px">${c.date||''}</span></div>`
+        ).join('') + (data.length > 5 ? `<div style="color:#9ca3af;margin-top:4px">+ ${data.length-5} more</div>` : '');
+      }
+      panel.dataset.loaded = '1';
+    } catch(e) { panel.innerHTML = 'Error'; }
+  });
+});
+
+function clearAllFilters() {
+  document.querySelectorAll('.plat-cb, .prov-cb').forEach(cb => cb.checked = true);
+  const platAll = document.getElementById('plat-all');
+  const provAll = document.getElementById('prov-all');
+  if (platAll) platAll.checked = true;
+  if (provAll) provAll.checked = true;
+  document.getElementById('dateFrom').value = '';
+  document.getElementById('dateTo').value = '';
+  document.querySelectorAll('.filter-col').forEach(c => c.classList.remove('active'));
+  applyFilters();
+}
 
 /* ── Collapsible toggle ── */
 function toggleCollapsible(hdr) {
