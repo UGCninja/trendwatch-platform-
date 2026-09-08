@@ -1189,9 +1189,18 @@ document.querySelectorAll('.toggle-commenter').forEach(btn => {
       const data = await r.json();
       if (!data.length) { panel.innerHTML = 'No comments'; }
       else {
-        panel.innerHTML = data.slice(0,5).map(c =>
+        const renderRows = (items) => items.map(c =>
           `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">"${c.text}" <span style="color:#9ca3af;margin-left:6px">${c.date||''}</span></div>`
-        ).join('') + (data.length > 5 ? `<div style="color:#9ca3af;margin-top:4px">+ ${data.length-5} more</div>` : '');
+        ).join('');
+        const first5 = renderRows(data.slice(0, 5));
+        const rest = data.length > 5
+          ? `<div id="cp-rest-${encodeURIComponent(author)}" style="display:none">${renderRows(data.slice(5))}</div>
+             <div style="color:var(--accent);margin-top:4px;cursor:pointer;font-size:.75rem"
+                  onclick="const r=document.getElementById('cp-rest-${encodeURIComponent(author)}');r.style.display=r.style.display?'':'none';this.textContent=r.style.display?'+ ${data.length-5} more':'− Hide'">
+               + ${data.length - 5} more
+             </div>`
+          : '';
+        panel.innerHTML = first5 + rest;
       }
       panel.dataset.loaded = '1';
     } catch(e) { panel.innerHTML = 'Error'; }
