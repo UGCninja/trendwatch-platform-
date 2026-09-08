@@ -8,11 +8,12 @@
 .proj-bar {
   background: #fff;
   border-radius: 12px;
-  padding: 14px 20px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 0;
   margin-bottom: 10px;
+  border: 1px solid #e5e7eb;
 }
 .proj-bar-left {
   display: flex;
@@ -38,28 +39,29 @@
 }
 .proj-bar-stats {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
   flex: 1;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .proj-bar-stat {
-  padding: 0 18px;
-  text-align: center;
-  border-right: 1px solid #333;
+  padding: 0 20px;
+  text-align: left;
+  border-right: 1px solid #e5e7eb;
 }
 .proj-bar-stat:last-child { border-right: none; }
 .proj-bar-stat-val {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--accent);
+  color: #111827;
   line-height: 1.2;
 }
 .proj-bar-stat-label {
-  font-size: .7rem;
-  color: #6b7280;
+  font-size: .68rem;
+  color: #9ca3af;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
+  margin-top: 2px;
 }
 .proj-bar-actions {
   display: flex;
@@ -549,7 +551,7 @@
    COMPACT HEADER BAR
 ────────────────────────────────────────────────────────── #}
 <div class="proj-bar">
-  <div class="proj-bar-left">
+  <div class="proj-bar-left" style="padding-right:20px;border-right:1px solid #e5e7eb;margin-right:0;flex-shrink:0">
     <a href="/comments/projects" class="proj-bar-back">← Projects</a>
     <div class="proj-bar-name">{{ project.name }}</div>
   </div>
