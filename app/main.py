@@ -2938,48 +2938,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
         # Apify profile lookup для TikTok и Instagram отключён — нестабильно и дорого
         # Регион определяется через langdetect по тексту комментария (бесплатно)
 
-        # Лайкеры — однократный сбор только для новых постов (likers_count = 0)
-        task["status"] = "collecting_likers"
-        task["likers_saved"] = 0
-        if apify_token:
-            try:
-                from app.models import StoredLiker as _SL
-
-                async def collect_likers(lk_client: httpx.AsyncClient, source):
-                    likers = await _fetch_likers_instagram(lk_client, source.url, apify_token)
-                    saved = _save_likers_to_db(source.id, likers, "Instagram")
-                    task["likers_saved"] = task.get("likers_saved", 0) + saved
-                    db_lk = SessionLocal()
-                    src_lk = db_lk.query(CommentSource).filter(CommentSource.id == source.id).first()
-                    if src_lk:
-                        src_lk.likers_count = db_lk.query(_SL).filter(_SL.source_id == source.id).count()
-                        db_lk.commit()
-                    db_lk.close()
-
-                sem_lk = asyncio.Semaphore(5)
-                async def _lk_guarded(lk_client, s):
-                    async with sem_lk:
-                        await collect_likers(lk_client, s)
-
-                db_lk0 = SessionLocal()
-                pending = (db_lk0.query(CommentSource)
-                    .filter(CommentSource.project_id == pid,
-                            CommentSource.platform == "Instagram",
-                            (CommentSource.likers_count == None) | (CommentSource.likers_count == 0))
-                    .all())
-                db_lk0.close()
-                if pending:
-                    task["likers_ig_count"] = len(pending)
-                    async with httpx.AsyncClient(timeout=140) as lk_client:
-                        try:
-                            await asyncio.wait_for(
-                                asyncio.gather(*[_lk_guarded(lk_client, s) for s in pending], return_exceptions=True),
-                                timeout=300
-                            )
-                        except asyncio.TimeoutError:
-                            pass
-            except Exception:
-                pass
+        # Лайкеры собираются отдельно через кнопку "♥ Collect Likers" — не здесь
+        # (при 2000+ постах 300-секундный таймаут не позволяет собрать всё в рамках Update)
 
 
         # Total comments
@@ -3095,9 +3055,9 @@ async def comment_project_clear_comments(request: Request, pid: int):
     src_ids = [s.id for s in sources]
     if src_ids:
         db.query(_StoredComment).filter(_StoredComment.source_id.in_(src_ids)).delete(synchronize_session=False)
-        # Сбрасываем кэш чтобы следующий запуск пересобрал все посты
+        # Сбрасываем кэш чтобы следующий запуск пересобрал все посты и лайкеры
         db.query(CommentSource).filter(CommentSource.project_id == pid).update(
-            {"last_fetched_at": None, "comments_count": 0}, synchronize_session=False
+            {"last_fetched_at": None, "comments_count": 0, "likers_count": 0}, synchronize_session=False
         )
     db.commit()
     db.close()
