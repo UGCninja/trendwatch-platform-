@@ -62,7 +62,6 @@ def init_db():
     _run_migration("ALTER TABLE comment_projects ADD COLUMN last_apify_spend FLOAT")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN metrics_updated_at TIMESTAMP")
     _run_migration("ALTER TABLE posts ADD COLUMN thumbnail_url VARCHAR")
-    _run_migration("CREATE TABLE IF NOT EXISTS account_projects (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, account_url VARCHAR NOT NULL, platform VARCHAR, comment_project_id INTEGER, created_at TIMESTAMP, last_fetched_at TIMESTAMP, posts_count INTEGER DEFAULT 0)")
 
     from app.models import Vertical
     db = SessionLocal()

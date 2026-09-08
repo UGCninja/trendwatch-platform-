@@ -120,19 +120,6 @@ class CommentSource(Base):
     __table_args__  = (UniqueConstraint("project_id", "url"),)
 
 
-class AccountProject(Base):
-    __tablename__ = "account_projects"
-
-    id                 = Column(Integer, primary_key=True)
-    name               = Column(String, nullable=False)
-    account_url        = Column(String, nullable=False)
-    platform           = Column(String, nullable=True)
-    comment_project_id = Column(Integer, ForeignKey("comment_projects.id"), nullable=True)
-    created_at         = Column(DateTime, default=datetime.utcnow)
-    last_fetched_at    = Column(DateTime, nullable=True)
-    posts_count        = Column(Integer, default=0)
-
-
 class StoredLiker(Base):
     __tablename__ = "stored_likers"
 
