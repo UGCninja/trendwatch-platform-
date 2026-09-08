@@ -1,5 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.card { background:#fff !important; border-color:#e5e7eb !important; color:#111827 !important; }
+.card-body { background:#fff !important; color:#111827 !important; }
+.text-muted { color:#6b7280 !important; }
+.form-label, .form-check-label { color:#374151 !important; }
+.drop-zone { border-color:#e5e7eb !important; background:#fff !important; }
+.drop-zone:hover { border-color:var(--accent) !important; background:#f9fafb !important; }
+.history-row { border-bottom:1px solid #f3f4f6 !important; color:#374151; }
+.page-tabs { border-bottom-color:#e5e7eb !important; }
+.page-tab { color:#6b7280 !important; }
+.page-tab.active { color:#374151 !important; border-bottom-color:#374151 !important; }
+details.card summary { background:#fff !important; color:#374151 !important; }
+</style>
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
   <h2 style="font-size:22px;font-weight:700;margin:0">Comments</h2>
   <div style="display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px">

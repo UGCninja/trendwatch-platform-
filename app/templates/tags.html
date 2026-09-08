@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% set active_page = "tags" %}
 {% block content %}
+<style>
+.section-card { background:#fff !important; border-color:#e5e7eb !important; color:#111827 !important; }
+.section-card * { color: inherit; }
+.data-table { background:#fff; color:#111827; }
+.data-table thead th { background:#f9fafb; color:#6b7280; border-bottom:1px solid #e5e7eb; }
+.data-table tbody tr { border-bottom:1px solid #f3f4f6; }
+.data-table tbody tr:hover { background:#f9fafb; }
+.data-table td, .data-table th { color:#374151; }
+#tagSearchInput { background:#f9fafb !important; border-color:#e5e7eb !important; color:#111827 !important; }
+#tagSuggestBox { background:#fff !important; border-color:#e5e7eb !important; box-shadow:0 4px 12px rgba(0,0,0,.1) !important; }
+#tagSuggestBox div { color:#374151 !important; }
+#tagSuggestBox div:hover { background:#f9fafb !important; }
+</style>
 
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
     <h2 style="font-size:22px;font-weight:700;margin:0">Campaigns</h2>

@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.card { background:#fff !important; border-color:#e5e7eb !important; color:#111827 !important; }
+.card-body { background:#fff !important; }
+table { background:#fff; color:#374151; }
+thead th { background:#f9fafb !important; color:#6b7280 !important; border-bottom:1px solid #e5e7eb !important; }
+tbody tr { border-bottom:1px solid #f3f4f6; }
+tbody tr:hover { background:#f9fafb !important; }
+tbody td { color:#374151 !important; }
+.text-muted { color:#6b7280 !important; }
+</style>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
   <h2 style="font-size:22px;font-weight:700;margin:0">Projects</h2>
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">+ New Project</button>
