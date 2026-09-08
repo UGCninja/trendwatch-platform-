@@ -2430,7 +2430,9 @@ def comment_projects_list(request: Request):
     from sqlalchemy import func as _f
     from app.models import StoredLiker as _SLi
     db = SessionLocal()
-    projects = db.query(CommentProject).order_by(CommentProject.created_at.desc()).all()
+    projects = db.query(CommentProject).filter(
+        ~CommentProject.name.startswith("[Account]")
+    ).order_by(CommentProject.created_at.desc()).all()
     result = []
     for p in projects:
         sources = db.query(CommentSource).filter(CommentSource.project_id == p.id).all()
@@ -3046,6 +3048,11 @@ async def comment_project_collect_likers(request: Request, pid: int):
     return JSONResponse({"ok": True, "task_id": task_id})
 
 
+@app.get("/comments/projects/{pid}/run")
+async def comment_project_run_get(request: Request, pid: int):
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
 @app.post("/comments/projects/{pid}/run")
 async def comment_project_run(request: Request, pid: int, back: str = "project"):
     if not check_auth(request):
@@ -3060,6 +3067,11 @@ async def comment_project_run(request: Request, pid: int, back: str = "project")
     ).start()
     redirect_to = "/comments/projects" if back == "list" else f"/comments/projects/{pid}"
     return RedirectResponse(redirect_to, status_code=302)
+
+
+@app.get("/comments/projects/{pid}/clear-comments")
+async def comment_project_clear_get(request: Request, pid: int):
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
 @app.post("/comments/projects/{pid}/clear-comments")
@@ -3103,6 +3115,11 @@ async def comment_project_delete(request: Request, pid: int):
     db.commit()
     db.close()
     return RedirectResponse("/comments/projects", status_code=302)
+
+
+@app.get("/comments/projects/{pid}/cancel")
+async def comment_project_cancel_get(request: Request, pid: int):
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
 @app.post("/comments/projects/{pid}/cancel")
