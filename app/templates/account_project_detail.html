@@ -73,10 +73,10 @@
 .lc-item span { color:#9ca3af; flex:1; }
 .lc-date { color:#d1d5db!important; flex:none!important; white-space:nowrap; }
 .lc-more { font-size:.72rem; color:#d1d5db; margin-top:3px; }
-#postsHeader { display:grid; grid-template-columns:1fr 80px 90px 80px 70px 60px 65px 90px 90px 28px; gap:4px; padding:8px 14px; border-bottom:2px solid #e5e7eb; font-size:.68rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; background:#fff; z-index:2; }
+#postsHeader { display:grid; grid-template-columns:1fr 56px 85px 85px 85px 85px 60px 95px 90px 28px; gap:8px; padding:8px 14px; border-bottom:2px solid #e5e7eb; font-size:.68rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; background:#fff; z-index:2; }
 .source-row { border-bottom:1px solid #f3f4f6; }
 .source-row:hover .row-inner { background:#f9fafb; }
-.row-inner { display:grid; grid-template-columns:1fr 80px 90px 80px 70px 60px 65px 90px 90px 28px; gap:4px; padding:7px 14px; align-items:center; font-size:.8rem; color:#374151; }
+.row-inner { display:grid; grid-template-columns:1fr 56px 85px 85px 85px 85px 60px 95px 90px 28px; gap:8px; padding:7px 14px; align-items:center; font-size:.8rem; color:#374151; }
 .url-link { color:#3b82f6; text-decoration:none; font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
 .url-link:hover { text-decoration:underline; }
 .sort-col { cursor:pointer; display:flex; align-items:center; justify-content:flex-end; gap:3px; user-select:none; }
@@ -353,11 +353,11 @@
     <div id="postsHeader">
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Link</div>
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Type</div>
+      <div class="sort-col" data-key="views" style="justify-content:flex-end">Views <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="comments" style="justify-content:flex-end">Comments <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="likes" style="justify-content:flex-end">Likes <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="lk" style="justify-content:flex-end">Likers <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="er" style="justify-content:flex-end">ER% <span class="sort-arrow">↕</span></div>
-      <div class="sort-col" data-key="views" style="justify-content:flex-end">Views <span class="sort-arrow">↕</span></div>
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Date</div>
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Status</div>
       <div></div>
@@ -385,6 +385,9 @@
             <span style="color:#d1d5db;font-size:.7rem">—</span>
           {% endif %}
         </div>
+        <div style="text-align:right;color:#374151">
+          {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}{% else %}<span style="color:#d1d5db">—</span>{% endif %}
+        </div>
         <div style="text-align:right">
           {% if s.comments_count > 0 %}
           <button class="toggle-btn toggle-comments" data-sid="{{ s.id }}">{{ s.comments_count }} ▾</button>
@@ -400,9 +403,6 @@
         <div style="text-align:right">
           {% if s.post_er is not none %}<span class="{% if s.post_er >= 5 %}er-high{% elif s.post_er >= 2 %}er-mid{% else %}er-low{% endif %}">{{ '%.1f'|format(s.post_er) }}%</span>
           {% else %}<span style="color:#d1d5db">—</span>{% endif %}
-        </div>
-        <div style="text-align:right;color:#6b7280">
-          {% if s.post_views %}{{ '{:,}'.format(s.post_views).replace(',', ' ') }}{% else %}<span style="color:#d1d5db">—</span>{% endif %}
         </div>
         <div style="color:#9ca3af;font-size:.75rem">{{ s.post_date or '—' }}</div>
         <div>
