@@ -2866,7 +2866,8 @@ async def comment_source_comments(request: Request, pid: int, sid: int):
     db.close()
     return JSONResponse([{
         "author": c.author, "text": c.text, "likes": c.likes,
-        "date": c.date, "is_reply": c.is_reply, "language": c.language, "user_region": c.user_region,
+        "date": c.date, "is_reply": c.is_reply, "language": c.language,
+        "user_region": c.user_region, "platform": c.platform,
     } for c in comments])
 
 

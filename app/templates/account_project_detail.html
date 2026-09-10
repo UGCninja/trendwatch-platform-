@@ -435,6 +435,23 @@
 <script>
 const AID={{ ap.id }}, PID={{ pid }};
 
+function profileUrl(handle, platform) {
+  const h = (handle||'').replace(/^@/,'');
+  if (!h) return '';
+  if (platform==='TikTok') return `https://www.tiktok.com/@${h}`;
+  if (platform==='Instagram') return `https://www.instagram.com/${h}/`;
+  if (platform==='X'||platform==='Twitter') return `https://x.com/${h}`;
+  if (platform==='YouTube') return `https://www.youtube.com/@${h}`;
+  return '';
+}
+function profileLink(handle, platform, style='') {
+  const url = profileUrl(handle, platform);
+  const s = style || 'color:var(--accent);text-decoration:none;font-size:.78rem';
+  return url
+    ? `<a href="${url}" target="_blank" style="${s}">${handle}</a>`
+    : `<span style="color:#9ca3af">${handle}</span>`;
+}
+
 function toggleAccDd(id){document.querySelectorAll('.acc-dd-menu').forEach(m=>{if(m.id!==id)m.classList.remove('open');});document.getElementById(id).classList.toggle('open');}
 function closeAccDds(){document.querySelectorAll('.acc-dd-menu').forEach(m=>m.classList.remove('open'));}
 document.addEventListener('click',e=>{if(!e.target.closest('.acc-dd-wrap,.dd-split'))closeAccDds();});
@@ -477,7 +494,7 @@ function toggleLangRow(id,iso,row){
     fetch(`/comments/projects/${PID}/comments-by?type=language&value=${encodeURIComponent(iso)}`)
       .then(r=>r.json()).then(data=>{
         if(!data.length){el.innerHTML='<div style="color:#9ca3af;font-size:.75rem">No comments</div>';return;}
-        el.innerHTML=data.slice(0,3).map(c=>`<div style="display:flex;gap:8px;padding:3px 0;font-size:.78rem;border-bottom:1px solid #f3f4f6"><span style="color:#818cf8;min-width:8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.author||''}</span><span style="color:#374151;flex:1">${c.text||''}</span><span style="color:#d1d5db;white-space:nowrap">${c.date||''}</span></div>`).join('')+(data.length>3?`<div style="color:#d1d5db;font-size:.72rem;margin-top:3px">+ ${data.length-3} more</div>`:'');
+        el.innerHTML=data.slice(0,3).map(c=>`<div style="display:flex;gap:8px;padding:3px 0;font-size:.78rem;border-bottom:1px solid #f3f4f6">${profileLink(c.author,c.platform,'color:#818cf8;text-decoration:none;min-width:8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block')}<span style="color:#374151;flex:1">${c.text||''}</span><span style="color:#d1d5db;white-space:nowrap">${c.date||''}</span></div>`).join('')+(data.length>3?`<div style="color:#d1d5db;font-size:.72rem;margin-top:3px">+ ${data.length-3} more</div>`:'');
       });
   }
 }
