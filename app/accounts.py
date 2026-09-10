@@ -455,9 +455,56 @@ def _run_full_audit(task_id: str, aid: int, sc_key: str, yt_key: str, apify_toke
 
     # 4. Collect likers (Instagram only, if Apify available)
     if apify_token:
-        from app.main import _run_collect_likers_task, _comments_tasks
+        from app.main import (_comments_tasks, _fetch_likers_instagram,
+                              _save_likers_to_db, SessionLocal, CommentSource)
+        from app.models import StoredLiker as _SL2
         _comments_tasks[task_id]["status"] = "collecting_likers"
-        _run_collect_likers_task(task_id, pid, apify_token)
+        _comments_tasks[task_id]["likers_saved"] = 0
+
+        async def _collect_likers_async():
+            db_lk = SessionLocal()
+            sources_ig = db_lk.query(CommentSource).filter(
+                CommentSource.project_id == pid,
+                CommentSource.platform == "Instagram"
+            ).all()
+            db_lk.close()
+
+            sem = asyncio.Semaphore(3)
+            async def _one(src):
+                async with sem:
+                    likers = await _fetch_likers_instagram(None, src.url, apify_token)
+                    saved = _save_likers_to_db(src.id, likers, "Instagram")
+                    _comments_tasks[task_id]["likers_saved"] = _comments_tasks[task_id].get("likers_saved", 0) + saved
+                    db2 = SessionLocal()
+                    s2 = db2.query(CommentSource).filter(CommentSource.id == src.id).first()
+                    if s2:
+                        from sqlalchemy import func as _f3
+                        s2.likers_count = db2.query(_SL2).filter(_SL2.source_id == src.id).count()
+                        db2.commit()
+                    db2.close()
+
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=140) as lk_client:
+                async def _one_with_client(src):
+                    async with sem:
+                        likers = await _fetch_likers_instagram(lk_client, src.url, apify_token)
+                        saved = _save_likers_to_db(src.id, likers, "Instagram")
+                        _comments_tasks[task_id]["likers_saved"] = _comments_tasks[task_id].get("likers_saved", 0) + saved
+                        db2 = SessionLocal()
+                        s2 = db2.query(CommentSource).filter(CommentSource.id == src.id).first()
+                        if s2:
+                            s2.likers_count = db2.query(_SL2).filter(_SL2.source_id == src.id).count()
+                            db2.commit()
+                        db2.close()
+                await asyncio.gather(*[_one_with_client(s) for s in sources_ig], return_exceptions=True)
+
+        lk_loop = asyncio.new_event_loop()
+        try:
+            lk_loop.run_until_complete(_collect_likers_async())
+        except Exception:
+            pass
+        finally:
+            lk_loop.close()
 
 
 @router.post("/accounts/{aid}/full-audit")
