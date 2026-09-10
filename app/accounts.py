@@ -450,8 +450,8 @@ def _run_full_audit(task_id: str, aid: int, sc_key: str, yt_key: str, apify_toke
         return
     db.close()
 
-    # 3. Collect comments + metrics
-    _run_project_comments_task(task_id, pid, sc_key, apify_token)
+    # 3. Collect comments + metrics (force_metrics=True — обходим 7-дневный кеш)
+    _run_project_comments_task(task_id, pid, sc_key, apify_token, force_metrics=True)
 
     # 4. Collect likers (Instagram only, if Apify available)
     if apify_token:

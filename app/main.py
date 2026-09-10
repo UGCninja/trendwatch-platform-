@@ -2871,7 +2871,7 @@ async def comment_source_comments(request: Request, pid: int, sid: int):
     } for c in comments])
 
 
-def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token: str):
+def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token: str, force_metrics: bool = False):
     async def _inner():
         from app.database import SessionLocal
         from app.models import CommentProject, CommentSource
@@ -2957,8 +2957,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
             async with httpx.AsyncClient(timeout=20) as mc:
                 async def fetch_and_save_metrics(source):
                     try:
-                        # Кэш 7 дней: пропускаем если метрики обновлялись менее 7 дней назад
-                        if source.metrics_updated_at and (datetime.utcnow() - source.metrics_updated_at).days < 7:
+                        # Кэш 7 дней (для Projects). Для Accounts (force_metrics=True) — всегда обновляем
+                        if not force_metrics and source.metrics_updated_at and (datetime.utcnow() - source.metrics_updated_at).days < 7:
                             return
                         m = await _fetch_metrics(mc, source.url, sc_key,
                                                   fetch_followers=not bool(source.post_followers))
