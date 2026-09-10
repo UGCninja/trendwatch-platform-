@@ -450,8 +450,14 @@ def _run_full_audit(task_id: str, aid: int, sc_key: str, yt_key: str, apify_toke
         return
     db.close()
 
-    # 3. Collect comments + metrics (reuses existing logic)
+    # 3. Collect comments + metrics
     _run_project_comments_task(task_id, pid, sc_key, apify_token)
+
+    # 4. Collect likers (Instagram only, if Apify available)
+    if apify_token:
+        from app.main import _run_collect_likers_task, _comments_tasks
+        _comments_tasks[task_id]["status"] = "collecting_likers"
+        _run_collect_likers_task(task_id, pid, apify_token)
 
 
 @router.post("/accounts/{aid}/full-audit")
