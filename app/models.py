@@ -117,6 +117,7 @@ class CommentSource(Base):
     provider        = Column(String, nullable=True)      # подрядчик из CSV
     creator         = Column(String, nullable=True)      # креатор из CSV
     metrics_updated_at = Column(DateTime, nullable=True)
+    post_type          = Column(String, nullable=True)   # Video / Carousel / Image
     __table_args__  = (UniqueConstraint("project_id", "url"),)
 
 

@@ -61,6 +61,7 @@ def init_db():
     _run_migration("ALTER TABLE comment_projects ADD COLUMN last_sc_spend INTEGER")
     _run_migration("ALTER TABLE comment_projects ADD COLUMN last_apify_spend FLOAT")
     _run_migration("ALTER TABLE comment_sources ADD COLUMN metrics_updated_at TIMESTAMP")
+    _run_migration("ALTER TABLE comment_sources ADD COLUMN post_type VARCHAR")
     _run_migration("ALTER TABLE posts ADD COLUMN thumbnail_url VARCHAR")
     _run_migration("CREATE TABLE IF NOT EXISTS account_projects (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, account_url VARCHAR NOT NULL, platform VARCHAR, comment_project_id INTEGER, profile_data TEXT, created_at TIMESTAMP, last_fetched_at TIMESTAMP, posts_count INTEGER DEFAULT 0)")
     _run_migration("ALTER TABLE account_projects ADD COLUMN profile_data TEXT")

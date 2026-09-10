@@ -2991,6 +2991,8 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                                 if er is not None: src_m.post_er = er
                                 if author:         src_m.post_author = author
                                 if post_date and not src_m.post_date: src_m.post_date = post_date
+                                pt = m.get("post_type", "")
+                                if pt: src_m.post_type = pt
                                 # Подписчики собираем только один раз
                                 if followers and not src_m.post_followers:
                                     src_m.post_followers = followers

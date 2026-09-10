@@ -73,10 +73,10 @@
 .lc-item span { color:#9ca3af; flex:1; }
 .lc-date { color:#d1d5db!important; flex:none!important; white-space:nowrap; }
 .lc-more { font-size:.72rem; color:#d1d5db; margin-top:3px; }
-#postsHeader { display:grid; grid-template-columns:1fr 90px 80px 75px 70px 60px 75px 90px 100px 28px; gap:4px; padding:8px 14px; border-bottom:2px solid #e5e7eb; font-size:.68rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; background:#fff; z-index:2; }
+#postsHeader { display:grid; grid-template-columns:1fr 80px 90px 80px 70px 60px 65px 90px 90px 28px; gap:4px; padding:8px 14px; border-bottom:2px solid #e5e7eb; font-size:.68rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; position:sticky; top:0; background:#fff; z-index:2; }
 .source-row { border-bottom:1px solid #f3f4f6; }
 .source-row:hover .row-inner { background:#f9fafb; }
-.row-inner { display:grid; grid-template-columns:1fr 90px 80px 75px 70px 60px 75px 90px 100px 28px; gap:4px; padding:7px 14px; align-items:center; font-size:.8rem; color:#374151; }
+.row-inner { display:grid; grid-template-columns:1fr 80px 90px 80px 70px 60px 65px 90px 90px 28px; gap:4px; padding:7px 14px; align-items:center; font-size:.8rem; color:#374151; }
 .url-link { color:#3b82f6; text-decoration:none; font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
 .url-link:hover { text-decoration:underline; }
 .sort-col { cursor:pointer; display:flex; align-items:center; justify-content:flex-end; gap:3px; user-select:none; }
@@ -352,6 +352,7 @@
   <div style="overflow-x:auto">
     <div id="postsHeader">
       <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Link</div>
+      <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Type</div>
       <div class="sort-col" data-key="comments" style="justify-content:flex-end">Comments <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="likes" style="justify-content:flex-end">Likes <span class="sort-arrow">↕</span></div>
       <div class="sort-col" data-key="lk" style="justify-content:flex-end">Likers <span class="sort-arrow">↕</span></div>
@@ -372,6 +373,17 @@
              data-url="{{ s.url }}" data-platform="{{ s.platform }}"
              onmouseenter="showLinkHp(event,this)" onmouseleave="hideLinkHp()">{{ s.url[:55] }}{% if s.url|length > 55 %}…{% endif %}</a>
           {% if s.creator %}<span style="color:#9ca3af;font-size:.72rem">@{{ s.creator }}</span>{% endif %}
+        </div>
+        <div>
+          {% if s.post_type == 'Video' %}
+            <span style="background:#eff6ff;color:#3b82f6;border-radius:4px;padding:2px 7px;font-size:.7rem;font-weight:600">▶ Video</span>
+          {% elif s.post_type == 'Carousel' %}
+            <span style="background:#f0fdf4;color:#16a34a;border-radius:4px;padding:2px 7px;font-size:.7rem;font-weight:600">⊞ Slide</span>
+          {% elif s.post_type == 'Image' %}
+            <span style="background:#f9fafb;color:#6b7280;border-radius:4px;padding:2px 7px;font-size:.7rem;font-weight:600">◻ Image</span>
+          {% else %}
+            <span style="color:#d1d5db;font-size:.7rem">—</span>
+          {% endif %}
         </div>
         <div style="text-align:right">
           {% if s.comments_count > 0 %}
