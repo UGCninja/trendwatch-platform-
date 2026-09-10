@@ -1190,7 +1190,7 @@ document.querySelectorAll('.toggle-commenter').forEach(btn => {
       if (!data.length) { panel.innerHTML = 'No comments'; }
       else {
         const renderRows = (items) => items.map(c =>
-          `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">"${c.text}" <span style="color:#9ca3af;margin-left:6px">${c.date||''}</span></div>`
+          `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6;color:#374151">"${c.text}" <span style="color:#9ca3af;margin-left:6px">${c.date||''}</span></div>`
         ).join('');
         const first5 = renderRows(data.slice(0, 5));
         const rest = data.length > 5

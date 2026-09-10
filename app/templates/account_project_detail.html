@@ -495,7 +495,7 @@ document.querySelectorAll('.toggle-comments').forEach(btn=>{
         const h=(c.author||'').replace(/^@/,'');
         const u=c.platform==='TikTok'?`https://www.tiktok.com/@${h}`:c.platform==='Instagram'?`https://www.instagram.com/${h}/`:c.platform==='X'?`https://x.com/${h}`:'';
         const a=u?`<a href="${u}" target="_blank" style="color:var(--accent);text-decoration:none;width:8rem;display:inline-block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.author}</a>`:`<span style="color:#9ca3af;width:8rem;display:inline-block">${c.author}</span>`;
-        return `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">${a}<span> ${c.text}</span><span style="color:#9ca3af;margin-left:8px;font-size:.75rem">${c.date||''}</span></div>`;
+        return `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">${a}<span style="color:#374151"> ${c.text}</span><span style="color:#9ca3af;margin-left:8px;font-size:.75rem">${c.date||''}</span></div>`;
       }).join('');
     }
     panel.dataset.loaded='1';this.textContent=this.textContent.replace('▾','▴');

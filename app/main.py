@@ -2964,9 +2964,15 @@ def _run_project_comments_task(task_id: str, pid: int, sc_key: str, apify_token:
                         views          = int(m.get("api_views") or 0)
                         likes          = int(m.get("likes") or 0)
                         comments_total = int(m.get("comments") or 0)
-                        er             = round((likes + comments_total) / views * 100, 2) if views > 0 else None
                         author         = str(m.get("author") or "")
                         followers      = int(m.get("followers") or 0)
+                        if views > 0:
+                            er = round((likes + comments_total) / views * 100, 2)
+                        elif followers > 0:
+                            # Instagram карусели/фото — нет просмотров, считаем по подписчикам
+                            er = round((likes + comments_total) / followers * 100, 2)
+                        else:
+                            er = None
                         post_date      = str(m.get("api_date") or "")
                         db_m = SessionLocal()
                         src_m = db_m.query(CommentSource).filter(CommentSource.id == source.id).first()
