@@ -51,7 +51,7 @@ async def fetch_profile(handle: str, platform: str, sc_key: str, yt_key: str) ->
         async with httpx.AsyncClient(timeout=20) as c:
             if platform == "TikTok":
                 r = await c.get("https://api.scrapecreators.com/v1/tiktok/profile",
-                                params={"username": handle}, headers={"x-api-key": sc_key})
+                                params={"handle": handle}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     d = r.json()
                     u = d.get("userInfo", {}).get("user", d.get("user", d))
@@ -165,7 +165,7 @@ async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limi
         async with httpx.AsyncClient(timeout=30) as c:
             if platform == "TikTok":
                 r = await c.get("https://api.scrapecreators.com/v2/tiktok/user/posts",
-                                params={"username": handle, "limit": limit}, headers={"x-api-key": sc_key})
+                                params={"handle": handle, "limit": limit}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     data = r.json()
                     items = data if isinstance(data, list) else (data.get("data") or data.get("posts") or data.get("items") or [])
