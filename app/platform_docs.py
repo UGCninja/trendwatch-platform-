@@ -13,62 +13,69 @@ DOCS = {
             "icon": "📋",
             "description": "Автоматический сбор постов по хэштегам, аккаунтам и ключевым словам.",
             "api": "ScrapeCreators + YouTube Data API (бесплатно)",
-            "cost": "SC кредиты (~1-2 кредита на запрос)",
-            "schedule": "Каждые N часов/дней/недель — настраивается на странице кампании",
+            "cost": "SC кредиты (~1-2 кредита на запрос). YouTube — бесплатно",
+            "cache": "Нет (дубли фильтруются по post_id)",
+            "schedule": "manual / hourly / daily / weekly — настраивается на странице кампании. Хранится next_run_at в UTC",
+            "filters": "min_views, min_er (%), max_age_days, languages",
+            "saved_fields": "post_id, platform, url, views, likes, comments, shares, er, published, language, thumbnail_url",
+            "platforms": {
+                "TikTok (аккаунт)": "SC GET /v3/tiktok/profile/videos (param: handle)",
+                "TikTok (хэштег)": "SC GET /v1/tiktok/search/hashtag",
+                "TikTok (ключевое слово)": "SC GET /v1/tiktok/search/keyword",
+                "Instagram (аккаунт)": "SC GET /v2/instagram/user/posts",
+                "Instagram (хэштег)": "SC GET /v1/instagram/search/hashtag",
+                "YouTube (ключевое слово)": "YouTube Data API GET /v3/search → /v3/videos (бесплатно, 10K units/день)",
+            }
+        },
+        {
+            "id": "tags",
+            "title": "Tags",
+            "icon": "🏷",
+            "description": "Ручная категоризация постов. Фильтрация и группировка по тегам на странице Tags.",
+            "api": "Internal DB (нет внешних API)",
+            "cost": "Бесплатно",
             "cache": "Нет",
             "platforms": {
-                "TikTok": {
-                    "по аккаунту": "SC GET /v3/tiktok/profile/videos",
-                    "по хэштегу": "SC GET /v1/tiktok/search/hashtag",
-                    "по ключевому слову": "SC GET /v1/tiktok/search/keyword",
-                    "поля": "aweme_id, create_time, play_count, digg_count, comment_count, share_count, follower_count, thumbnail_url, desc, language"
-                },
-                "Instagram": {
-                    "по аккаунту": "SC GET /v2/instagram/user/posts",
-                    "по хэштегу": "SC GET /v1/instagram/search/hashtag",
-                    "поля": "url, code, like_count, comment_count, taken_at, thumbnail_url"
-                },
-                "YouTube": {
-                    "по ключевому слову": "YouTube Data API GET /v3/search → /v3/videos",
-                    "поля": "viewCount, likeCount, commentCount, publishedAt, title",
-                    "cost": "бесплатно (10 000 units/день)"
-                }
+                "Все платформы": "Теги привязываются к постам через PostTag (junction table). Поиск по нескольким тегам — AND-логика"
             },
-            "filters": "min_views, min_er (%), max_age_days, languages",
-            "saved_fields": "post_id, platform, url, views, likes, comments, shares, er, published, language, thumbnail_url"
+            "collection_flow": [
+                "Создание тега: POST /api/tags",
+                "Привязка к посту: POST /api/posts/{post_id}/tags/{tag_id}",
+                "Отвязка: DELETE /api/posts/{post_id}/tags/{tag_id}",
+                "Просмотр: /tags — все посты с тегами, мультифильтр"
+            ]
         },
         {
             "id": "enrich",
             "title": "Enrich",
             "icon": "⚡",
-            "description": "Обогащение CSV-файла подрядчика актуальными метриками.",
+            "description": "Обогащение CSV-файла подрядчика актуальными метриками. Загружаешь список URL — получаешь обновлённые данные.",
             "api": "ScrapeCreators",
-            "cost": "~1-2 SC кредита на URL",
-            "cache": "30 дней (история в памяти)",
-            "input": "CSV с URL постов",
+            "cost": "~1-2 SC кредита на URL (до 50 запросов параллельно)",
+            "cache": "30 дней (история задач в памяти)",
             "output_columns": "URL | Platform | Type | Author | Followers | Views | Likes | Comments | Shares | Saves | Date | Status",
             "platforms": {
-                "TikTok": "SC GET /v2/tiktok/video → statistics{play_count, digg_count, comment_count, share_count, collect_count}, author{unique_id, follower_count}",
-                "Instagram": "SC GET /v1/instagram/post → xdt_shortcode_media{video_play_count, edge_media_preview_like, edge_media_preview_comment, __typename}",
-                "X/Twitter": "SC GET /v1/twitter/tweet → legacy{favorite_count, reply_count, retweet_count, bookmark_count}, views{count}",
-                "YouTube": "YouTube Data API GET /v3/videos → statistics{viewCount, likeCount, commentCount} (бесплатно)"
+                "TikTok": "SC GET /v2/tiktok/video → play_count, digg_count, comment_count, share_count, collect_count, author{unique_id, follower_count}",
+                "Instagram": "SC GET /v1/instagram/post → xdt_shortcode_media{video_play_count, like_count, comment_count, __typename(Video/Carousel/Image)}",
+                "X/Twitter": "SC GET /v1/twitter/tweet → views{count}, favorite_count, reply_count, retweet_count, bookmark_count",
+                "YouTube": "YouTube Data API GET /v3/videos → viewCount, likeCount, commentCount (бесплатно)"
             },
-            "type_field": "Только Instagram: Video/Carousel/Image из __typename",
-            "notes": "Просмотры для Instagram image/carousel недоступны (ограничение платформы)"
+            "notes": "Просмотры для Instagram image/carousel = 0 (платформа не отдаёт). Type (Video/Carousel/Image) — только для Instagram"
         },
         {
             "id": "comments_onetime",
             "title": "Comments (One-time)",
             "icon": "💬",
-            "description": "Разовый сбор комментариев из CSV. Без сохранения в базу.",
+            "description": "Разовый сбор комментариев из CSV. Без сохранения в базу. Два режима вывода.",
             "api": "Apify (primary) + ScrapeCreators (fallback)",
-            "cost": "Apify: ~$0.003-0.005/комментарий TikTok, $2.10/1000 Instagram. SC fallback: кредиты",
-            "modes": {
-                "Comments Only": "CSV с текстами комментариев",
-                "Comments + Audit": "HTML-отчёт с анализом тональности через Claude AI (claude-sonnet-4-6)"
-            },
+            "cost": "Apify TikTok: ~$0.003-0.005/комментарий. Instagram: $2.10/1000. SC fallback: кредиты",
             "limit": "200 комментариев на пост",
             "cache": "30 дней (история задач в памяти)",
+            "collection_flow": [
+                "Режим 1 — Comments Only: CSV с полями author, text, likes, date, is_reply, language, user_region",
+                "Режим 2 — Comments + Audit: HTML-отчёт через Claude AI (claude-sonnet-4-6) — тональность, темы, рекомендации",
+                "Фильтрация: описания постов (автор URL = автор комментария) → исключаются автоматически"
+            ],
             "platforms": {
                 "TikTok": {
                     "primary": "Apify clockworks~tiktok-scraper",
@@ -91,93 +98,92 @@ DOCS = {
                     "input": "{postUrls, maxReplies: 200}",
                     "fallback": "нет (только Apify)"
                 }
-            },
-            "filtering": "Описания постов (caption автора) фильтруются — автор URL = автор комментария → пропуск"
+            }
         },
         {
             "id": "projects",
             "title": "Projects",
             "icon": "📁",
-            "description": "Постоянный мониторинг с накоплением в базе. Несколько URL на проект.",
+            "description": "Постоянный мониторинг с накоплением в базе. Загружаешь список URL, запускаешь Update — данные накапливаются.",
             "api": "Apify (primary) + ScrapeCreators (fallback)",
-            "cache_rules": {
-                "Комментарии": "36 часов — пост пропускается если last_fetched_at < 36ч назад",
-                "Метрики": "7 дней — не обновляются если metrics_updated_at < 7д назад",
-                "Лайкеры": "Только для постов с likers_count = 0 (один раз)"
-            },
+            "cost": "Зависит от объёма. Metрики: ~1 SC кредит/пост. Комменты: Apify $. Лайкеры: $0.001311/пользователь",
+            "cache": "Комментарии: 36ч. Метрики: 7 дней. Лайкеры: только посты с likers_count=0",
             "collection_flow": [
-                "1. Сбор комментариев (5 постов параллельно, Apify → SC fallback)",
-                "2. Сбор метрик (10 постов параллельно, SC)",
-                "3. Лайкеры — отдельная кнопка ♥ Collect Likers (Instagram only, Apify)"
+                "1. Update (▶): сбор комментариев (5 постов параллельно, Apify → SC fallback)",
+                "2. Update: сбор метрик (10 постов параллельно, SC) — views, likes, er, date, author, followers",
+                "3. Лайкеры (♥ Collect Likers): Instagram only, Apify datadoping, только посты с likers_count=0",
+                "4. Clear & Re-collect: сброс всех данных + кэша, пересбор с нуля"
             ],
-            "post_statuses": {
-                "active": "норма",
-                "deleted": "пост удалён с платформы",
-                "unavailable": "приватный/заблокирован",
-                "comments_disabled": "автор закрыл комментарии"
+            "platforms": {
+                "TikTok комменты": "Apify clockworks~tiktok-scraper → SC /v1/tiktok/video/comments (fallback)",
+                "Instagram комменты": "Apify apify~instagram-comment-scraper → SC /v2/instagram/post/comments (fallback)",
+                "YouTube комменты": "SC /v1/youtube/video/comments (только SC)",
+                "X/Twitter комменты": "Apify scraper_one~x-post-replies-scraper (нет fallback)",
+                "Метрики (все платформы)": "SC /v1/instagram/post, /v2/tiktok/video, /v1/twitter/tweet, YouTube API",
+                "Лайкеры (Instagram)": "Apify datadoping~instagram-likes-scraper, max 100/пост"
             },
-            "likers": {
-                "actor": "Apify datadoping~instagram-likes-scraper",
-                "input": "{posts: [url], max_count: 100}",
-                "cost": "$0.001311 на пользователя",
-                "trigger": "Только вручную кнопкой ♥, только посты с likers_count = 0"
-            },
-            "metrics_er": "(likes + comments) / views × 100, fallback: (likes + comments) / followers × 100 (для Instagram image/carousel)"
+            "post_statuses": "active | deleted (удалён) | unavailable (приватный) | comments_disabled (автор закрыл)",
+            "metrics_er": "(likes + comments) / views × 100. Fallback для Instagram image/carousel: (likes + comments) / followers × 100"
         },
         {
             "id": "accounts",
             "title": "Accounts",
             "icon": "👤",
-            "description": "Аудит одного аккаунта: профиль + последние 50 постов + комментарии + лайкеры.",
+            "description": "Полный аудит одного аккаунта: профиль + последние 50 постов + комментарии + лайкеры. Одна кнопка ▶ Full Audit.",
             "api": "ScrapeCreators + Apify",
+            "cost": "Профиль: ~1 SC. Посты: ~1-2 SC. Комменты: Apify $. Метрики 50 постов: ~50 SC. Лайкеры (IG): Apify $",
             "limit": "50 постов на аккаунт",
-            "full_audit_steps": [
-                "1. Fetch Profile — SC /v1/{platform}/profile → сохраняем JSON (username, followers, bio, verified, avatar)",
-                "2. Fetch Posts — SC /v2/{platform}/user/posts (пагинация до 50) → сохраняем как CommentSource",
-                "3. Collect Comments — Apify → SC fallback, 200/пост, force_metrics=True (кэш 7д обходится)",
-                "4. Collect Likers — Apify datadoping (Instagram only), только для likers_count = 0"
+            "cache": "Метрики: без кэша (force_metrics=True каждый раз). Лайкеры: только посты с likers_count=0",
+            "collection_flow": [
+                "1. Fetch Profile — SC /v1/{platform}/profile → username, followers, bio, verified, avatar",
+                "2. Fetch Posts (до 50, пагинация) — SC /v2/{platform}/user/posts",
+                "3. Collect Comments — Apify → SC fallback, 200/пост",
+                "4. Collect Metrics — SC, без 7-дневного кэша (force_metrics=True)",
+                "5. Collect Likers — Apify datadoping (только Instagram, только likers_count=0)"
             ],
-            "profile_endpoints": {
-                "TikTok": "SC GET /v1/tiktok/profile (param: handle) → username, followers, following, posts, likes_total, region, verified, avatar",
-                "Instagram": "SC GET /v1/instagram/user (username param, fallback: handle param) → username, followers, following, posts, bio, verified, is_business",
-                "YouTube": "YouTube Data API GET /v3/channels (forHandle) → title, subscribers, videos, views_total, country, created_at",
-                "X/Twitter": "SC GET /v1/twitter/user → screen_name, followers, following, tweets, bio, is_blue_verified"
+            "platforms": {
+                "TikTok профиль": "SC GET /v1/tiktok/profile (param: handle) → username, followers, following, posts, likes_total, region, verified",
+                "TikTok посты": "SC GET /v2/tiktok/user/posts (param: handle) → webVideoUrl или /video/{aweme_id}",
+                "Instagram профиль": "SC GET /v1/instagram/user (param: username, fallback: handle) → followers, following, posts, bio, is_business",
+                "Instagram посты": "SC GET /v2/instagram/user/posts (param: handle, пагинация next_max_id) → url из поля url",
+                "YouTube профиль": "YouTube Data API GET /v3/channels (forHandle) → subscribers, videos, views_total, country",
+                "YouTube посты": "YouTube Data API GET /v3/search (channelId, order=date)",
+                "X/Twitter профиль": "SC GET /v1/twitter/user (param: username) → followers, following, tweets, is_blue_verified",
+                "X/Twitter посты": "SC GET /v1/twitter/user/tweets (param: username, count=50)"
             },
-            "posts_endpoints": {
-                "TikTok": "SC GET /v2/tiktok/user/posts (param: handle)",
-                "Instagram": "SC GET /v2/instagram/user/posts (handle param, next_max_id pagination)",
-                "YouTube": "YouTube Data API GET /v3/search → /v3/videos",
-                "X/Twitter": "SC GET /v1/twitter/user/tweets"
-            },
-            "notes": "force_metrics=True — метрики обновляются при каждом Full Audit без 7-дневного кэша"
+            "notes": "Просмотры Instagram image/carousel = 0 (ограничение платформы). ER для них считается через followers"
         }
     ],
     "cost_summary": {
-        "ScrapeCreators": "Кредиты (отображаются в шапке ✦ N SC). ~1-2 кредита на запрос",
-        "Apify_TikTok_comments": "clockworks~tiktok-scraper: ~$0.003-0.005 на комментарий",
-        "Apify_Instagram_comments": "apify~instagram-comment-scraper: $2.10/1000 комментариев",
-        "Apify_X_replies": "scraper_one~x-post-replies-scraper: $0.25/1000 элементов",
-        "Apify_Instagram_likers": "datadoping~instagram-likes-scraper: $1.30/1000 пользователей, MAX 100 на пост",
-        "YouTube_API": "бесплатно (10 000 units/день)"
+        "ScrapeCreators": "Кредиты (шапка ✦ N SC). ~1-2 кредита на запрос. Текущий баланс виден в шапке",
+        "Apify TikTok комменты": "clockworks~tiktok-scraper: ~$0.003-0.005 на комментарий",
+        "Apify Instagram комменты": "apify~instagram-comment-scraper: $2.10/1000 комментариев",
+        "Apify X реплаи": "scraper_one~x-post-replies-scraper: $0.25/1000 элементов",
+        "Apify Instagram лайкеры": "datadoping~instagram-likes-scraper: $1.30/1000 пользователей, MAX 100/пост",
+        "YouTube API": "Бесплатно, 10 000 units/день. 1 поиск = 100 units, 1 видео = 1 unit"
     },
     "apify_actors": {
-        "clockworks~tiktok-scraper": "Комментарии TikTok + authorRegion",
+        "clockworks~tiktok-scraper": "Комментарии TikTok + authorRegion (бесплатно вместе с комментами)",
         "apify~instagram-comment-scraper": "Комментарии Instagram",
-        "scraper_one~x-post-replies-scraper": "Реплаи X/Twitter",
-        "datadoping~instagram-likes-scraper": "Лайкеры Instagram (max 100/пост)"
+        "scraper_one~x-post-replies-scraper": "Реплаи X/Twitter (нет SC fallback)",
+        "datadoping~instagram-likes-scraper": "Лайкеры Instagram (max 100/пост, только likers_count=0)"
     },
     "sc_endpoints_used": {
-        "/v1/tiktok/profile": "Профиль TikTok (Accounts)",
-        "/v2/tiktok/user/posts": "Посты аккаунта TikTok",
-        "/v1/tiktok/video/comments": "Комментарии TikTok (fallback)",
+        "/v1/tiktok/profile": "Профиль TikTok (Accounts) — param: handle",
+        "/v2/tiktok/user/posts": "Посты аккаунта TikTok (Accounts) — param: handle",
+        "/v3/tiktok/profile/videos": "Посты по аккаунту (Campaigns)",
+        "/v1/tiktok/search/hashtag": "Посты по хэштегу TikTok (Campaigns)",
+        "/v1/tiktok/search/keyword": "Посты по ключевому слову TikTok (Campaigns)",
         "/v2/tiktok/video": "Метрики видео TikTok (Enrich)",
-        "/v1/instagram/user": "Профиль Instagram",
-        "/v2/instagram/user/posts": "Посты аккаунта Instagram",
-        "/v1/instagram/post": "Метрики поста Instagram (Enrich)",
+        "/v1/tiktok/video/comments": "Комментарии TikTok (fallback)",
+        "/v1/instagram/user": "Профиль Instagram (Accounts) — param: username, fallback: handle",
+        "/v2/instagram/user/posts": "Посты аккаунта Instagram (Accounts, Campaigns) — param: handle",
+        "/v1/instagram/search/hashtag": "Посты по хэштегу Instagram (Campaigns)",
+        "/v1/instagram/post": "Метрики поста Instagram (Enrich, Projects)",
         "/v2/instagram/post/comments": "Комментарии Instagram (fallback)",
-        "/v1/twitter/user": "Профиль X/Twitter",
+        "/v1/twitter/user": "Профиль X/Twitter (Accounts) — param: username",
         "/v1/twitter/tweet": "Метрики твита (Enrich)",
-        "/v1/twitter/user/tweets": "Твиты аккаунта",
-        "/v1/youtube/video/comments": "Комментарии YouTube"
+        "/v1/twitter/user/tweets": "Твиты аккаунта (Accounts) — param: username",
+        "/v1/youtube/video/comments": "Комментарии YouTube (Comments, Projects)"
     }
 }

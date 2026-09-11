@@ -138,16 +138,28 @@
           <td>{{ section.cost }}</td>
         </tr>
         {% if section.cache is defined %}
-        <tr>
-          <th>Кэш</th>
-          <td>{{ section.cache }}</td>
-        </tr>
+        <tr><th>Кэш</th><td>{{ section.cache }}</td></tr>
         {% endif %}
         {% if section.limit is defined %}
-        <tr>
-          <th>Лимит</th>
-          <td>{{ section.limit }}</td>
-        </tr>
+        <tr><th>Лимит</th><td>{{ section.limit }}</td></tr>
+        {% endif %}
+        {% if section.schedule is defined %}
+        <tr><th>Расписание</th><td>{{ section.schedule }}</td></tr>
+        {% endif %}
+        {% if section.filters is defined %}
+        <tr><th>Фильтры</th><td>{{ section.filters }}</td></tr>
+        {% endif %}
+        {% if section.output_columns is defined %}
+        <tr><th>Выходные колонки</th><td style="font-family:monospace;font-size:.75rem">{{ section.output_columns }}</td></tr>
+        {% endif %}
+        {% if section.saved_fields is defined %}
+        <tr><th>Сохраняемые поля</th><td style="font-family:monospace;font-size:.75rem">{{ section.saved_fields }}</td></tr>
+        {% endif %}
+        {% if section.post_statuses is defined %}
+        <tr><th>Статусы постов</th><td>{{ section.post_statuses }}</td></tr>
+        {% endif %}
+        {% if section.metrics_er is defined %}
+        <tr><th>Формула ER%</th><td>{{ section.metrics_er }}</td></tr>
         {% endif %}
       </table>
 
