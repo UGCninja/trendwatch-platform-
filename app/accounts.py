@@ -168,10 +168,18 @@ async def fetch_posts(handle: str, platform: str, sc_key: str, yt_key: str, limi
                                 params={"handle": handle, "limit": limit}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     data = r.json()
-                    items = data if isinstance(data, list) else (data.get("data") or data.get("posts") or data.get("items") or [])
+                    # SC может вернуть список или объект с разными ключами
+                    if isinstance(data, list):
+                        items = data
+                    else:
+                        items = (data.get("aweme_list") or data.get("videoList") or
+                                 data.get("data") or data.get("posts") or
+                                 data.get("items") or data.get("videos") or [])
                     for item in items[:limit]:
-                        vid = item.get("aweme_id") or item.get("id")
-                        url = item.get("webVideoUrl") or item.get("url") or (f"https://www.tiktok.com/@{handle}/video/{vid}" if vid else "")
+                        vid = item.get("aweme_id") or item.get("id") or item.get("video_id")
+                        url = (item.get("webVideoUrl") or item.get("video_url") or
+                               item.get("url") or item.get("share_url") or
+                               (f"https://www.tiktok.com/@{handle}/video/{vid}" if vid else ""))
                         if url: urls.append(url)
             elif platform == "Instagram":
                 # Пагинация через next_max_id
