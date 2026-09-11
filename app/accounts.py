@@ -465,7 +465,8 @@ def _run_full_audit(task_id: str, aid: int, sc_key: str, yt_key: str, apify_toke
             db_lk = SessionLocal()
             sources_ig = db_lk.query(CommentSource).filter(
                 CommentSource.project_id == pid,
-                CommentSource.platform == "Instagram"
+                CommentSource.platform == "Instagram",
+                (CommentSource.likers_count == None) | (CommentSource.likers_count == 0)
             ).all()
             db_lk.close()
 

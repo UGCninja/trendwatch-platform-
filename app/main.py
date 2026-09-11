@@ -3074,7 +3074,8 @@ def _run_collect_likers_task(task_id: str, pid: int, apify_token: str):
             db_all = SessionLocal()
             sources = (db_all.query(CommentSource)
                 .filter(CommentSource.project_id == pid,
-                        CommentSource.platform == "Instagram")
+                        CommentSource.platform == "Instagram",
+                        (CommentSource.likers_count == None) | (CommentSource.likers_count == 0))
                 .all())
             db_all.close()
             task["likers_ig_count"] = len(sources)
