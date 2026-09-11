@@ -1490,13 +1490,18 @@ async def api_test_account(request: Request, url: str):
             items = d.get("items", []) if isinstance(d, dict) else (d if isinstance(d, list) else [])
             first = items[0] if items else {}
             top_user = d.get("user", {}) if isinstance(d, dict) else {}
-            posts_raw = {"status": r2.status_code, "total": len(items),
-                         "more_available": d.get("more_available") if isinstance(d, dict) else None,
-                         "next_max_id": d.get("next_max_id") if isinstance(d, dict) else None,
-                         "top_user_keys": list(top_user.keys()) if top_user else [],
-                         "top_user_followers": top_user.get("follower_count") or top_user.get("edge_followed_by",{}).get("count"),
-                         "first_item_code": first.get("code") or first.get("shortCode") or "NOT FOUND",
-                         "first_item_url": first.get("url") or first.get("link") or "NOT FOUND"}
+            item_user = first.get("user", {}) if first else {}
+            posts_raw = {
+                "status": r2.status_code,
+                "total": len(items),
+                "more_available": d.get("more_available") if isinstance(d, dict) else None,
+                "next_max_id": bool(d.get("next_max_id")) if isinstance(d, dict) else None,
+                "top_level_user_keys": list(top_user.keys()) if top_user else "EMPTY",
+                "item_user_keys": list(item_user.keys()) if item_user else "EMPTY",
+                "item_user_follower_count": item_user.get("follower_count") or item_user.get("edge_followed_by",{}).get("count"),
+                "first_item_code": first.get("code") or first.get("shortCode") or "NOT FOUND",
+                "first_item_url": first.get("url") or first.get("link") or "NOT FOUND",
+            }
         elif platform == "TikTok":
             r2 = await client.get("https://api.scrapecreators.com/v3/tiktok/profile/videos",
                                   params={"handle": handle, "limit": 3}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
