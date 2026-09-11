@@ -150,9 +150,12 @@ async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_k
                 if r.status_code == 200:
                     d = r.json()
                     items = d.get("items", [])
-                    # top-level user — полные данные аккаунта
-                    # items[0].user — минимальные данные автора поста
-                    u = d.get("user") or (items[0].get("user") if items else {}) or {}
+                    # top-level user — данные аккаунта (без follower_count в этом ответе)
+                    # items[0].user — ещё меньше полей
+                    top_u = d.get("user") or {}
+                    item_u = (items[0].get("user") if items else {}) or {}
+                    # Берём top_u если есть, иначе item_u
+                    u = top_u if top_u.get("username") else item_u
                     if u:
                         def _ii(v):
                             if isinstance(v, dict): return v.get("count", 0)
@@ -392,6 +395,33 @@ async def account_full_audit_get(request: Request, aid: int):
 
 @router.get("/accounts/{aid}/fetch-posts")
 async def account_fetch_posts_get(request: Request, aid: int):
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.post("/accounts/{aid}/clear-posts")
+async def account_clear_posts(request: Request, aid: int):
+    """Удаляет все посты + комментарии + лайкеры. Профиль аккаунта сохраняется."""
+    from app.main import check_auth, SessionLocal, _AccountProject, CommentSource, _StoredComment
+    from app.models import StoredLiker as _SLc
+    if not check_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    ap = db.query(_AccountProject).filter(_AccountProject.id == aid).first()
+    if ap:
+        src_ids = [s.id for s in db.query(CommentSource).filter(
+            CommentSource.project_id == ap.comment_project_id).all()]
+        if src_ids:
+            db.query(_SLc).filter(_SLc.source_id.in_(src_ids)).delete(synchronize_session=False)
+            db.query(_StoredComment).filter(_StoredComment.source_id.in_(src_ids)).delete(synchronize_session=False)
+            db.query(CommentSource).filter(CommentSource.project_id == ap.comment_project_id).delete(synchronize_session=False)
+        ap.posts_count = 0
+        db.commit()
+    db.close()
+    return RedirectResponse(f"/accounts/{aid}", status_code=302)
+
+
+@router.get("/accounts/{aid}/clear-posts")
+async def account_clear_posts_get(request: Request, aid: int):
     return RedirectResponse(f"/accounts/{aid}", status_code=302)
 
 

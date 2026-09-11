@@ -155,6 +155,10 @@
       <div class="acc-dd-menu" id="dd-more">
         <button class="acc-dd-item" onclick="closeAccDds();accRecalcLangs(this)">⟳ Recalculate Languages</button>
         <div class="acc-dd-sep"></div>
+        <form method="post" action="/accounts/{{ ap.id }}/clear-posts" style="display:contents" onsubmit="return confirm('Удалить все посты и данные? Профиль сохранится.')">
+          <button type="submit" class="acc-dd-item" style="color:#f59e0b">🗑 Clear Posts & Re-collect</button>
+        </form>
+        <div class="acc-dd-sep"></div>
         <form method="post" action="/accounts/{{ ap.id }}/delete" style="display:contents" onsubmit="return confirm('Delete this account project?')">
           <button type="submit" class="acc-dd-item" style="color:#f87171">✕ Delete Account</button>
         </form>
