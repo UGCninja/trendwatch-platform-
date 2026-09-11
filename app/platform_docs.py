@@ -136,13 +136,13 @@ DOCS = {
                 "4. Collect Likers — Apify datadoping (Instagram only), только для likers_count = 0"
             ],
             "profile_endpoints": {
-                "TikTok": "SC GET /v1/tiktok/profile → username, followers, following, posts, likes_total, region, verified, avatar",
+                "TikTok": "SC GET /v1/tiktok/profile (param: handle) → username, followers, following, posts, likes_total, region, verified, avatar",
                 "Instagram": "SC GET /v1/instagram/user (username param, fallback: handle param) → username, followers, following, posts, bio, verified, is_business",
                 "YouTube": "YouTube Data API GET /v3/channels (forHandle) → title, subscribers, videos, views_total, country, created_at",
                 "X/Twitter": "SC GET /v1/twitter/user → screen_name, followers, following, tweets, bio, is_blue_verified"
             },
             "posts_endpoints": {
-                "TikTok": "SC GET /v2/tiktok/user/posts",
+                "TikTok": "SC GET /v2/tiktok/user/posts (param: handle)",
                 "Instagram": "SC GET /v2/instagram/user/posts (handle param, next_max_id pagination)",
                 "YouTube": "YouTube Data API GET /v3/search → /v3/videos",
                 "X/Twitter": "SC GET /v1/twitter/user/tweets"
