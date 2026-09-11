@@ -1480,6 +1480,26 @@ async def api_test_account(request: Request, url: str):
             r = await client.get("https://api.scrapecreators.com/v1/tiktok/profile",
                                  params={"handle": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
             profile_raw = {"status": r.status_code, "keys": list(r.json().keys()) if r.status_code == 200 else [], "sample": str(r.text[:500])}
+        # Instagram user_id fallback test
+        ig_user_id_check = {}
+        if platform == "Instagram" and profile_raw.get("status") == 404:
+            # Try with user_id from posts top_level_user pk
+            # First get the pk from posts
+            r_p2 = await client.get("https://api.scrapecreators.com/v2/instagram/user/posts",
+                                    params={"handle": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+            if r_p2.status_code == 200:
+                top_user_pk = r_p2.json().get("user", {}).get("pk") or r_p2.json().get("user", {}).get("pk_id")
+                if top_user_pk:
+                    r_uid = await client.get("https://api.scrapecreators.com/v1/instagram/user",
+                                             params={"user_id": str(top_user_pk)}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+                    d_uid = r_uid.json() if r_uid.status_code == 200 else {}
+                    u_uid = (d_uid.get("data") or {}).get("user") or d_uid
+                    ig_user_id_check = {
+                        "pk_used": top_user_pk,
+                        "status": r_uid.status_code,
+                        "follower_count": u_uid.get("follower_count") or (u_uid.get("edge_followed_by") or {}).get("count"),
+                        "sample": str(r_uid.text[:300])
+                    }
 
         # Raw posts response
         posts_raw = {}
@@ -1544,7 +1564,8 @@ async def api_test_account(request: Request, url: str):
     return JSONResponse({"platform": platform, "handle": handle,
                          "profile_response": profile_raw,
                          "posts_response": posts_raw,
-                         "post_owner_check": post_owner_raw})
+                         "post_owner_check": post_owner_raw,
+                         "user_id_check": ig_user_id_check if 'ig_user_id_check' in dir() else {}})
 
 
 @app.get("/api/test-ig-likers")
