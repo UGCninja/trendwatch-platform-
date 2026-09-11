@@ -922,7 +922,9 @@ async def api_preview(url: str, platform: str = ""):
 def system_page(request: Request):
     if not check_auth(request):
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse(request=request, name="system.html", context={})
+    from app.platform_docs import DOCS
+    return templates.TemplateResponse(request=request, name="system.html",
+                                      context={"docs": DOCS})
 
 
 @app.get("/", response_class=HTMLResponse)

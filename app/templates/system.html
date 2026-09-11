@@ -2,8 +2,16 @@
 {% set active_page = "system" %}
 {% block content %}
 
-<h4 class="page-title">System Settings</h4>
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+  <h2 style="font-size:22px;font-weight:700;margin:0">Settings</h2>
+  <div style="display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px">
+    <button id="pill-settings" onclick="switchTab('settings')" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:var(--accent,#8DC63F);color:#111">Settings</button>
+    <button id="pill-docs" onclick="switchTab('docs')" style="padding:4px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;color:var(--text-muted)">Technical Docs</button>
+  </div>
+</div>
 
+{# ── Settings tab ── #}
+<div id="panel-settings">
 <div class="row g-4">
     <div class="col-md-6">
         <div class="section-card">
@@ -75,5 +83,192 @@
         </div>
     </div>
 </div>
+</div>
 
+{# ── Technical Docs tab ── #}
+<div id="panel-docs" style="display:none">
+{% if docs %}
+<style>
+.doc-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px 24px; margin-bottom:12px; }
+.doc-card-title { font-size:16px; font-weight:700; color:#111827; display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer; }
+.doc-card-body { font-size:.83rem; color:#374151; }
+.doc-table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:8px; }
+.doc-table th { background:#f9fafb; color:#6b7280; padding:6px 10px; text-align:left; font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid #e5e7eb; }
+.doc-table td { padding:6px 10px; border-bottom:1px solid #f3f4f6; color:#374151; vertical-align:top; }
+.doc-table tr:last-child td { border-bottom:none; }
+.doc-badge { display:inline-block; background:#f0fdf4; color:#16a34a; border-radius:4px; padding:1px 8px; font-size:.72rem; font-weight:600; }
+.doc-badge-blue { background:#eff6ff; color:#3b82f6; }
+.doc-badge-gray { background:#f9fafb; color:#6b7280; }
+.doc-badge-orange { background:#fff7ed; color:#c2410c; }
+.doc-sep { border:none; border-top:1px solid #f3f4f6; margin:10px 0; }
+.doc-section-body { display:none; }
+.doc-section-body.open { display:block; }
+.doc-arrow { color:#9ca3af; transition:transform .2s; display:inline-block; }
+.doc-arrow.open { transform:rotate(180deg); }
+</style>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+  <div>
+    <span style="font-size:.7rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em">Last updated</span>
+    <div style="font-weight:600;color:#111827;margin-top:2px">{{ docs.version }}</div>
+  </div>
+  <div style="text-align:right">
+    <span style="font-size:.7rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em">Sections</span>
+    <div style="font-weight:600;color:#111827;margin-top:2px">{{ docs.sections|length }}</div>
+  </div>
+</div>
+
+{% for section in docs.sections %}
+<div class="doc-card">
+  <div class="doc-card-title" onclick="toggleDocSection('ds-{{ loop.index }}')">
+    <span>{{ section.icon }} {{ section.title }}</span>
+    <span class="doc-arrow" id="darr-{{ loop.index }}">▾</span>
+  </div>
+  <div class="doc-section-body open" id="ds-{{ loop.index }}">
+    <div class="doc-card-body">
+      <p style="color:#6b7280;margin-bottom:12px">{{ section.description }}</p>
+
+      <table class="doc-table">
+        <tr>
+          <th style="width:140px">API</th>
+          <td>{{ section.api }}</td>
+        </tr>
+        <tr>
+          <th>Стоимость</th>
+          <td>{{ section.cost }}</td>
+        </tr>
+        {% if section.cache is defined %}
+        <tr>
+          <th>Кэш</th>
+          <td>{{ section.cache }}</td>
+        </tr>
+        {% endif %}
+        {% if section.limit is defined %}
+        <tr>
+          <th>Лимит</th>
+          <td>{{ section.limit }}</td>
+        </tr>
+        {% endif %}
+      </table>
+
+      {% if section.platforms is defined %}
+      <hr class="doc-sep">
+      <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">По платформам</div>
+      <table class="doc-table">
+        <thead><tr><th>Платформа</th><th>Endpoint / Actor</th></tr></thead>
+        <tbody>
+        {% for plat, info in section.platforms.items() %}
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">{{ plat }}</td>
+          <td>
+          {% if info is mapping %}
+            {% for k, v in info.items() %}
+            <div><span style="color:#9ca3af;font-size:.72rem">{{ k }}:</span> {{ v }}</div>
+            {% endfor %}
+          {% else %}
+            {{ info }}
+          {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if section.full_audit_steps is defined %}
+      <hr class="doc-sep">
+      <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Шаги Full Audit</div>
+      {% for step in section.full_audit_steps %}
+      <div style="padding:4px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:.8rem">{{ step }}</div>
+      {% endfor %}
+      {% endif %}
+
+      {% if section.cache_rules is defined %}
+      <hr class="doc-sep">
+      <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Правила кэша</div>
+      <table class="doc-table">
+        {% for k, v in section.cache_rules.items() %}
+        <tr><td style="font-weight:600;white-space:nowrap">{{ k }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+
+      {% if section.collection_flow is defined %}
+      <hr class="doc-sep">
+      <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Поток сбора</div>
+      {% for step in section.collection_flow %}
+      <div style="padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:.8rem">{{ step }}</div>
+      {% endfor %}
+      {% endif %}
+
+      {% if section.notes is defined %}
+      <div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:.78rem;color:#92400e">
+        ⚠️ {{ section.notes }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{# Cost Summary #}
+<div class="doc-card">
+  <div class="doc-card-title" onclick="toggleDocSection('ds-costs')">
+    💰 Стоимость операций
+    <span class="doc-arrow" id="darr-costs">▾</span>
+  </div>
+  <div class="doc-section-body open" id="ds-costs">
+    <table class="doc-table">
+      <thead><tr><th>Операция</th><th>Стоимость</th></tr></thead>
+      <tbody>
+      {% for k, v in docs.cost_summary.items() %}
+      <tr><td style="font-weight:600">{{ k.replace('_', ' ') }}</td><td>{{ v }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <hr class="doc-sep">
+    <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Apify Акторы</div>
+    <table class="doc-table">
+      <thead><tr><th>Актор</th><th>Назначение</th></tr></thead>
+      <tbody>
+      {% for actor, purpose in docs.apify_actors.items() %}
+      <tr><td style="font-family:monospace;font-size:.72rem;color:#6366f1">{{ actor }}</td><td>{{ purpose }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <hr class="doc-sep">
+    <div style="font-size:.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">ScrapeCreators эндпоинты</div>
+    <table class="doc-table">
+      <thead><tr><th>Endpoint</th><th>Используется в</th></tr></thead>
+      <tbody>
+      {% for ep, usage in docs.sc_endpoints_used.items() %}
+      <tr><td style="font-family:monospace;font-size:.72rem;color:#059669">{{ ep }}</td><td style="color:#6b7280">{{ usage }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+</div>
+
+<script>
+function switchTab(tab) {
+  const active = {background:'var(--accent,#8DC63F)',color:'#111'};
+  const inactive = {background:'none',color:'var(--text-muted)'};
+  Object.assign(document.getElementById('pill-settings').style, tab==='settings'?active:inactive);
+  Object.assign(document.getElementById('pill-docs').style, tab==='docs'?active:inactive);
+  document.getElementById('panel-settings').style.display = tab==='settings'?'':'none';
+  document.getElementById('panel-docs').style.display = tab==='docs'?'':'none';
+}
+function toggleDocSection(id) {
+  const body = document.getElementById(id);
+  const idx = id.replace('ds-','');
+  const arr = document.getElementById('darr-'+idx);
+  body.classList.toggle('open');
+  arr.classList.toggle('open');
+}
+</script>
 {% endblock %}
