@@ -200,7 +200,7 @@ async def _fetch_likers_instagram(client: httpx.AsyncClient, url: str, apify_tok
         r = await client.post(
             "https://api.apify.com/v2/acts/datadoping~instagram-likes-scraper/run-sync-get-dataset-items",
             params={"token": apify_token, "timeout": 120},
-            json={"posts": [url], "max_count": 500},
+            json={"posts": [url], "max_count": 100},
             timeout=130,
         )
         if r.status_code not in (200, 201):
