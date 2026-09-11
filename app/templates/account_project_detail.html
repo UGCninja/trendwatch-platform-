@@ -211,7 +211,7 @@
       {% if profile.verified %}<span class="verified-badge">✓ verified</span>{% endif %}
       {% if profile.is_business %}<span style="background:#eff6ff;color:#3b82f6;border-radius:3px;padding:1px 6px;font-size:.7rem">Business</span>{% endif %}
     </div>
-    <div class="profile-handle">@{{ profile.username or '' }}{% if profile.region %} · {{ profile.region }}{% endif %}</div>
+    <a href="{{ ap.account_url }}" target="_blank" class="profile-handle" style="text-decoration:none;color:#6b7280">@{{ profile.username or '' }}{% if profile.region %} · {{ profile.region }}{% endif %}</a>
     {% if profile.bio %}<div class="profile-bio">{{ profile.bio[:200] }}{% if profile.bio|length > 200 %}…{% endif %}</div>{% endif %}
     <div class="profile-stats">
       {% if profile.followers is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.followers|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Followers</div></div>{% endif %}
@@ -339,6 +339,43 @@
   </div>
   {% endif %}
 
+</div>
+{% endif %}
+
+{# Cost estimate #}
+{% set total_comments = sources | sum(attribute='comments_count') %}
+{% set total_likers_count = liker_per_source.values() | sum %}
+{% set n = sources | length %}
+{% if n > 0 %}
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 20px;margin-bottom:10px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+  <div style="font-size:.68rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Est. cost</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <div>
+      <span style="font-size:.78rem;color:#6b7280">Metrics ({{ n }} posts)</span>
+      <span style="font-size:.85rem;font-weight:600;color:#111827;margin-left:6px">~{{ n * 2 }} SC</span>
+    </div>
+    <div style="width:1px;background:#e5e7eb"></div>
+    <div>
+      <span style="font-size:.78rem;color:#6b7280">Comments ({{ total_comments }})</span>
+      <span style="font-size:.85rem;font-weight:600;color:#111827;margin-left:6px">~${{ '%.2f'|format(total_comments * 0.004) }}</span>
+    </div>
+    {% if total_likers_count > 0 %}
+    <div style="width:1px;background:#e5e7eb"></div>
+    <div>
+      <span style="font-size:.78rem;color:#6b7280">Likers ({{ total_likers_count }})</span>
+      <span style="font-size:.85rem;font-weight:600;color:#111827;margin-left:6px">~${{ '%.2f'|format(total_likers_count * 0.001311) }}</span>
+    </div>
+    {% endif %}
+    <div style="width:1px;background:#e5e7eb"></div>
+    <div>
+      <span style="font-size:.78rem;color:#6b7280">Total est.</span>
+      <span style="font-size:.85rem;font-weight:700;color:var(--accent);margin-left:6px">
+        ~${{ '%.2f'|format(total_comments * 0.004 + total_likers_count * 0.001311) }}
+        + {{ n * 2 }} SC
+      </span>
+    </div>
+  </div>
+  <div style="margin-left:auto;font-size:.7rem;color:#d1d5db">Apify $0.004/comment · datadoping $0.001311/liker · SC 2 credits/post</div>
 </div>
 {% endif %}
 
