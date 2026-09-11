@@ -1478,7 +1478,7 @@ async def api_test_account(request: Request, url: str):
             profile_raw = {"status": r.status_code, "keys": list(r.json().keys()) if r.status_code == 200 else [], "sample": str(r.text[:500])}
         elif platform == "TikTok":
             r = await client.get("https://api.scrapecreators.com/v1/tiktok/profile",
-                                 params={"username": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+                                 params={"handle": handle}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
             profile_raw = {"status": r.status_code, "keys": list(r.json().keys()) if r.status_code == 200 else [], "sample": str(r.text[:500])}
 
         # Raw posts response
@@ -1494,7 +1494,7 @@ async def api_test_account(request: Request, url: str):
                          "first_item_code": first.get("code") or first.get("shortCode") or "NOT FOUND",
                          "first_item_url": first.get("url") or first.get("link") or "NOT FOUND"}
         elif platform == "TikTok":
-            r2 = await client.get("https://api.scrapecreators.com/v2/tiktok/user/posts",
+            r2 = await client.get("https://api.scrapecreators.com/v3/tiktok/profile/videos",
                                   params={"handle": handle, "limit": 3}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
             d = r2.json() if r2.status_code == 200 else {}
             items2 = (d if isinstance(d, list) else

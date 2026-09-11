@@ -143,7 +143,7 @@ DOCS = {
             ],
             "platforms": {
                 "TikTok профиль": "SC GET /v1/tiktok/profile (param: handle) → username, followers, following, posts, likes_total, region, verified",
-                "TikTok посты": "SC GET /v2/tiktok/user/posts (param: handle) → webVideoUrl или /video/{aweme_id}",
+                "TikTok посты": "SC GET /v3/tiktok/profile/videos (param: handle) → aweme_list[{aweme_id, webVideoUrl}]",
                 "Instagram профиль": "SC GET /v1/instagram/user (param: username, fallback: handle) → followers, following, posts, bio, is_business",
                 "Instagram посты": "SC GET /v2/instagram/user/posts (param: handle, пагинация next_max_id) → url из поля url",
                 "YouTube профиль": "YouTube Data API GET /v3/channels (forHandle) → subscribers, videos, views_total, country",
@@ -170,7 +170,7 @@ DOCS = {
     },
     "sc_endpoints_used": {
         "/v1/tiktok/profile": "Профиль TikTok (Accounts) — param: handle",
-        "/v2/tiktok/user/posts": "Посты аккаунта TikTok (Accounts) — param: handle",
+        "/v3/tiktok/profile/videos": "Посты аккаунта TikTok (Accounts + Campaigns) — param: handle → aweme_list",
         "/v3/tiktok/profile/videos": "Посты по аккаунту (Campaigns)",
         "/v1/tiktok/search/hashtag": "Посты по хэштегу TikTok (Campaigns)",
         "/v1/tiktok/search/keyword": "Посты по ключевому слову TikTok (Campaigns)",
