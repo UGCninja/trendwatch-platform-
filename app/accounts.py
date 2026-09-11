@@ -72,23 +72,31 @@ async def fetch_profile(handle: str, platform: str, sc_key: str, yt_key: str) ->
                 r = await c.get("https://api.scrapecreators.com/v1/instagram/user",
                                 params={"username": handle}, headers={"x-api-key": sc_key})
                 if r.status_code != 200:
-                    # Fallback: попробуем handle параметр
                     r = await c.get("https://api.scrapecreators.com/v1/instagram/user",
                                     params={"handle": handle}, headers={"x-api-key": sc_key})
                 if r.status_code == 200:
                     d = r.json()
-                    u = (d.get("data") or {}).get("user", d)
+                    # SC может вернуть {data:{user:{}}} или {user:{}} или напрямую объект
+                    u = ((d.get("data") or {}).get("user") or
+                         d.get("user") or d)
+                    def _ig_int(val):
+                        if isinstance(val, dict): return val.get("count", 0)
+                        return int(val) if val else 0
                     result = {
                         "username":  u.get("username", handle),
-                        "nickname":  u.get("full_name", ""),
-                        "bio":       u.get("biography", ""),
-                        "verified":  bool(u.get("is_verified")),
-                        "avatar":    u.get("profile_pic_url_hd", u.get("profile_pic_url", "")),
-                        "followers": (u.get("edge_followed_by") or {}).get("count", u.get("follower_count", 0)),
-                        "following": (u.get("edge_follow") or {}).get("count", u.get("following_count", 0)),
-                        "posts":     (u.get("edge_owner_to_timeline_media") or {}).get("count", u.get("media_count", 0)),
-                        "is_business": bool(u.get("is_business_account")),
-                        "category":  u.get("business_category_name", ""),
+                        "nickname":  u.get("full_name", "") or u.get("name", ""),
+                        "bio":       u.get("biography", "") or u.get("bio", ""),
+                        "verified":  bool(u.get("is_verified") or u.get("verified")),
+                        "avatar":    (u.get("profile_pic_url_hd") or u.get("profile_pic_url") or
+                                      u.get("hd_profile_pic_url_info", {}).get("url", "") or ""),
+                        "followers": _ig_int(u.get("edge_followed_by") or u.get("follower_count") or
+                                             u.get("followers_count") or u.get("followers")),
+                        "following": _ig_int(u.get("edge_follow") or u.get("following_count") or
+                                             u.get("friends_count") or u.get("following")),
+                        "posts":     _ig_int(u.get("edge_owner_to_timeline_media") or
+                                             u.get("media_count") or u.get("posts_count") or u.get("posts")),
+                        "is_business": bool(u.get("is_business_account") or u.get("is_business")),
+                        "category":  u.get("business_category_name", "") or u.get("category", ""),
                     }
             elif platform == "YouTube" and yt_key:
                 r = await c.get("https://www.googleapis.com/youtube/v3/channels",
@@ -144,15 +152,18 @@ async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_k
                     items = d.get("items", [])
                     u = d.get("user") or (items[0].get("user") if items else {}) or {}
                     if u:
+                        def _ii(v):
+                            if isinstance(v, dict): return v.get("count", 0)
+                            return int(v) if v else 0
                         profile = {
                             "username":  u.get("username", handle),
-                            "nickname":  u.get("full_name", ""),
-                            "bio":       u.get("biography", ""),
-                            "verified":  bool(u.get("is_verified")),
-                            "avatar":    u.get("profile_pic_url", ""),
-                            "followers": u.get("follower_count", u.get("edge_followed_by", {}).get("count", 0)),
-                            "following": u.get("following_count", u.get("edge_follow", {}).get("count", 0)),
-                            "posts":     u.get("media_count", 0),
+                            "nickname":  u.get("full_name", "") or u.get("name", ""),
+                            "bio":       u.get("biography", "") or u.get("bio", ""),
+                            "verified":  bool(u.get("is_verified") or u.get("verified")),
+                            "avatar":    (u.get("profile_pic_url_hd") or u.get("profile_pic_url") or ""),
+                            "followers": _ii(u.get("edge_followed_by") or u.get("follower_count") or u.get("followers_count")),
+                            "following": _ii(u.get("edge_follow") or u.get("following_count") or u.get("friends_count")),
+                            "posts":     _ii(u.get("edge_owner_to_timeline_media") or u.get("media_count") or u.get("posts_count")),
                         }
         except Exception:
             pass
