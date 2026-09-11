@@ -141,7 +141,7 @@ async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_k
     """Возвращает (urls, profile_dict) — профиль извлекается из ответа если возможно."""
     urls = await fetch_posts(handle, platform, sc_key, yt_key, limit)
     profile = {}
-    # Для Instagram пробуем вытащить профиль из user-поля в постах
+    # Для Instagram берём профиль из top-level user поля ответа постов
     if platform == "Instagram":
         try:
             async with httpx.AsyncClient(timeout=20) as c:
@@ -150,6 +150,8 @@ async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_k
                 if r.status_code == 200:
                     d = r.json()
                     items = d.get("items", [])
+                    # top-level user — полные данные аккаунта
+                    # items[0].user — минимальные данные автора поста
                     u = d.get("user") or (items[0].get("user") if items else {}) or {}
                     if u:
                         def _ii(v):
