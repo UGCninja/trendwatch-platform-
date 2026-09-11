@@ -1518,26 +1518,26 @@ async def api_test_account(request: Request, url: str):
                          "first_url": first2.get("webVideoUrl") or first2.get("url") or "NOT FOUND",
                          "sample": str(r2.text[:800])}
 
-    # Для Instagram: пробуем получить followers через первый пост
+    # Для Instagram: пробуем получить followers через первый пост (новый клиент)
     post_owner_raw = {}
     if platform == "Instagram":
         first_url = posts_raw.get("first_item_url", "")
         if first_url and first_url != "NOT FOUND":
             try:
-                rp = await client.get("https://api.scrapecreators.com/v1/instagram/post",
-                                      params={"url": first_url}, headers={"x-api-key": SCRAPECREATORS_API_KEY},
-                                      timeout=15)
-                if rp.status_code == 200:
-                    media = (rp.json().get("data") or {}).get("xdt_shortcode_media") or {}
-                    owner = media.get("owner") or {}
-                    post_owner_raw = {
-                        "status": rp.status_code,
-                        "owner_keys": list(owner.keys()) if owner else [],
-                        "edge_followed_by": owner.get("edge_followed_by"),
-                        "follower_count": owner.get("follower_count"),
-                    }
-                else:
-                    post_owner_raw = {"status": rp.status_code, "sample": rp.text[:200]}
+                async with httpx.AsyncClient(timeout=15) as c2:
+                    rp = await c2.get("https://api.scrapecreators.com/v1/instagram/post",
+                                      params={"url": first_url}, headers={"x-api-key": SCRAPECREATORS_API_KEY})
+                    if rp.status_code == 200:
+                        media = (rp.json().get("data") or {}).get("xdt_shortcode_media") or {}
+                        owner = media.get("owner") or {}
+                        post_owner_raw = {
+                            "status": rp.status_code,
+                            "owner_keys": list(owner.keys()) if owner else [],
+                            "edge_followed_by": owner.get("edge_followed_by"),
+                            "follower_count": owner.get("follower_count"),
+                        }
+                    else:
+                        post_owner_raw = {"status": rp.status_code, "sample": rp.text[:200]}
             except Exception as e:
                 post_owner_raw = {"error": str(e)}
 
