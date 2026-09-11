@@ -218,9 +218,9 @@
     <a href="{{ ap.account_url }}" target="_blank" class="profile-handle" style="text-decoration:none;color:#6b7280">@{{ profile.username or '' }}{% if profile.region %} · {{ profile.region }}{% endif %}</a>
     {% if profile.bio %}<div class="profile-bio">{{ profile.bio[:200] }}{% if profile.bio|length > 200 %}…{% endif %}</div>{% endif %}
     <div class="profile-stats">
-      {% if profile.followers is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.followers|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Followers</div></div>{% endif %}
-      {% if profile.following is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.following|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Following</div></div>{% endif %}
-      {% if profile.posts is defined %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.posts|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Posts</div></div>{% endif %}
+      {% if profile.followers is defined %}<div><div class="profile-stat-val">{% if profile.followers %}{{ '{:,}'.format(profile.followers|int).replace(',', ' ') }}{% else %}—{% endif %}</div><div class="profile-stat-lbl">Followers</div></div>{% endif %}
+      {% if profile.following is defined %}<div><div class="profile-stat-val">{% if profile.following %}{{ '{:,}'.format(profile.following|int).replace(',', ' ') }}{% else %}—{% endif %}</div><div class="profile-stat-lbl">Following</div></div>{% endif %}
+      {% if profile.posts is defined %}<div><div class="profile-stat-val">{% if profile.posts %}{{ '{:,}'.format(profile.posts|int).replace(',', ' ') }}{% else %}—{% endif %}</div><div class="profile-stat-lbl">Posts</div></div>{% endif %}
       {% if profile.likes_total is defined and profile.likes_total %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.likes_total|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Total Likes</div></div>{% endif %}
       {% if profile.views_total is defined and profile.views_total %}<div><div class="profile-stat-val">{{ '{:,}'.format(profile.views_total|int).replace(',', ' ') }}</div><div class="profile-stat-lbl">Total Views</div></div>{% endif %}
       {% if profile.created is defined and profile.created %}<div><div class="profile-stat-val">{{ profile.created }}</div><div class="profile-stat-lbl">Created</div></div>{% endif %}

@@ -144,7 +144,7 @@ DOCS = {
             "platforms": {
                 "TikTok профиль": "SC GET /v1/tiktok/profile (param: handle) → username, followers, following, posts, likes_total, region, verified",
                 "TikTok посты": "SC GET /v3/tiktok/profile/videos (param: handle) → aweme_list[{aweme_id, webVideoUrl}]",
-                "Instagram профиль": "SC GET /v1/instagram/user (param: username, fallback: handle) → followers, following, posts, bio, is_business",
+                "Instagram профиль": "SC GET /v1/instagram/user (param: username или handle) → followers, following, posts, bio. ⚠️ Для некоторых аккаунтов 404 — SC не имеет данных. Показываем —",
                 "Instagram посты": "SC GET /v2/instagram/user/posts (param: handle, пагинация next_max_id) → url из поля url",
                 "YouTube профиль": "YouTube Data API GET /v3/channels (forHandle) → subscribers, videos, views_total, country",
                 "YouTube посты": "YouTube Data API GET /v3/search (channelId, order=date)",
