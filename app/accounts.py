@@ -170,6 +170,29 @@ async def fetch_posts_with_profile(handle: str, platform: str, sc_key: str, yt_k
                             "following": _ii(u.get("edge_follow") or u.get("following_count") or u.get("friends_count")),
                             "posts":     _ii(u.get("edge_owner_to_timeline_media") or u.get("media_count") or u.get("posts_count")),
                         }
+
+                    # Фолловеры из first post owner — если нет в user
+                    if profile and not profile.get("followers") and items and urls:
+                        try:
+                            rp = await c.get("https://api.scrapecreators.com/v1/instagram/post",
+                                             params={"url": urls[0]}, headers={"x-api-key": sc_key})
+                            if rp.status_code == 200:
+                                media = (rp.json().get("data") or {}).get("xdt_shortcode_media") or {}
+                                owner = media.get("owner") or {}
+                                followers = (owner.get("edge_followed_by") or {}).get("count") or 0
+                                following = (owner.get("edge_follow") or {}).get("count") or 0
+                                posts_cnt = (owner.get("edge_owner_to_timeline_media") or {}).get("count") or 0
+                                avatar = owner.get("profile_pic_url") or ""
+                                if followers:
+                                    profile["followers"] = followers
+                                if following:
+                                    profile["following"] = following
+                                if posts_cnt:
+                                    profile["posts"] = posts_cnt
+                                if avatar and not profile.get("avatar"):
+                                    profile["avatar"] = avatar
+                        except Exception:
+                            pass
         except Exception:
             pass
     return urls, profile
