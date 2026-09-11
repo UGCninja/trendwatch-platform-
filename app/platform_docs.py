@@ -61,6 +61,8 @@ DOCS = {
             "title": "Comments (One-time)",
             "icon": "💬",
             "description": "Разовый сбор комментариев из CSV. Без сохранения в базу.",
+            "api": "Apify (primary) + ScrapeCreators (fallback)",
+            "cost": "Apify: ~$0.003-0.005/комментарий TikTok, $2.10/1000 Instagram. SC fallback: кредиты",
             "modes": {
                 "Comments Only": "CSV с текстами комментариев",
                 "Comments + Audit": "HTML-отчёт с анализом тональности через Claude AI (claude-sonnet-4-6)"
