@@ -2225,7 +2225,7 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
 
 
 async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict, apify_token: str = "") -> list[dict]:
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(10)
     all_comments = []
 
     async def fetch_one(client, row):
