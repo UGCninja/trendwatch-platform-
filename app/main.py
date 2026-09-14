@@ -2225,6 +2225,7 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
 
 
 async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict, apify_token: str = "") -> list[dict]:
+    """One-time Comments: SC only (быстро). Apify только для X/Twitter."""
     sem = asyncio.Semaphore(10)
     all_comments = []
 
@@ -2234,9 +2235,10 @@ async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict, apify
             platform = _detect_platform(url)
             try:
                 if platform == "TikTok":
-                    comments = await _fetch_comments_tiktok(client, url, sc_key, apify_token)
+                    # SC only — быстро, без Apify startup delay
+                    comments = await _fetch_comments_tiktok(client, url, sc_key, "")
                 elif platform == "Instagram":
-                    comments = await _fetch_comments_instagram(client, url, sc_key, apify_token)
+                    comments = await _fetch_comments_instagram(client, url, sc_key, "")
                 elif platform == "YouTube":
                     comments = await _fetch_comments_youtube(client, url, sc_key)
                 elif platform in ("X", "Twitter") and apify_token:
@@ -2248,7 +2250,7 @@ async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict, apify
             task["done"] = task.get("done", 0) + 1
             return comments
 
-    async with httpx.AsyncClient(timeout=140) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         results = await asyncio.gather(*[fetch_one(client, r) for r in urls], return_exceptions=True)
 
     for r in results:
