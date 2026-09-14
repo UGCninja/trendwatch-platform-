@@ -13,11 +13,14 @@
 .page-tab.active { color:#374151 !important; border-bottom-color:#374151 !important; }
 details.card summary { background:#fff !important; color:#374151 !important; }
 </style>
-<div id="active-task-banner" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
-  <div style="font-size:.85rem;color:#166534">
+<div id="active-task-banner" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+  <div style="font-size:.85rem;color:#166534;flex:1">
     <span style="font-weight:600">⏳ Задача выполняется</span> — сбор комментариев идёт в фоне
   </div>
-  <a id="active-task-link" href="#" style="font-size:.82rem;color:#166534;font-weight:600;text-decoration:none;border:1px solid #86efac;border-radius:6px;padding:3px 10px">→ Открыть</a>
+  <div style="display:flex;gap:8px">
+    <a id="active-task-link" href="#" style="font-size:.82rem;color:#166534;font-weight:600;text-decoration:none;border:1px solid #86efac;border-radius:6px;padding:3px 10px">→ Открыть задачу</a>
+    <button onclick="localStorage.removeItem('comments_active_task');document.getElementById('active-task-banner').style.display='none'" style="background:none;border:1px solid #bbf7d0;color:#6b7280;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:.78rem">✕ Скрыть</button>
+  </div>
 </div>
 
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
