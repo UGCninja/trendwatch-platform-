@@ -17,6 +17,10 @@
             <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%"></div>
           </div>
           <div class="text-muted" id="progressCount" style="font-size:.85rem"></div>
+          <div class="mt-3 p-2 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.82rem;color:#166534">
+            ✓ Задача работает на сервере — можешь закрыть эту вкладку.<br>
+            Когда будет готово — найдёшь в <a href="/comments" onclick="localStorage.setItem('comments_tab','history')" style="color:#166534;font-weight:600">Comments → History</a>
+          </div>
         </div>
 
         <div id="stateDone" style="display:none">
@@ -47,6 +51,13 @@
 const taskId = "{{ task_id }}";
 let pollInterval;
 
+// Сохраняем task в localStorage чтобы найти после закрытия вкладки
+localStorage.setItem('comments_active_task', JSON.stringify({
+  id: taskId,
+  url: window.location.href,
+  started: Date.now()
+}));
+
 const statusLabels = {
   queued:     "Queued...",
   collecting: "Collecting comments",
@@ -76,6 +87,7 @@ function poll() {
 
       } else if (status === "done") {
         clearInterval(pollInterval);
+        localStorage.removeItem('comments_active_task');
         document.getElementById("stateProcessing").style.display = "none";
         document.getElementById("stateDone").style.display = "block";
         document.getElementById("subtitle").textContent = "File ready!";

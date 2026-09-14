@@ -13,6 +13,13 @@
 .page-tab.active { color:#374151 !important; border-bottom-color:#374151 !important; }
 details.card summary { background:#fff !important; color:#374151 !important; }
 </style>
+<div id="active-task-banner" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+  <div style="font-size:.85rem;color:#166534">
+    <span style="font-weight:600">⏳ Задача выполняется</span> — сбор комментариев идёт в фоне
+  </div>
+  <a id="active-task-link" href="#" style="font-size:.82rem;color:#166534;font-weight:600;text-decoration:none;border:1px solid #86efac;border-radius:6px;padding:3px 10px">→ Открыть</a>
+</div>
+
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
   <h2 style="font-size:22px;font-weight:700;margin:0">Comments</h2>
   <div style="display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:8px;padding:3px">
@@ -161,6 +168,33 @@ dropZone.addEventListener('drop',e=>{
   if(f){const dt=new DataTransfer();dt.items.add(f);input.files=dt.files;showFile(f);}
 });
 form.addEventListener('submit',()=>{form.style.display='none';loading.style.display='block';});
+
+// Проверяем есть ли активная задача
+(function() {
+  try {
+    const t = JSON.parse(localStorage.getItem('comments_active_task') || 'null');
+    if (t && t.id && t.url && (Date.now() - t.started) < 30 * 60 * 1000) {
+      fetch(`/api/comments/status/${t.id}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.status && !['done','error','not_found'].includes(d.status)) {
+            const banner = document.getElementById('active-task-banner');
+            const link = document.getElementById('active-task-link');
+            if (banner) { banner.style.display = 'flex'; }
+            if (link) link.href = t.url;
+          } else {
+            localStorage.removeItem('comments_active_task');
+          }
+        }).catch(() => {});
+    }
+  } catch(e) {}
+})();
+
+// Если вернулись через ссылку из баннера — открываем History
+if (localStorage.getItem('comments_tab') === 'history') {
+  localStorage.removeItem('comments_tab');
+  setTimeout(() => switchTab('history'), 100);
+}
 
 function switchTab(tab) {
   const active = {background:'var(--accent,#b6f542)', color:'#111'};
