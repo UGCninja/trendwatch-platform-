@@ -2224,8 +2224,8 @@ async def _fetch_comments_youtube(client: httpx.AsyncClient, url: str, sc_key: s
     return out
 
 
-async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict) -> list[dict]:
-    sem = asyncio.Semaphore(10)
+async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict, apify_token: str = "") -> list[dict]:
+    sem = asyncio.Semaphore(5)
     all_comments = []
 
     async def fetch_one(client, row):
@@ -2234,11 +2234,13 @@ async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict) -> li
             platform = _detect_platform(url)
             try:
                 if platform == "TikTok":
-                    comments = await _fetch_comments_tiktok(client, url, sc_key)
+                    comments = await _fetch_comments_tiktok(client, url, sc_key, apify_token)
                 elif platform == "Instagram":
-                    comments = await _fetch_comments_instagram(client, url, sc_key)
+                    comments = await _fetch_comments_instagram(client, url, sc_key, apify_token)
                 elif platform == "YouTube":
                     comments = await _fetch_comments_youtube(client, url, sc_key)
+                elif platform in ("X", "Twitter") and apify_token:
+                    comments = await _fetch_comments_x(client, url, apify_token)
                 else:
                     comments = []
             except Exception:
@@ -2246,7 +2248,7 @@ async def _collect_all_comments(urls: list[dict], sc_key: str, task: dict) -> li
             task["done"] = task.get("done", 0) + 1
             return comments
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=140) as client:
         results = await asyncio.gather(*[fetch_one(client, r) for r in urls], return_exceptions=True)
 
     for r in results:
@@ -2373,7 +2375,7 @@ def _run_comments_task(task_id: str, content: bytes, product: str, mode: str, sc
         task["total"] = len(urls)
         task["status"] = "collecting"
 
-        comments = asyncio.run(_collect_all_comments(urls, sc_key, task))
+        comments = asyncio.run(_collect_all_comments(urls, sc_key, task, APIFY_TOKEN))
         task["comments_count"] = len(comments)
 
         if mode == "audit":
