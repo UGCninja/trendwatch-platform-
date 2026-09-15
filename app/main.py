@@ -2704,6 +2704,11 @@ def comment_project_detail(request: Request, pid: int):
     })
 
 
+@app.get("/comments/projects/{pid}/sources")
+async def comment_project_sources_get(request: Request, pid: int):
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
 @app.post("/comments/projects/{pid}/sources")
 async def comment_project_add_sources(request: Request, pid: int, urls: str = Form(""), file: UploadFile = File(None)):
     if not check_auth(request):
@@ -2738,6 +2743,11 @@ async def comment_project_add_sources(request: Request, pid: int, urls: str = Fo
             added += 1
     db.commit()
     db.close()
+    return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
+
+
+@app.get("/comments/projects/{pid}/sources/upload")
+async def comment_project_sources_upload_get(request: Request, pid: int):
     return RedirectResponse(f"/comments/projects/{pid}", status_code=302)
 
 
